@@ -1,0 +1,26 @@
+package templates
+
+templ Landing(userEmail *string) {
+	@Base("Hopshare | Timebanking made simple", userEmail, LandingBody())
+}
+
+templ LandingBody() {
+	<section class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+		<div class="space-y-4">
+			<p class="text-sm uppercase tracking-wide text-sky-700 font-semibold">Community timebanking</p>
+			<h1 class="text-3xl font-bold text-slate-900">Exchange hours of help, not dollars.</h1>
+			<p class="text-lg text-slate-700 leading-relaxed">
+				Hopshare helps organizations run timebanks where neighbors exchange hours of help instead of money.
+				Track giving and receiving, support a shared community chest, and make it easy to help each other.
+			</p>
+			<div class="flex flex-col sm:flex-row gap-3 pt-4">
+				<a href="/login" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg bg-sky-700 text-white font-semibold hover:bg-sky-800 transition">
+					Log in
+				</a>
+				<a href="/signup" class="inline-flex items-center justify-center px-4 py-2.5 rounded-lg border border-slate-300 text-slate-800 font-semibold hover:border-slate-400 transition">
+					Request to join Hopshare
+				</a>
+			</div>
+		</div>
+	</section>
+}

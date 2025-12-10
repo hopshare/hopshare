@@ -1,0 +1,93 @@
+package templates
+
+templ Signup(userEmail *string, successMsg string, errorMsg string) {
+	@Base("Hopshare | Request to join", userEmail, SignupBody(successMsg, errorMsg))
+}
+
+templ SignupBody(successMsg string, errorMsg string) {
+	<section class="max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div>
+			<h1 class="text-2xl font-bold text-slate-900">Request to join Hopshare</h1>
+			<p class="text-slate-600 mt-1">Tell us a bit about you and your community.</p>
+		</div>
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		<form class="space-y-4" method="POST" action="/signup" x-data="{
+			password: '',
+			strength: 'Too weak',
+			ok: false,
+			update(p) {
+				this.password = p;
+				const hasLength = p.length >= 8;
+				const hasNumber = /[0-9]/.test(p);
+				const hasLetter = /[A-Za-z]/.test(p);
+				const hasSpecial = /[^A-Za-z0-9]/.test(p);
+				const score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;
+				this.ok = hasLength && score >= 3;
+				if (this.ok && score === 4) {
+					this.strength = 'Strong';
+				} else if (this.ok) {
+					this.strength = 'Good';
+				} else if (score >= 2) {
+					this.strength = 'Weak';
+				} else {
+					this.strength = 'Too weak';
+				}
+			}
+		}">
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="name">Name</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="name" name="name" required />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="email">Email</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" required />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="password">Create a password</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="password" name="password" required x-on:input="update($event.target.value)" />
+				<p class="text-sm text-slate-600 flex items-center gap-2">
+					<span class="font-semibold">Strength:</span>
+					<span x-text="strength"></span>
+				</p>
+				<p class="text-xs text-slate-500">Use at least 8 characters including letters, numbers, and a symbol.</p>
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="organization">Organization / community</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="organization" name="organization" />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="message">Why do you want to join?</label>
+				<textarea class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="message" name="message" rows="4"></textarea>
+			</div>
+			<button class="inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition"
+				:class="ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'"
+				type="submit"
+				:disabled="!ok"
+				:aria-disabled="!ok">
+				Send request
+			</button>
+		</form>
+	</section>
+}
+
+templ SignupSuccess(userEmail *string) {
+	@Base("Hopshare | Request received", userEmail, SignupSuccessBody())
+}
+
+templ SignupSuccessBody() {
+	<section class="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
+		<h1 class="text-2xl font-bold text-slate-900">Thanks for reaching out!</h1>
+		<p class="text-slate-700">
+			We received your request to join Hopshare. Someone from the team will follow up with next steps.
+		</p>
+		<div class="flex gap-3">
+			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/login">Back to login</a>
+			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/">Return home</a>
+		</div>
+	</section>
+}

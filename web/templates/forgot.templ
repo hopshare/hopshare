@@ -1,0 +1,34 @@
+package templates
+
+templ ForgotPassword(userEmail *string, sent bool, demoLink string) {
+	@Base("Hopshare | Forgot password", userEmail, ForgotPasswordBody(sent, demoLink))
+}
+
+templ ForgotPasswordBody(sent bool, demoLink string) {
+	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div>
+			<h1 class="text-2xl font-bold text-slate-900">Forgot your password?</h1>
+			<p class="text-slate-600 mt-1">Enter your email and we will send a reset link.</p>
+		</div>
+		if sent {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 space-y-2">
+				<p>If an account exists for that email, we’ve sent a password reset link.</p>
+				if demoLink != "" {
+					<p class="text-sm text-emerald-700">Demo: use this link now — <a class="underline" href={ demoLink }>{ demoLink }</a></p>
+				}
+			</div>
+		}
+		<form class="space-y-4" method="POST" action="/forgot-password">
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="email">Email</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" required />
+			</div>
+			<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+				Send reset link
+			</button>
+		</form>
+		<div class="text-sm">
+			<a class="text-sky-700 hover:text-sky-800 font-semibold" href="/login">Back to login</a>
+		</div>
+	</section>
+}

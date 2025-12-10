@@ -1,0 +1,37 @@
+package templates
+
+templ ResetPassword(userEmail *string, token string, errorMsg string, successMsg string) {
+	@Base("Hopshare | Reset password", userEmail, ResetPasswordBody(token, errorMsg, successMsg))
+}
+
+templ ResetPasswordBody(token string, errorMsg string, successMsg string) {
+	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div>
+			<h1 class="text-2xl font-bold text-slate-900">Reset your password</h1>
+			<p class="text-slate-600 mt-1">Choose a new password for your account.</p>
+		</div>
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+		}
+		<form class="space-y-4" method="POST" action="/reset-password">
+			<input type="hidden" name="token" value={ token } />
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="new_password">New password</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="new_password" name="new_password" required />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="confirm_password">Confirm new password</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="confirm_password" name="confirm_password" required />
+			</div>
+			<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+				Reset password
+			</button>
+		</form>
+		<div class="text-sm">
+			<a class="text-sky-700 hover:text-sky-800 font-semibold" href="/login">Back to login</a>
+		</div>
+	</section>
+}
