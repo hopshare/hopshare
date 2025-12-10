@@ -25,3 +25,14 @@ type Member struct {
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
+
+// Organization represents a Hopshare organization/tenant.
+type Organization struct {
+	ID        int64
+	Name      string
+	LogoURL   *string
+	Enabled   bool
+	CreatedBy *int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}

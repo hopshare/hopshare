@@ -2,12 +2,16 @@ package http
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/a-h/templ"
 
@@ -19,9 +23,10 @@ import (
 
 // Server bundles dependencies for HTTP handlers.
 type Server struct {
-	db       *sql.DB
-	users    *auth.UserStore
-	sessions *auth.SessionManager
+	db          *sql.DB
+	sessions    *auth.SessionManager
+	resetTokens map[string]int64
+	resetMu     sync.RWMutex
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request)
@@ -34,9 +39,9 @@ const userContextKey contextKey = "currentUser"
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
 	srv := &Server{
-		db:       db,
-		users:    auth.NewUserStore(),
-		sessions: auth.NewSessionManager(),
+		db:          db,
+		sessions:    auth.NewSessionManager(),
+		resetTokens: make(map[string]int64),
 	}
 
 	mux := http.NewServeMux()
@@ -49,6 +54,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/my-hopshare/create-organization", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost, http.MethodGet))
 	mux.HandleFunc("/healthz", handleHealthz)
 
@@ -76,13 +82,18 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		email := strings.TrimSpace(r.FormValue("email"))
 		password := r.FormValue("password")
 
-		user, ok := s.users.Authenticate(email, password)
-		if !ok {
-			render(w, r, templates.Login(nil, "Invalid email or password.", ""))
+		member, err := service.AuthenticateMember(r.Context(), s.db, email, password)
+		if err != nil {
+			if errors.Is(err, service.ErrInvalidCredentials) {
+				render(w, r, templates.Login(nil, "Invalid email or password.", ""))
+				return
+			}
+			log.Printf("authenticate member: %v", err)
+			http.Error(w, "could not log in", http.StatusInternalServerError)
 			return
 		}
 
-		token, err := s.sessions.Create(user.Email)
+		token, err := s.sessions.Create(member.ID)
 		if err != nil {
 			http.Error(w, "could not create session", http.StatusInternalServerError)
 			return
@@ -118,10 +129,17 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		message := strings.TrimSpace(r.FormValue("message"))
 		password := r.FormValue("password")
 
+		passwordHash, err := service.HashPassword(password)
+		if err != nil {
+			log.Printf("hash password failed: %v", err)
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+			return
+		}
+
 		member := types.Member{
 			Username:               deriveUsername(name, email),
 			Email:                  email,
-			PasswordHash:           hashPassword(password),
+			PasswordHash:           passwordHash,
 			PreferredContactMethod: types.ContactMethodEmail,
 			PreferredContact:       email,
 			Enabled:                false,
@@ -156,13 +174,22 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		email := strings.TrimSpace(r.FormValue("email"))
-		token, ok := s.users.RequestReset(email)
-		if ok {
+
+		member, err := service.GetMemberByEmail(r.Context(), s.db, email)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.Printf("forgot password lookup failed: %v", err)
+			http.Error(w, "could not process request", http.StatusInternalServerError)
+			return
+		}
+
+		if err == nil {
+			token := s.issueResetToken(member.ID)
 			link := "/reset-password?token=" + token
 			log.Printf("password reset link for %s: %s", email, link)
 			render(w, r, templates.ForgotPassword(s.currentUserEmailPtr(r), true, link))
 			return
 		}
+
 		render(w, r, templates.ForgotPassword(s.currentUserEmailPtr(r), true, ""))
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -175,6 +202,10 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		token := r.URL.Query().Get("token")
 		if token == "" {
 			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), "", "Missing token.", ""))
+			return
+		}
+		if _, ok := s.peekResetToken(token); !ok {
+			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), "", "Invalid or expired token.", ""))
 			return
 		}
 		render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "", ""))
@@ -200,8 +231,22 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if _, err := s.users.ResetPassword(token, newPassword); err != nil {
-			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, err.Error(), ""))
+		newHash, err := service.HashPassword(newPassword)
+		if err != nil {
+			log.Printf("hash password failed: %v", err)
+			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "Could not reset password right now.", ""))
+			return
+		}
+
+		memberID, ok := s.consumeResetToken(token)
+		if !ok {
+			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "Invalid or expired token.", ""))
+			return
+		}
+
+		if err := service.UpdateMemberPassword(r.Context(), s.db, memberID, newHash); err != nil {
+			log.Printf("reset password update failed: %v", err)
+			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "Could not reset password right now.", ""))
 			return
 		}
 
@@ -212,8 +257,40 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMyHopshare(w http.ResponseWriter, r *http.Request) {
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+	s.renderMyHopshare(w, r, successMsg, errorMsg)
+}
+
+func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	orgName := strings.TrimSpace(r.FormValue("name"))
+
 	user := s.currentUser(r)
-	render(w, r, templates.MyHopshare(user.Email))
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	org, err := service.CreateOrganization(r.Context(), s.db, orgName, user.ID)
+	if err != nil {
+		log.Printf("create organization failed: %v", err)
+		msg := "Could not create organization right now."
+		switch {
+		case errors.Is(err, service.ErrMissingOrgName):
+			msg = "Organization name is required."
+		case errors.Is(err, service.ErrMissingMemberID):
+			msg = "A member is required to create an organization."
+		}
+		s.renderMyHopshare(w, r, "", msg)
+		return
+	}
+
+	success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
+	http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape(success), http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -232,12 +309,59 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (s *Server) issueResetToken(memberID int64) string {
+	token := randomToken()
+	s.resetMu.Lock()
+	s.resetTokens[token] = memberID
+	s.resetMu.Unlock()
+	return token
+}
+
+func (s *Server) peekResetToken(token string) (int64, bool) {
+	s.resetMu.RLock()
+	memberID, ok := s.resetTokens[token]
+	s.resetMu.RUnlock()
+	return memberID, ok
+}
+
+func (s *Server) consumeResetToken(token string) (int64, bool) {
+	s.resetMu.Lock()
+	memberID, ok := s.resetTokens[token]
+	if ok {
+		delete(s.resetTokens, token)
+	}
+	s.resetMu.Unlock()
+	return memberID, ok
+}
+
+func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, successMsg, errorMsg string) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("load organizations for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
+	}
+
+	var orgNames []string
+	for _, o := range orgs {
+		orgNames = append(orgNames, o.Name)
+	}
+
+	render(w, r, templates.MyHopshare(user.Email, orgNames, successMsg, errorMsg))
+}
+
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
 }
 
-func (s *Server) currentUser(r *http.Request) *auth.User {
+func (s *Server) currentUser(r *http.Request) *types.Member {
 	return currentUserFromContext(r.Context())
 }
 
@@ -275,9 +399,9 @@ func (s *Server) withUser() Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if c, err := r.Cookie(s.sessions.CookieName()); err == nil {
-				if email, ok := s.sessions.Get(c.Value); ok {
-					if user, ok := s.users.Get(email); ok {
-						ctx := context.WithValue(r.Context(), userContextKey, user)
+				if memberID, ok := s.sessions.Get(c.Value); ok {
+					if member, err := service.GetMemberByID(r.Context(), s.db, memberID); err == nil {
+						ctx := context.WithValue(r.Context(), userContextKey, &member)
 						r = r.WithContext(ctx)
 					}
 				}
@@ -318,11 +442,11 @@ func (s *Server) requireMethod(methods ...string) Middleware {
 	}
 }
 
-func currentUserFromContext(ctx context.Context) *auth.User {
+func currentUserFromContext(ctx context.Context) *types.Member {
 	if ctx == nil {
 		return nil
 	}
-	if u, ok := ctx.Value(userContextKey).(*auth.User); ok {
+	if u, ok := ctx.Value(userContextKey).(*types.Member); ok {
 		return u
 	}
 	return nil
@@ -341,7 +465,10 @@ func deriveUsername(name, email string) string {
 	return "user"
 }
 
-func hashPassword(pw string) string {
-	sum := sha256.Sum256([]byte(pw))
-	return hex.EncodeToString(sum[:])
+func randomToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "token"
+	}
+	return hex.EncodeToString(b)
 }

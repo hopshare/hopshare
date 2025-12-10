@@ -9,13 +9,13 @@ import (
 // SessionManager manages simple in-memory sessions keyed by token.
 type SessionManager struct {
 	mu        sync.RWMutex
-	sessions  map[string]string
+	sessions  map[string]int64
 	cookieKey string
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions:  make(map[string]string),
+		sessions:  make(map[string]int64),
 		cookieKey: "hopshare_session",
 	}
 }
@@ -24,21 +24,21 @@ func (s *SessionManager) CookieName() string {
 	return s.cookieKey
 }
 
-// Create issues a new session token for the email.
-func (s *SessionManager) Create(email string) (string, error) {
+// Create issues a new session token for the member ID.
+func (s *SessionManager) Create(memberID int64) (string, error) {
 	token := randomToken()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.sessions[token] = email
+	s.sessions[token] = memberID
 	return token, nil
 }
 
-// Get retrieves the email for a session token.
-func (s *SessionManager) Get(token string) (string, bool) {
+// Get retrieves the member ID for a session token.
+func (s *SessionManager) Get(token string) (int64, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	email, ok := s.sessions[token]
-	return email, ok
+	memberID, ok := s.sessions[token]
+	return memberID, ok
 }
 
 // Delete removes a session token.

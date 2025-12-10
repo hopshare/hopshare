@@ -1,14 +1,46 @@
 package templates
 
-templ MyHopshare(email string) {
-	@Base("Hopshare | My Hopshare", &email, MyHopshareBody(email))
+templ MyHopshare(email string, orgNames []string, successMsg string, errorMsg string) {
+	@Base("Hopshare | My Hopshare", &email, MyHopshareBody(email, orgNames, successMsg, errorMsg))
 }
 
-templ MyHopshareBody(email string) {
-	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
-		<h1 class="text-2xl font-bold text-slate-900">My Hopshare</h1>
-		<p class="text-slate-700">Welcome back, { email }.</p>
-		<p class="text-slate-600 text-sm">This is your home base. We’ll add balances, requests, and community updates here soon.</p>
+templ MyHopshareBody(email string, orgNames []string, successMsg string, errorMsg string) {
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div class="space-y-1">
+			<h1 class="text-2xl font-bold text-slate-900">My Hopshare</h1>
+			<p class="text-slate-700">Welcome back, { email }.</p>
+			<p class="text-slate-600 text-sm">Your account must belong to at least one organization.</p>
+		</div>
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		if len(orgNames) > 0 {
+			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+				<p class="font-semibold text-slate-900">Your organizations</p>
+				<ul class="list-disc list-inside text-slate-700 space-y-1">
+					for _, orgName := range orgNames {
+						<li>{ orgName }</li>
+					}
+				</ul>
+			</div>
+		} else {
+			<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+				<p class="text-slate-800 font-semibold">You are not part of an organization yet.</p>
+				<p class="text-slate-700">Create one to get started as the primary owner.</p>
+				<form class="space-y-3" method="POST" action="/my-hopshare/create-organization">
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
+						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required />
+					</div>
+					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+						Create organization
+					</button>
+				</form>
+			</div>
+		}
 		<form method="POST" action="/logout">
 			<button class="inline-flex justify-center rounded-lg bg-slate-800 text-white font-semibold px-4 py-2.5 hover:bg-slate-900 transition" type="submit">
 				Log out
