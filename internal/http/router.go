@@ -1,7 +1,10 @@
 package http
 
 import (
+	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"strings"
@@ -9,6 +12,8 @@ import (
 	"github.com/a-h/templ"
 
 	"hopshare/internal/auth"
+	"hopshare/internal/service"
+	"hopshare/internal/types"
 	"hopshare/web/templates"
 )
 
@@ -19,6 +24,13 @@ type Server struct {
 	sessions *auth.SessionManager
 }
 
+type HandlerFunc func(http.ResponseWriter, *http.Request)
+type Middleware func(HandlerFunc) HandlerFunc
+
+type contextKey string
+
+const userContextKey contextKey = "currentUser"
+
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
 	srv := &Server{
@@ -28,14 +40,14 @@ func NewRouter(db *sql.DB) http.Handler {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", srv.handleLanding)
-	mux.HandleFunc("/login", srv.handleLogin)
-	mux.HandleFunc("/signup", srv.handleSignup)
-	mux.HandleFunc("/signup-success", srv.handleSignupSuccess)
-	mux.HandleFunc("/forgot-password", srv.handleForgotPassword)
-	mux.HandleFunc("/reset-password", srv.handleResetPassword)
-	mux.HandleFunc("/my-hopshare", srv.handleMyHopshare)
-	mux.HandleFunc("/logout", srv.handleLogout)
+	srv.register(mux, "/", srv.handleLanding, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/login", srv.handleLogin, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/signup-success", srv.handleSignupSuccess, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost, http.MethodGet))
 	mux.HandleFunc("/healthz", handleHealthz)
 
 	return mux
@@ -102,8 +114,26 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		email := strings.TrimSpace(r.FormValue("email"))
 		org := strings.TrimSpace(r.FormValue("organization"))
 		message := strings.TrimSpace(r.FormValue("message"))
+		password := r.FormValue("password")
 
-		log.Printf("signup request: name=%q email=%q organization=%q message=%q", name, email, org, message)
+		member := types.Member{
+			Username:               deriveUsername(name, email),
+			Email:                  email,
+			PasswordHash:           hashPassword(password),
+			PreferredContactMethod: types.ContactMethodEmail,
+			PreferredContact:       email,
+			Enabled:                false,
+			Verified:               false,
+		}
+
+		created, err := service.CreateMember(r.Context(), s.db, member)
+		if err != nil {
+			log.Printf("create member failed: %v", err)
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+			return
+		}
+
+		log.Printf("signup request: name=%q email=%q organization=%q message=%q member_id=%d", name, email, org, message, created.ID)
 		http.Redirect(w, r, "/signup-success", http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -181,18 +211,10 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMyHopshare(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
 	render(w, r, templates.MyHopshare(user.Email))
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	c, err := r.Cookie(s.sessions.CookieName())
 	if err == nil {
 		s.sessions.Delete(c.Value)
@@ -214,19 +236,7 @@ func handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) currentUser(r *http.Request) *auth.User {
-	c, err := r.Cookie(s.sessions.CookieName())
-	if err != nil {
-		return nil
-	}
-	email, ok := s.sessions.Get(c.Value)
-	if !ok {
-		return nil
-	}
-	user, ok := s.users.Get(email)
-	if !ok {
-		return nil
-	}
-	return user
+	return currentUserFromContext(r.Context())
 }
 
 func (s *Server) currentUserEmailPtr(r *http.Request) *string {
@@ -242,4 +252,94 @@ func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 		log.Printf("templ render error: %v", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) register(mux *http.ServeMux, path string, h HandlerFunc, middlewares ...Middleware) {
+	// withUser runs first so downstream middleware/handlers can rely on context user.
+	all := append([]Middleware{s.withUser()}, middlewares...)
+	mux.HandleFunc(path, chain(h, all...))
+}
+
+func chain(h HandlerFunc, m ...Middleware) http.HandlerFunc {
+	for i := len(m) - 1; i >= 0; i-- {
+		h = m[i](h)
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		h(w, r)
+	}
+}
+
+func (s *Server) withUser() Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if c, err := r.Cookie(s.sessions.CookieName()); err == nil {
+				if email, ok := s.sessions.Get(c.Value); ok {
+					if user, ok := s.users.Get(email); ok {
+						ctx := context.WithValue(r.Context(), userContextKey, user)
+						r = r.WithContext(ctx)
+					}
+				}
+			}
+			next(w, r)
+		}
+	}
+}
+
+func (s *Server) requireAuth() Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if currentUserFromContext(r.Context()) == nil {
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+func (s *Server) requireMethod(methods ...string) Middleware {
+	allowed := make(map[string]struct{}, len(methods))
+	for _, m := range methods {
+		allowed[m] = struct{}{}
+	}
+	allowHeader := strings.Join(methods, ", ")
+
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if _, ok := allowed[r.Method]; !ok {
+				w.Header().Set("Allow", allowHeader)
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+func currentUserFromContext(ctx context.Context) *auth.User {
+	if ctx == nil {
+		return nil
+	}
+	if u, ok := ctx.Value(userContextKey).(*auth.User); ok {
+		return u
+	}
+	return nil
+}
+
+func deriveUsername(name, email string) string {
+	if name != "" {
+		n := strings.ToLower(strings.TrimSpace(name))
+		n = strings.ReplaceAll(n, " ", "_")
+		return n
+	}
+	parts := strings.Split(email, "@")
+	if len(parts) > 0 && parts[0] != "" {
+		return parts[0]
+	}
+	return "user"
+}
+
+func hashPassword(pw string) string {
+	sum := sha256.Sum256([]byte(pw))
+	return hex.EncodeToString(sum[:])
 }
