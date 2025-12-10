@@ -40,6 +40,8 @@ func NewRouter(db *sql.DB) http.Handler {
 	}
 
 	mux := http.NewServeMux()
+	staticFS := http.FileServer(http.Dir("web/static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
 	srv.register(mux, "/", srv.handleLanding, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/login", srv.handleLogin, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost))

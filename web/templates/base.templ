@@ -8,13 +8,17 @@ templ Base(title string, userEmail *string, body templ.Component) {
 			<meta name="viewport" content="width=device-width, initial-scale=1" />
 			<title>{ title }</title>
 			<script src="https://cdn.tailwindcss.com"></script>
-			<script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
-			<script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+			<script src="/static/assets/js/htmx.min.js" defer></script>
+			<script src="/static/assets/js/alpine.min-3.15.2.js"></script>
 		</head>
 		<body class="bg-slate-50 text-slate-900 min-h-screen">
 			<header class="bg-white border-b border-slate-200">
 				<div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-					<a href="/" class="text-lg font-semibold text-slate-900">Hopshare</a>
+					<div class="flex items-center gap-3">
+						<a href="/" class="inline-flex items-center">
+							<img src="/static/assets/image/hopshare_logo.jpg" alt="Hopshare logo" class="h-12 object-contain" />
+						</a>
+					</div>
 					<nav class="flex items-center gap-3 text-sm text-slate-700">
 						<a class="hover:text-slate-900" href="/">Home</a>
 						if userEmail != nil {
