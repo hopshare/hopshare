@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("apply migrations: %v", err)
 	}
 
-	handler := httpserver.NewRouter()
+	handler := httpserver.NewRouter(db)
 
 	server := &http.Server{
 		Addr:         cfg.Addr,
