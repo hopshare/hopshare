@@ -47,3 +47,13 @@ type MembershipRequest struct {
 	RequestedAt    time.Time
 	Status         string
 }
+
+// OrganizationMember represents an active membership record.
+type OrganizationMember struct {
+	MemberID      int64
+	Username      string
+	Email         string
+	Role          string
+	IsPrimaryOwner bool
+	JoinedAt      time.Time
+}

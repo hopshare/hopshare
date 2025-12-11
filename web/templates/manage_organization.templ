@@ -3,10 +3,14 @@ package templates
 import "hopshare/internal/types"
 
 templ ManageOrganization(userEmail *string, org types.Organization, logo string, requests []types.MembershipRequest, successMsg string, errorMsg string) {
-	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, successMsg, errorMsg))
+	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, nil, successMsg, errorMsg))
 }
 
-templ ManageOrganizationBody(org types.Organization, logo string, requests []types.MembershipRequest, successMsg string, errorMsg string) {
+templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, logo string, requests []types.MembershipRequest, members []types.OrganizationMember, successMsg string, errorMsg string) {
+	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, members, successMsg, errorMsg))
+}
+
+templ ManageOrganizationBody(org types.Organization, logo string, requests []types.MembershipRequest, members []types.OrganizationMember, successMsg string, errorMsg string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
@@ -72,6 +76,48 @@ templ ManageOrganizationBody(org types.Organization, logo string, requests []typ
 					</div>
 				}
 			</div>
+		</div>
+		<div class="space-y-3">
+			<h2 class="text-lg font-semibold text-slate-900">Members</h2>
+			if members == nil || len(members) == 0 {
+				<p class="text-slate-600 text-sm">No members yet.</p>
+			} else {
+				<div class="rounded-lg border border-slate-200 divide-y divide-slate-100">
+					for _, m := range members {
+						<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+							<div>
+								<p class="font-semibold text-slate-900">{ m.Username }</p>
+								<p class="text-xs text-slate-600">Joined { m.JoinedAt.Format("Jan 2, 2006") } • { m.Role }</p>
+							</div>
+							<div class="flex flex-wrap gap-2">
+								if m.Role == "member" {
+									<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
+										<input type="hidden" name="member_id" value={ m.MemberID } />
+										<input type="hidden" name="action" value="make_owner" />
+										<button class="inline-flex justify-center rounded-lg border border-emerald-200 text-emerald-700 font-semibold px-3 py-1.5 hover:bg-emerald-50 transition" type="submit">
+											Make Owner
+										</button>
+									</form>
+								} else if m.Role == "owner" && !m.IsPrimaryOwner {
+									<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
+										<input type="hidden" name="member_id" value={ m.MemberID } />
+										<input type="hidden" name="action" value="revoke_owner" />
+										<button class="inline-flex justify-center rounded-lg border border-amber-200 text-amber-700 font-semibold px-3 py-1.5 hover:bg-amber-50 transition" type="submit">
+											Revoke Owner
+										</button>
+									</form>
+								}
+								<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
+									<input type="hidden" name="member_id" value={ m.MemberID } />
+									<button class="inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition" type="submit">
+										Remove
+									</button>
+								</form>
+							</div>
+						</div>
+					}
+				</div>
+			}
 		</div>
 		<div>
 			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/my-hopshare">

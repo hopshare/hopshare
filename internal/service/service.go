@@ -23,6 +23,8 @@ var (
 	ErrRequestAlreadyExists = errors.New("membership request already exists")
 	ErrAlreadyPrimaryOwner  = errors.New("member already manages an organization")
 	ErrRequestNotFound      = errors.New("membership request not found")
+	ErrMembershipNotFound   = errors.New("membership not found")
+	ErrInvalidRoleChange    = errors.New("invalid role change")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -496,6 +498,109 @@ func DenyMembershipRequest(ctx context.Context, db *sql.DB, requestID, decidedBy
 	}
 
 	// TODO: notify requester of rejection.
+	return nil
+}
+
+// OrganizationMembers returns active members of an organization, owners first then alphabetical.
+func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.OrganizationMember, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT m.id, m.username, m.email, om.role, om.is_primary_owner, om.joined_at
+		FROM organization_memberships om
+		JOIN members m ON m.id = om.member_id
+		WHERE om.organization_id = $1 AND om.left_at IS NULL
+		ORDER BY om.is_primary_owner DESC, om.role DESC, m.username ASC
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("list organization members: %w", err)
+	}
+	defer rows.Close()
+
+	var members []types.OrganizationMember
+	for rows.Next() {
+		var om types.OrganizationMember
+		if err := rows.Scan(&om.MemberID, &om.Username, &om.Email, &om.Role, &om.IsPrimaryOwner, &om.JoinedAt); err != nil {
+			return nil, fmt.Errorf("scan organization member: %w", err)
+		}
+		members = append(members, om)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list organization members: %w", err)
+	}
+	return members, nil
+}
+
+// RemoveOrganizationMember marks a membership as left.
+func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID int64, removedBy int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organization_memberships
+		SET left_at = NOW()
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+	`, orgID, memberID)
+	if err != nil {
+		return fmt.Errorf("remove organization member: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("remove organization member rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrMembershipNotFound
+	}
+
+	// TODO: notify member of removal; audit removedBy if needed.
+	_ = removedBy
+	return nil
+}
+
+// UpdateOrganizationMemberRole updates a membership role (member/owner).
+func UpdateOrganizationMemberRole(ctx context.Context, db *sql.DB, orgID, memberID int64, makeOwner bool) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	role := "member"
+	if makeOwner {
+		role = "owner"
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organization_memberships
+		SET role = $1, is_primary_owner = CASE WHEN is_primary_owner THEN TRUE ELSE FALSE END
+		WHERE organization_id = $2 AND member_id = $3 AND left_at IS NULL
+	`, role, orgID, memberID)
+	if err != nil {
+		return fmt.Errorf("update membership role: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update membership role rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrMembershipNotFound
+	}
 	return nil
 }
 

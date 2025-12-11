@@ -59,6 +59,8 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/organizations/create", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage", srv.handleManageOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage/request", srv.handleManageMembershipRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/organizations/manage/member/remove", srv.handleRemoveMember, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/organizations/manage/member/role", srv.handleChangeMemberRole, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations/request", srv.handleRequestMembership, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost, http.MethodGet))
 	mux.HandleFunc("/healthz", handleHealthz)
@@ -414,6 +416,13 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	members, err := service.OrganizationMembers(r.Context(), s.db, primaryOrg.ID)
+	if err != nil {
+		log.Printf("load organization members: %v", err)
+		http.Error(w, "could not load members", http.StatusInternalServerError)
+		return
+	}
+
 	logoVal := ""
 	if primaryOrg.LogoURL != nil {
 		logoVal = *primaryOrg.LogoURL
@@ -424,7 +433,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.ManageOrganization(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, successMsg, errorMsg))
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, successMsg, errorMsg))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -441,7 +450,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 		orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
 		if err != nil || orgID <= 0 || orgID != primaryOrg.ID {
-			render(w, r, templates.ManageOrganization(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, "", "You can only manage your organization."))
+			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, "", "You can only manage your organization."))
 			return
 		}
 
@@ -453,7 +462,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		}
 		if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 			log.Printf("update organization %d: %v", primaryOrg.ID, err)
-			render(w, r, templates.ManageOrganization(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, "", "Could not update organization."))
+			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, "", "Could not update organization."))
 			return
 		}
 		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Organization updated."), http.StatusSeeOther)
@@ -524,6 +533,98 @@ func (s *Server) handleManageMembershipRequest(w http.ResponseWriter, r *http.Re
 			return
 		}
 		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Membership denied."), http.StatusSeeOther)
+	default:
+		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Unknown action."), http.StatusSeeOther)
+	}
+}
+
+func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	org, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
+			return
+		}
+		log.Printf("load primary organization: %v", err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	memberID, err := strconv.ParseInt(r.FormValue("member_id"), 10, 64)
+	if err != nil || memberID <= 0 {
+		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Invalid member."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.RemoveOrganizationMember(r.Context(), s.db, org.ID, memberID, user.ID); err != nil {
+		log.Printf("remove member %d from org %d: %v", memberID, org.ID, err)
+		msg := "Could not remove member."
+		if errors.Is(err, service.ErrMembershipNotFound) {
+			msg = "Membership not found."
+		}
+		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape(msg), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Member removed."), http.StatusSeeOther)
+}
+
+func (s *Server) handleChangeMemberRole(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	org, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
+			return
+		}
+		log.Printf("load primary organization: %v", err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	memberID, err := strconv.ParseInt(r.FormValue("member_id"), 10, 64)
+	if err != nil || memberID <= 0 {
+		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Invalid member."), http.StatusSeeOther)
+		return
+	}
+	action := strings.ToLower(strings.TrimSpace(r.FormValue("action")))
+
+	switch action {
+	case "make_owner":
+		if err := service.UpdateOrganizationMemberRole(r.Context(), s.db, org.ID, memberID, true); err != nil {
+			log.Printf("make owner member=%d org=%d: %v", memberID, org.ID, err)
+			http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Could not update member role."), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Member promoted to owner."), http.StatusSeeOther)
+	case "revoke_owner":
+		if err := service.UpdateOrganizationMemberRole(r.Context(), s.db, org.ID, memberID, false); err != nil {
+			log.Printf("revoke owner member=%d org=%d: %v", memberID, org.ID, err)
+			http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Could not update member role."), http.StatusSeeOther)
+			return
+		}
+		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Owner role revoked."), http.StatusSeeOther)
 	default:
 		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Unknown action."), http.StatusSeeOther)
 	}
