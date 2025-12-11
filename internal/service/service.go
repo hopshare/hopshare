@@ -18,7 +18,10 @@ var (
 	ErrMissingField         = errors.New("missing required field")
 	ErrMissingMemberID      = errors.New("member id is required")
 	ErrMissingOrgName       = errors.New("organization name is required")
+	ErrMissingOrgID         = errors.New("organization id is required")
 	ErrInvalidCredentials   = errors.New("invalid email or password")
+	ErrRequestAlreadyExists = errors.New("membership request already exists")
+	ErrAlreadyPrimaryOwner  = errors.New("member already manages an organization")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -187,6 +190,29 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	return m, nil
 }
 
+// PrimaryOwnedOrganization returns the organization where the member is the primary owner.
+func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (types.Organization, error) {
+	if db == nil {
+		return types.Organization{}, ErrNilDB
+	}
+	if memberID == 0 {
+		return types.Organization{}, ErrMissingMemberID
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT o.id, o.name, o.logo_url, o.enabled, o.created_by, o.created_at, o.updated_at
+		FROM organizations o
+		JOIN organization_memberships om ON om.organization_id = o.id
+		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL
+	`, memberID)
+
+	var o types.Organization
+	if err := row.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		return types.Organization{}, err
+	}
+	return o, nil
+}
+
 // ActiveOrganizationsForMember returns all organizations the member currently belongs to (left_at IS NULL).
 func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int64) ([]types.Organization, error) {
 	if db == nil {
@@ -218,6 +244,59 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list member organizations: %w", err)
+	}
+
+	return orgs, nil
+}
+
+// GetOrganizationByID returns an organization by ID.
+func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Organization, error) {
+	if db == nil {
+		return types.Organization{}, ErrNilDB
+	}
+	if orgID == 0 {
+		return types.Organization{}, ErrMissingOrgID
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT id, name, logo_url, enabled, created_by, created_at, updated_at
+		FROM organizations
+		WHERE id = $1
+	`, orgID)
+
+	var o types.Organization
+	if err := row.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		return types.Organization{}, fmt.Errorf("get organization by id: %w", err)
+	}
+	return o, nil
+}
+
+// ListOrganizations returns all organizations ordered by name.
+func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, logo_url, enabled, created_by, created_at, updated_at
+		FROM organizations
+		ORDER BY name
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list organizations: %w", err)
+	}
+	defer rows.Close()
+
+	var orgs []types.Organization
+	for rows.Next() {
+		var o types.Organization
+		if err := rows.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan organization: %w", err)
+		}
+		orgs = append(orgs, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list organizations: %w", err)
 	}
 
 	return orgs, nil
@@ -255,8 +334,67 @@ func UpdateMemberPassword(ctx context.Context, db *sql.DB, memberID int64, passw
 	return nil
 }
 
+// RequestMembership inserts a pending membership request for a member/organization pair.
+func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, note *string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM membership_requests
+			WHERE organization_id = $1 AND member_id = $2 AND status = 'pending'
+		)
+	`, orgID, memberID).Scan(&exists); err != nil {
+		return fmt.Errorf("check existing membership request: %w", err)
+	}
+	if exists {
+		return ErrRequestAlreadyExists
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO membership_requests (organization_id, member_id, status, decision_note)
+		VALUES ($1, $2, 'pending', $3)
+	`, orgID, memberID, note); err != nil {
+		return fmt.Errorf("insert membership request: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateOrganization updates basic organization fields.
+func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if org.ID == 0 {
+		return ErrMissingOrgID
+	}
+
+	name := strings.TrimSpace(org.Name)
+	if name == "" {
+		return ErrMissingOrgName
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET name = $1, logo_url = $2, updated_at = NOW()
+		WHERE id = $3
+	`, name, org.LogoURL, org.ID); err != nil {
+		return fmt.Errorf("update organization: %w", err)
+	}
+	return nil
+}
+
 // CreateOrganization inserts an organization and sets the given member as the primary owner.
-func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwnerMemberID int64) (types.Organization, error) {
+func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwnerMemberID int64, logoURL *string) (types.Organization, error) {
 	if db == nil {
 		return types.Organization{}, ErrNilDB
 	}
@@ -266,6 +404,12 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwn
 	}
 	if primaryOwnerMemberID == 0 {
 		return types.Organization{}, ErrMissingMemberID
+	}
+
+	if _, err := PrimaryOwnedOrganization(ctx, db, primaryOwnerMemberID); err == nil {
+		return types.Organization{}, ErrAlreadyPrimaryOwner
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return types.Organization{}, err
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -280,10 +424,10 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwn
 
 	var org types.Organization
 	row := tx.QueryRowContext(ctx, `
-		INSERT INTO organizations (name, created_by)
-		VALUES ($1, $2)
+		INSERT INTO organizations (name, logo_url, created_by)
+		VALUES ($1, $2, $3)
 		RETURNING id, name, logo_url, enabled, created_by, created_at, updated_at
-	`, name, primaryOwnerMemberID)
+	`, name, logoURL, primaryOwnerMemberID)
 	if err = row.Scan(&org.ID, &org.Name, &org.LogoURL, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("insert organization: %w", err)
 	}

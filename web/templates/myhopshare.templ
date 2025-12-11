@@ -1,10 +1,10 @@
 package templates
 
-templ MyHopshare(email string, orgNames []string, successMsg string, errorMsg string) {
-	@Base("Hopshare | My Hopshare", &email, MyHopshareBody(email, orgNames, successMsg, errorMsg))
+templ MyHopshare(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) {
+	@Base("Hopshare | My Hopshare", &email, MyHopshareBody(email, orgNames, hasPrimary, successMsg, errorMsg))
 }
 
-templ MyHopshareBody(email string, orgNames []string, successMsg string, errorMsg string) {
+templ MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h1 class="text-2xl font-bold text-slate-900">My Hopshare</h1>
@@ -18,27 +18,40 @@ templ MyHopshareBody(email string, orgNames []string, successMsg string, errorMs
 			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
 		}
 		if len(orgNames) > 0 {
-			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
 				<p class="font-semibold text-slate-900">Your organizations</p>
 				<ul class="list-disc list-inside text-slate-700 space-y-1">
 					for _, orgName := range orgNames {
 						<li>{ orgName }</li>
 					}
 				</ul>
+				<div class="flex flex-wrap gap-3">
+					if hasPrimary {
+						<a class="inline-flex justify-center rounded-lg bg-slate-800 text-white font-semibold px-3 py-2 hover:bg-slate-900 transition" href="/organizations/manage">
+							Manage my organization
+						</a>
+					} else {
+						<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" href="/organizations/manage">
+							Create an organization
+						</a>
+					}
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-3 py-2 hover:border-slate-400 transition" href="/organizations">
+						Browse organizations
+					</a>
+				</div>
 			</div>
 		} else {
 			<div class="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
 				<p class="text-slate-800 font-semibold">You are not part of an organization yet.</p>
 				<p class="text-slate-700">Create one to get started as the primary owner.</p>
-				<form class="space-y-3" method="POST" action="/my-hopshare/create-organization">
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
-						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required />
-					</div>
-					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-						Create organization
-					</button>
-				</form>
+				<div class="flex flex-wrap gap-3">
+					<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations/manage">
+						Create an organization
+					</a>
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
+						Find an organization
+					</a>
+				</div>
 			</div>
 		}
 		<form method="POST" action="/logout">

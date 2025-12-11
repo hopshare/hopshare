@@ -1,0 +1,87 @@
+package templates
+
+import "hopshare/internal/types"
+
+templ Organizations(userEmail *string, orgs []types.Organization, successMsg string, errorMsg string) {
+	@Base("Hopshare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg))
+}
+
+templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg string) {
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data="{
+		query: '',
+		selected: null,
+		select(el) {
+			const d = el.dataset;
+			this.selected = {
+				id: Number(d.orgId),
+				name: d.orgName,
+				logo: d.orgLogo,
+				enabled: d.orgEnabled === 'true',
+				created: d.orgCreated,
+			};
+		},
+		matches(name) {
+			if (!this.query) return true;
+			return name.toLowerCase().startsWith(this.query.toLowerCase());
+		},
+	}">
+		<div class="space-y-2">
+			<h1 class="text-2xl font-bold text-slate-900">Find an organization</h1>
+			<p class="text-slate-600">Search for Hopshare organizations and request membership.</p>
+		</div>
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		<div class="grid md:grid-cols-3 gap-6 items-start">
+			<div class="space-y-3 md:col-span-1">
+				<label class="block text-sm font-semibold text-slate-800" for="org_search">Search organizations</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" id="org_search" placeholder="Start typing a name..." x-model="query" />
+				<div class="border border-slate-200 rounded-lg divide-y divide-slate-100">
+					for _, org := range orgs {
+						<button type="button"
+							class="w-full text-left px-3 py-2 hover:bg-slate-50 focus:outline-none focus:bg-slate-100"
+							x-show="matches($el.dataset.orgName)"
+							x-on:click="select($el)"
+							data-org-id={ org.ID }
+							data-org-name={ org.Name }
+							data-org-enabled={ org.Enabled }
+							data-org-created={ org.CreatedAt.Format("Jan 2, 2006") }>
+							{ org.Name }
+						</button>
+					}
+					if len(orgs) == 0 {
+						<div class="px-3 py-2 text-slate-600 text-sm">No organizations available.</div>
+					}
+				</div>
+			</div>
+			<div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-5 min-h-[220px]">
+				<template x-if="selected">
+					<div class="space-y-3">
+						<div class="flex items-center gap-3">
+							<div class="flex-1">
+								<h2 class="text-xl font-bold text-slate-900" x-text="selected.name"></h2>
+								<p class="text-sm text-slate-600">
+									<span x-text="selected.enabled ? 'Enabled' : 'Disabled'"></span>
+									<span class="mx-2">•</span>
+									Created <span x-text="selected.created"></span>
+								</p>
+							</div>
+						</div>
+						<form class="space-y-2" method="POST" action="/organizations/request">
+							<input type="hidden" name="org_id" x-bind:value="selected ? selected.id : ''" />
+							<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition disabled:opacity-60 disabled:cursor-not-allowed" type="submit" :disabled="!selected">
+								Request Membership
+							</button>
+						</form>
+					</div>
+				</template>
+				<div class="text-slate-600" x-show="!selected">
+					Select an organization to view details.
+				</div>
+			</div>
+		</div>
+	</section>
+}

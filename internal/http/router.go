@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -54,7 +55,9 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
-	srv.register(mux, "/my-hopshare/create-organization", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organizations/manage", srv.handleManageOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/organizations/request", srv.handleRequestMembership, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost, http.MethodGet))
 	mux.HandleFunc("/healthz", handleHealthz)
 
@@ -262,35 +265,175 @@ func (s *Server) handleMyHopshare(w http.ResponseWriter, r *http.Request) {
 	s.renderMyHopshare(w, r, successMsg, errorMsg)
 }
 
-func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
-		return
-	}
-	orgName := strings.TrimSpace(r.FormValue("name"))
-
+func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 
-	org, err := service.CreateOrganization(r.Context(), s.db, orgName, user.ID)
+	orgs, err := service.ListOrganizations(r.Context(), s.db)
 	if err != nil {
-		log.Printf("create organization failed: %v", err)
-		msg := "Could not create organization right now."
-		switch {
-		case errors.Is(err, service.ErrMissingOrgName):
-			msg = "Organization name is required."
-		case errors.Is(err, service.ErrMissingMemberID):
-			msg = "A member is required to create an organization."
-		}
-		s.renderMyHopshare(w, r, "", msg)
+		log.Printf("list organizations: %v", err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
 		return
 	}
 
-	success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
-	http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape(success), http.StatusSeeOther)
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+
+	render(w, r, templates.Organizations(&user.Email, orgs, successMsg, errorMsg))
+}
+
+func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	orgIDStr := r.FormValue("org_id")
+	orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
+	if err != nil || orgID <= 0 {
+		http.Redirect(w, r, "/organizations?error="+url.QueryEscape("Invalid organization."), http.StatusSeeOther)
+		return
+	}
+
+	var orgName string
+	if org, err := service.GetOrganizationByID(r.Context(), s.db, orgID); err == nil {
+		orgName = org.Name
+	}
+
+	if err := service.RequestMembership(r.Context(), s.db, user.ID, orgID, nil); err != nil {
+		log.Printf("request membership member=%d org=%d: %v", user.ID, orgID, err)
+		msg := "Could not submit request."
+		switch {
+		case errors.Is(err, service.ErrMissingMemberID):
+			msg = "You need a member record to request membership."
+		case errors.Is(err, service.ErrMissingOrgID):
+			msg = "Invalid organization."
+		case errors.Is(err, service.ErrRequestAlreadyExists):
+			msg = "You already have a pending request for this organization."
+		}
+		http.Redirect(w, r, "/organizations?error="+url.QueryEscape(msg), http.StatusSeeOther)
+		return
+	}
+
+	success := "Membership request submitted."
+	if orgName != "" {
+		success = fmt.Sprintf("Requested membership in %s.", orgName)
+	}
+	http.Redirect(w, r, "/organizations?success="+url.QueryEscape(success), http.StatusSeeOther)
+}
+
+func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	primaryOrg, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
+	hasPrimary := err == nil
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("load primary organization: %v", err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+
+	orgIDStr := ""
+	orgName := ""
+	logo := ""
+	title := "Hopshare | Create organization"
+	if hasPrimary {
+		orgIDStr = fmt.Sprintf("%d", primaryOrg.ID)
+		orgName = primaryOrg.Name
+		if primaryOrg.LogoURL != nil {
+			logo = *primaryOrg.LogoURL
+		}
+		title = "Hopshare | Manage organization"
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), title, orgIDStr, orgName, logo, hasPrimary, successMsg, errorMsg))
+	case http.MethodPost:
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "invalid form", http.StatusBadRequest)
+			return
+		}
+
+		name := strings.TrimSpace(r.FormValue("name"))
+		logo := strings.TrimSpace(r.FormValue("logo_url"))
+		var logoPtr *string
+		if logo != "" {
+			logoPtr = &logo
+		}
+		orgIDStr := strings.TrimSpace(r.FormValue("org_id"))
+
+		if orgIDStr != "" {
+			orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
+			if err != nil || orgID <= 0 {
+				render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), title, orgIDStr, name, logo, hasPrimary, "", "Invalid organization."))
+				return
+			}
+			if !hasPrimary || primaryOrg.ID != orgID {
+				render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), title, orgIDStr, orgName, logo, hasPrimary, "", "You can only manage your organization."))
+				return
+			}
+
+			updateOrg := types.Organization{
+				ID:      primaryOrg.ID,
+				Name:    name,
+				LogoURL: logoPtr,
+				Enabled: primaryOrg.Enabled,
+			}
+			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
+				log.Printf("update organization %d: %v", primaryOrg.ID, err)
+				updateLogo := ""
+				if updateOrg.LogoURL != nil {
+					updateLogo = *updateOrg.LogoURL
+				}
+				render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "Hopshare | Manage organization", fmt.Sprintf("%d", updateOrg.ID), updateOrg.Name, updateLogo, true, "", "Could not update organization."))
+				return
+			}
+			http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape("Organization updated."), http.StatusSeeOther)
+			return
+		}
+
+		if hasPrimary {
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), title, orgIDStr, orgName, logo, hasPrimary, "", "You already manage an organization."))
+			return
+		}
+
+		org, err := service.CreateOrganization(r.Context(), s.db, name, user.ID, logoPtr)
+		if err != nil {
+			log.Printf("create organization failed: %v", err)
+			msg := "Could not create organization right now."
+			switch {
+			case errors.Is(err, service.ErrMissingOrgName):
+				msg = "Organization name is required."
+			case errors.Is(err, service.ErrMissingMemberID):
+				msg = "A member is required to create an organization."
+			case errors.Is(err, service.ErrAlreadyPrimaryOwner):
+				msg = "You already manage an organization."
+			}
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), title, "", name, logo, false, "", msg))
+			return
+		}
+
+		success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
+		http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape(success), http.StatusSeeOther)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -341,6 +484,12 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
+	_, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
+	hasPrimary := err == nil
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("load primary organization for member %d: %v", user.ID, err)
+	}
+
 	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
 	if err != nil {
 		log.Printf("load organizations for member %d: %v", user.ID, err)
@@ -353,7 +502,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		orgNames = append(orgNames, o.Name)
 	}
 
-	render(w, r, templates.MyHopshare(user.Email, orgNames, successMsg, errorMsg))
+	render(w, r, templates.MyHopshare(user.Email, orgNames, hasPrimary, successMsg, errorMsg))
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
