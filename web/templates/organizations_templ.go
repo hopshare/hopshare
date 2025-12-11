@@ -31,7 +31,7 @@ func Organizations(userEmail *string, orgs []types.Organization, successMsg stri
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -60,7 +60,7 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\" x-data=\"{\n\t\tquery: '',\n\t\tselected: null,\n\t\tselect(el) {\n\t\t\tconst d = el.dataset;\n\t\t\tthis.selected = {\n\t\t\t\tid: Number(d.orgId),\n\t\t\t\tname: d.orgName,\n\t\t\t\tlogo: d.orgLogo,\n\t\t\t\tenabled: d.orgEnabled === 'true',\n\t\t\t\tcreated: d.orgCreated,\n\t\t\t};\n\t\t},\n\t\tmatches(name) {\n\t\t\tif (!this.query) return true;\n\t\t\treturn name.toLowerCase().startsWith(this.query.toLowerCase());\n\t\t},\n\t}\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Find an organization</h1><p class=\"text-slate-600\">Search for Hopshare organizations and request membership.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\" x-data=\"{\n\t\tquery: '',\n\t\tselected: null,\n\t\tselect(el) {\n\t\t\tconst d = el.dataset;\n\t\t\tthis.selected = {\n\t\t\t\tid: Number(d.orgId),\n\t\t\t\tname: d.orgName,\n\t\t\t\tlogo: d.orgLogo,\n\t\t\t\tenabled: d.orgEnabled === 'true',\n\t\t\t\tcreated: d.orgCreated,\n\t\t\t};\n\t\t},\n\t\tmatches(name) {\n\t\t\tif (!this.query) return true;\n\t\t\treturn name.toLowerCase().startsWith(this.query.toLowerCase());\n\t\t},\n\t}\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Find an organization</h1><p class=\"text-slate-600\">Search for hopShare organizations and request membership.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

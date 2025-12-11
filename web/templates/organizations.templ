@@ -3,7 +3,7 @@ package templates
 import "hopshare/internal/types"
 
 templ Organizations(userEmail *string, orgs []types.Organization, successMsg string, errorMsg string) {
-	@Base("Hopshare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg))
+	@Base("hopShare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg))
 }
 
 templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg string) {
@@ -27,7 +27,7 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 	}">
 		<div class="space-y-2">
 			<h1 class="text-2xl font-bold text-slate-900">Find an organization</h1>
-			<p class="text-slate-600">Search for Hopshare organizations and request membership.</p>
+			<p class="text-slate-600">Search for hopShare organizations and request membership.</p>
 		</div>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>

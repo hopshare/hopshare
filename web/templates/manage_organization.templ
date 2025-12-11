@@ -3,11 +3,11 @@ package templates
 import "hopshare/internal/types"
 
 templ ManageOrganization(userEmail *string, org types.Organization, logo string, requests []types.MembershipRequest, successMsg string, errorMsg string) {
-	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, nil, successMsg, errorMsg))
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, nil, successMsg, errorMsg))
 }
 
 templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, logo string, requests []types.MembershipRequest, members []types.OrganizationMember, successMsg string, errorMsg string) {
-	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, members, successMsg, errorMsg))
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, members, successMsg, errorMsg))
 }
 
 templ ManageOrganizationBody(org types.Organization, logo string, requests []types.MembershipRequest, members []types.OrganizationMember, successMsg string, errorMsg string) {
@@ -121,7 +121,7 @@ templ ManageOrganizationBody(org types.Organization, logo string, requests []typ
 		</div>
 		<div>
 			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/my-hopshare">
-				Back to My Hopshare
+				Back to My hopShare
 			</a>
 		</div>
 	</section>

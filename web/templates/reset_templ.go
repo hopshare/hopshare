@@ -29,7 +29,7 @@ func ResetPassword(userEmail *string, token string, errorMsg string, successMsg 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | Reset password", userEmail, ResetPasswordBody(token, errorMsg, successMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Reset password", userEmail, ResetPasswordBody(token, errorMsg, successMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

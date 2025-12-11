@@ -1,14 +1,14 @@
 package templates
 
 templ Login(userEmail *string, errorMsg string, successMsg string) {
-	@Base("Hopshare | Login", userEmail, LoginBody(errorMsg, successMsg))
+	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg))
 }
 
 templ LoginBody(errorMsg string, successMsg string) {
 	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Log in</h1>
-			<p class="text-slate-600 mt-1">Access your Hopshare account.</p>
+			<p class="text-slate-600 mt-1">Access your hopShare account.</p>
 		</div>
 		if errorMsg != "" {
 			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>

@@ -713,7 +713,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		orgNames = append(orgNames, o.Name)
 	}
 
-	render(w, r, templates.MyHopshare(user.Email, orgNames, hasPrimary, successMsg, errorMsg))
+	render(w, r, templates.MyhopShare(user.Email, orgNames, hasPrimary, successMsg, errorMsg))
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {

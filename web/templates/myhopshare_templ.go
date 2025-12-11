@@ -8,7 +8,7 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func MyHopshare(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) templ.Component {
+func MyhopShare(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,7 @@ func MyHopshare(email string, orgNames []string, hasPrimary bool, successMsg str
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | My Hopshare", &email, MyHopshareBody(email, orgNames, hasPrimary, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | My hopShare", &email, MyhopShareBody(email, orgNames, hasPrimary, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -37,7 +37,7 @@ func MyHopshare(email string, orgNames []string, hasPrimary bool, successMsg str
 	})
 }
 
-func MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) templ.Component {
+func MyhopShareBody(email string, orgNames []string, hasPrimary bool, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -58,7 +58,7 @@ func MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMsg
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div class=\"space-y-1\"><h1 class=\"text-2xl font-bold text-slate-900\">My Hopshare</h1><p class=\"text-slate-700\">Welcome back, ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div class=\"space-y-1\"><h1 class=\"text-2xl font-bold text-slate-900\">My hopShare</h1><p class=\"text-slate-700\">Welcome back, ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

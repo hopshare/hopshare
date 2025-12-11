@@ -29,7 +29,7 @@ func Signup(userEmail *string, successMsg string, errorMsg string) templ.Compone
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | Request to join", userEmail, SignupBody(successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Request to join", userEmail, SignupBody(successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -58,7 +58,7 @@ func SignupBody(successMsg string, errorMsg string) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Request to join Hopshare</h1><p class=\"text-slate-600 mt-1\">Tell us a bit about you and your community.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Request to join hopShare</h1><p class=\"text-slate-600 mt-1\">Tell us a bit about you and your community.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -129,7 +129,7 @@ func SignupSuccess(userEmail *string) templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | Request received", userEmail, SignupSuccessBody()).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Request received", userEmail, SignupSuccessBody()).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -158,7 +158,7 @@ func SignupSuccessBody() templ.Component {
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Thanks for reaching out!</h1><p class=\"text-slate-700\">We received your request to join Hopshare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!</p><div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"/login\">Back to login</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/\">Return home</a></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Thanks for reaching out!</h1><p class=\"text-slate-700\">We received your request to join hopShare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!</p><div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"/login\">Back to login</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/\">Return home</a></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

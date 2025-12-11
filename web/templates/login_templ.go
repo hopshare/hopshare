@@ -29,7 +29,7 @@ func Login(userEmail *string, errorMsg string, successMsg string) templ.Componen
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("Hopshare | Login", userEmail, LoginBody(errorMsg, successMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -58,7 +58,7 @@ func LoginBody(errorMsg string, successMsg string) templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Log in</h1><p class=\"text-slate-600 mt-1\">Access your Hopshare account.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Log in</h1><p class=\"text-slate-600 mt-1\">Access your hopShare account.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
