@@ -57,12 +57,25 @@ templ SignupBody(successMsg string, errorMsg string) {
 				<p class="text-xs text-slate-500">Use at least 8 characters including letters, numbers, and a symbol.</p>
 			</div>
 			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="organization">Organization / community</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="organization" name="organization" />
+				<label class="block text-sm font-semibold text-slate-800" for="preferred_contact_method">Preferred contact method</label>
+				<select class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="preferred_contact_method" name="preferred_contact_method" required>
+					<option value="" disabled selected>Select a contact method</option>
+					<option value="email">Email</option>
+					<option value="phone">Phone</option>
+					<option value="other">Other</option>
+				</select>
 			</div>
 			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="message">Why do you want to join?</label>
-				<textarea class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="message" name="message" rows="4"></textarea>
+				<label class="block text-sm font-semibold text-slate-800" for="city">City (optional)</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="city" name="city" />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="state">State (optional)</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="state" name="state" />
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-slate-800" for="interests">Interests (optional)</label>
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="interests" name="interests" />
 			</div>
 			<button class="inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition"
 				:class="ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'"
@@ -83,7 +96,7 @@ templ SignupSuccessBody() {
 	<section class="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
 		<h1 class="text-2xl font-bold text-slate-900">Thanks for reaching out!</h1>
 		<p class="text-slate-700">
-			We received your request to join Hopshare. Someone from the team will follow up with next steps.
+			We received your request to join Hopshare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!
 		</p>
 		<div class="flex gap-3">
 			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/login">Back to login</a>

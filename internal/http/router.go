@@ -132,9 +132,23 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		email := strings.TrimSpace(r.FormValue("email"))
-		org := strings.TrimSpace(r.FormValue("organization"))
-		message := strings.TrimSpace(r.FormValue("message"))
 		password := r.FormValue("password")
+		preferredContactMethod := strings.TrimSpace(r.FormValue("preferred_contact_method"))
+		city := strings.TrimSpace(r.FormValue("city"))
+		state := strings.TrimSpace(r.FormValue("state"))
+		interests := strings.TrimSpace(r.FormValue("interests"))
+
+		if preferredContactMethod != types.ContactMethodEmail && preferredContactMethod != types.ContactMethodPhone && preferredContactMethod != types.ContactMethodOther {
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please choose a preferred contact method."))
+			return
+		}
+
+		strPtr := func(v string) *string {
+			if v == "" {
+				return nil
+			}
+			return &v
+		}
 
 		passwordHash, err := service.HashPassword(password)
 		if err != nil {
@@ -147,9 +161,12 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			Username:               deriveUsername(name, email),
 			Email:                  email,
 			PasswordHash:           passwordHash,
-			PreferredContactMethod: types.ContactMethodEmail,
+			PreferredContactMethod: preferredContactMethod,
 			PreferredContact:       email,
-			Enabled:                false,
+			City:                   strPtr(city),
+			State:                  strPtr(state),
+			Interests:              strPtr(interests),
+			Enabled:                true,
 			Verified:               false,
 		}
 
@@ -160,7 +177,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("signup request: name=%q email=%q organization=%q message=%q member_id=%d", name, email, org, message, created.ID)
+		log.Printf("signup request: name=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", name, email, preferredContactMethod, city, state, interests, created.ID)
 		http.Redirect(w, r, "/signup-success", http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
