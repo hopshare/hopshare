@@ -36,3 +36,14 @@ type Organization struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// MembershipRequest represents a pending/judged request to join an organization.
+type MembershipRequest struct {
+	ID             int64
+	OrganizationID int64
+	MemberID       int64
+	MemberName     string
+	MemberEmail    string
+	RequestedAt    time.Time
+	Status         string
+}

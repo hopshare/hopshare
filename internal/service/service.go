@@ -22,6 +22,7 @@ var (
 	ErrInvalidCredentials   = errors.New("invalid email or password")
 	ErrRequestAlreadyExists = errors.New("membership request already exists")
 	ErrAlreadyPrimaryOwner  = errors.New("member already manages an organization")
+	ErrRequestNotFound      = errors.New("membership request not found")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -366,6 +367,135 @@ func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, n
 		return fmt.Errorf("insert membership request: %w", err)
 	}
 
+	return nil
+}
+
+// PendingMembershipRequests returns pending membership requests for an organization.
+func PendingMembershipRequests(ctx context.Context, db *sql.DB, orgID int64) ([]types.MembershipRequest, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT mr.id, mr.organization_id, mr.member_id, m.username, m.email, mr.requested_at, mr.status
+		FROM membership_requests mr
+		JOIN members m ON m.id = mr.member_id
+		WHERE mr.organization_id = $1 AND mr.status = 'pending'
+		ORDER BY mr.requested_at ASC
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("list pending membership requests: %w", err)
+	}
+	defer rows.Close()
+
+	var reqs []types.MembershipRequest
+	for rows.Next() {
+		var mr types.MembershipRequest
+		if err := rows.Scan(&mr.ID, &mr.OrganizationID, &mr.MemberID, &mr.MemberName, &mr.MemberEmail, &mr.RequestedAt, &mr.Status); err != nil {
+			return nil, fmt.Errorf("scan membership request: %w", err)
+		}
+		reqs = append(reqs, mr)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list pending membership requests: %w", err)
+	}
+
+	return reqs, nil
+}
+
+// ApproveMembershipRequest approves a membership request and ensures membership exists.
+func ApproveMembershipRequest(ctx context.Context, db *sql.DB, requestID, decidedBy int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if requestID == 0 {
+		return ErrRequestNotFound
+	}
+	if decidedBy == 0 {
+		return ErrMissingMemberID
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin approve request: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var orgID, memberID int64
+	if err = tx.QueryRowContext(ctx, `
+		UPDATE membership_requests
+		SET status = 'approved', decided_at = NOW(), decided_by = $1
+		WHERE id = $2 AND status = 'pending'
+		RETURNING organization_id, member_id
+	`, decidedBy, requestID).Scan(&orgID, &memberID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrRequestNotFound
+		}
+		return fmt.Errorf("approve membership request: %w", err)
+	}
+
+	var exists bool
+	if err = tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM organization_memberships
+			WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+		)
+	`, orgID, memberID).Scan(&exists); err != nil {
+		return fmt.Errorf("check existing membership: %w", err)
+	}
+	if !exists {
+		if _, err = tx.ExecContext(ctx, `
+			INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
+			VALUES ($1, $2, 'member', FALSE)
+		`, orgID, memberID); err != nil {
+			return fmt.Errorf("create membership: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit approve request: %w", err)
+	}
+
+	// TODO: notify requester of approval (email/notification).
+	return nil
+}
+
+// DenyMembershipRequest rejects a membership request.
+func DenyMembershipRequest(ctx context.Context, db *sql.DB, requestID, decidedBy int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if requestID == 0 {
+		return ErrRequestNotFound
+	}
+	if decidedBy == 0 {
+		return ErrMissingMemberID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE membership_requests
+		SET status = 'rejected', decided_at = NOW(), decided_by = $1
+		WHERE id = $2 AND status = 'pending'
+	`, decidedBy, requestID)
+	if err != nil {
+		return fmt.Errorf("deny membership request: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("deny membership request rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrRequestNotFound
+	}
+
+	// TODO: notify requester of rejection.
 	return nil
 }
 

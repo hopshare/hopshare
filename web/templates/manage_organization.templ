@@ -1,0 +1,82 @@
+package templates
+
+import "hopshare/internal/types"
+
+templ ManageOrganization(userEmail *string, org types.Organization, logo string, requests []types.MembershipRequest, successMsg string, errorMsg string) {
+	@Base("Hopshare | Manage organization", userEmail, ManageOrganizationBody(org, logo, requests, successMsg, errorMsg))
+}
+
+templ ManageOrganizationBody(org types.Organization, logo string, requests []types.MembershipRequest, successMsg string, errorMsg string) {
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div class="space-y-1">
+			<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
+			<p class="text-slate-600">Update organization details and review membership requests.</p>
+		</div>
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		<div class="grid gap-6 md:grid-cols-2">
+			<div class="space-y-4">
+				<h2 class="text-lg font-semibold text-slate-900">Organization details</h2>
+				<form class="space-y-4" method="POST" action="/organizations/manage">
+					<input type="hidden" name="org_id" value={ org.ID } />
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
+						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required value={ org.Name } />
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="logo_url">Logo URL (optional)</label>
+						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="url" id="logo_url" name="logo_url" value={ logo } />
+					</div>
+					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+						Save changes
+					</button>
+				</form>
+			</div>
+			<div class="space-y-3">
+				<h2 class="text-lg font-semibold text-slate-900">Pending membership requests</h2>
+				if len(requests) == 0 {
+					<p class="text-slate-600 text-sm">No pending requests.</p>
+				} else {
+					<div class="space-y-3">
+						for _, req := range requests {
+							<div class="rounded-lg border border-slate-200 p-3 space-y-2">
+								<div class="flex items-center justify-between">
+									<div>
+										<p class="font-semibold text-slate-900">{ req.MemberName }</p>
+										<p class="text-sm text-slate-600">{ req.MemberEmail }</p>
+									</div>
+									<p class="text-xs text-slate-500">{ req.RequestedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+								</div>
+								<div class="flex flex-wrap gap-2">
+									<form method="POST" action="/organizations/manage/request" class="inline-flex">
+										<input type="hidden" name="request_id" value={ req.ID } />
+										<input type="hidden" name="action" value="accept" />
+										<button class="inline-flex justify-center rounded-lg bg-emerald-600 text-white font-semibold px-3 py-1.5 hover:bg-emerald-700 transition" type="submit">
+											Accept
+										</button>
+									</form>
+									<form method="POST" action="/organizations/manage/request" class="inline-flex">
+										<input type="hidden" name="request_id" value={ req.ID } />
+										<input type="hidden" name="action" value="deny" />
+										<button class="inline-flex justify-center rounded-lg bg-red-600 text-white font-semibold px-3 py-1.5 hover:bg-red-700 transition" type="submit">
+											Deny
+										</button>
+									</form>
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+		</div>
+		<div>
+			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/my-hopshare">
+				Back to My Hopshare
+			</a>
+		</div>
+	</section>
+}

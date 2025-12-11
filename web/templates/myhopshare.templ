@@ -31,7 +31,7 @@ templ MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMs
 							Manage my organization
 						</a>
 					} else {
-						<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" href="/organizations/manage">
+						<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" href="/organizations/create">
 							Create an organization
 						</a>
 					}
@@ -45,7 +45,7 @@ templ MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMs
 				<p class="text-slate-800 font-semibold">You are not part of an organization yet.</p>
 				<p class="text-slate-700">Create one to get started as the primary owner.</p>
 				<div class="flex flex-wrap gap-3">
-					<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations/manage">
+					<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations/create">
 						Create an organization
 					</a>
 					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">

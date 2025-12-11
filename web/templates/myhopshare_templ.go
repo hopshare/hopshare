@@ -147,7 +147,7 @@ func MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMsg
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition\" href=\"/organizations/manage\">Create an organization</a> ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition\" href=\"/organizations/create\">Create an organization</a> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -157,7 +157,7 @@ func MyHopshareBody(email string, orgNames []string, hasPrimary bool, successMsg
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3\"><p class=\"text-slate-800 font-semibold\">You are not part of an organization yet.</p><p class=\"text-slate-700\">Create one to get started as the primary owner.</p><div class=\"flex flex-wrap gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"/organizations/manage\">Create an organization</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/organizations\">Find an organization</a></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3\"><p class=\"text-slate-800 font-semibold\">You are not part of an organization yet.</p><p class=\"text-slate-700\">Create one to get started as the primary owner.</p><div class=\"flex flex-wrap gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"/organizations/create\">Create an organization</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/organizations\">Find an organization</a></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

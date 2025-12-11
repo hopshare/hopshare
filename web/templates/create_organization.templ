@@ -1,19 +1,14 @@
 package templates
 
-templ CreateOrganization(userEmail *string, title string, orgID string, orgName string, logo string, isEdit bool, successMsg string, errorMsg string) {
-	@Base(title, userEmail, CreateOrganizationBody(orgID, orgName, logo, isEdit, successMsg, errorMsg))
+templ CreateOrganization(userEmail *string, orgName string, logo string, successMsg string, errorMsg string) {
+	@Base("Hopshare | Create organization", userEmail, CreateOrganizationBody(orgName, logo, successMsg, errorMsg))
 }
 
-templ CreateOrganizationBody(orgID string, orgName string, logo string, isEdit bool, successMsg string, errorMsg string) {
+templ CreateOrganizationBody(orgName string, logo string, successMsg string, errorMsg string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
-			if isEdit {
-				<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
-				<p class="text-slate-600">Update the details for the organization you manage.</p>
-			} else {
-				<h1 class="text-2xl font-bold text-slate-900">Create an organization</h1>
-				<p class="text-slate-600">Set up a new organization and become its primary owner.</p>
-			}
+			<h1 class="text-2xl font-bold text-slate-900">Create an organization</h1>
+			<p class="text-slate-600">Set up a new organization and become its primary owner.</p>
 		</div>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
@@ -21,8 +16,7 @@ templ CreateOrganizationBody(orgID string, orgName string, logo string, isEdit b
 		if errorMsg != "" {
 			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
 		}
-		<form class="space-y-4" method="POST" action="/organizations/manage">
-			<input type="hidden" name="org_id" value={ orgID } />
+		<form class="space-y-4" method="POST" action="/organizations/create">
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required value={ orgName } />
@@ -33,21 +27,13 @@ templ CreateOrganizationBody(orgID string, orgName string, logo string, isEdit b
 			</div>
 			<div class="flex flex-wrap gap-3">
 				<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-					if isEdit {
-						Save changes
-					} else {
-						Create organization
-					}
+					Create organization
 				</button>
 				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/my-hopshare">
 					Back to My Hopshare
 				</a>
 			</div>
-			if isEdit {
-				<p class="text-xs text-slate-500">You are the primary owner of this organization. You can update its details here.</p>
-			} else {
-				<p class="text-xs text-slate-500">You can only manage one organization as the primary owner.</p>
-			}
+			<p class="text-xs text-slate-500">You can only manage one organization as the primary owner.</p>
 		</form>
 	</section>
 }
