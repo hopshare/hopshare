@@ -8,6 +8,21 @@ const (
 	ContactMethodOther = "other"
 )
 
+const (
+	RequestStatusOpen      = "open"
+	RequestStatusAccepted  = "accepted"
+	RequestStatusCanceled  = "canceled"
+	RequestStatusExpired   = "expired"
+	RequestStatusCompleted = "completed"
+)
+
+const (
+	RequestNeededByAnytime     = "anytime"
+	RequestNeededByOn          = "on"
+	RequestNeededByAround      = "around"
+	RequestNeededByNoLaterThan = "no_later_than"
+)
+
 // Member represents a row in the members table.
 type Member struct {
 	ID                     int64
@@ -50,10 +65,57 @@ type MembershipRequest struct {
 
 // OrganizationMember represents an active membership record.
 type OrganizationMember struct {
-	MemberID      int64
-	Username      string
-	Email         string
-	Role          string
+	MemberID       int64
+	Username       string
+	Email          string
+	Role           string
 	IsPrimaryOwner bool
-	JoinedAt      time.Time
+	JoinedAt       time.Time
+}
+
+// Request represents a help request within an organization.
+type Request struct {
+	ID             int64
+	OrganizationID int64
+	CreatedBy      int64
+	CreatedByName  string
+	Title          string
+	Details        *string
+	EstimatedHours int
+
+	NeededByKind string
+	NeededByDate *time.Time
+	ExpiresAt    *time.Time
+
+	Status string
+
+	AcceptedBy     *int64
+	AcceptedByName *string
+	AcceptedAt     *time.Time
+
+	CanceledBy *int64
+	CanceledAt *time.Time
+
+	CompletedBy       *int64
+	CompletedAt       *time.Time
+	CompletedHours    *int
+	CompletionComment *string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type OrgRequestMetrics struct {
+	MemberCount       int
+	PendingCount      int
+	CompletedCount    int
+	CompletedThisWeek int
+}
+
+type MemberRequestStats struct {
+	BalanceHours      int
+	RequestsMade      int
+	LastRequestMadeAt *time.Time
+	RequestsFulfilled int
+	LastFulfilledAt   *time.Time
 }

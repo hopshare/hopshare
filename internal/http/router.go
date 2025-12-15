@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/a-h/templ"
 
@@ -55,6 +56,10 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/requests/create", srv.handleCreateHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/requests/accept", srv.handleAcceptHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/requests/cancel", srv.handleCancelHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/requests/complete", srv.handleCompleteHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/organizations/create", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage", srv.handleManageOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
@@ -284,6 +289,141 @@ func (s *Server) handleMyHopshare(w http.ResponseWriter, r *http.Request) {
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 	s.renderMyHopshare(w, r, successMsg, errorMsg)
+}
+
+func (s *Server) handleCreateHelpRequest(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, err := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	if err != nil || orgID <= 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid organization."), http.StatusSeeOther)
+		return
+	}
+
+	estimatedHours, err := strconv.Atoi(strings.TrimSpace(r.FormValue("estimated_hours")))
+	if err != nil {
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid hours."), http.StatusSeeOther)
+		return
+	}
+
+	var neededByDate *time.Time
+	dateStr := strings.TrimSpace(r.FormValue("needed_by_date"))
+	if dateStr != "" {
+		t, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
+			return
+		}
+		neededByDate = &t
+	}
+
+	_, err = service.CreateHelpRequest(r.Context(), s.db, service.CreateHelpRequestParams{
+		OrganizationID: orgID,
+		MemberID:       user.ID,
+		Title:          r.FormValue("title"),
+		Details:        r.FormValue("details"),
+		EstimatedHours: estimatedHours,
+		NeededByKind:   r.FormValue("needed_by_kind"),
+		NeededByDate:   neededByDate,
+	})
+	if err != nil {
+		log.Printf("create request failed: %v", err)
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not create request."), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Request created."), http.StatusSeeOther)
+}
+
+func (s *Server) handleAcceptHelpRequest(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	requestID, _ := strconv.ParseInt(r.FormValue("request_id"), 10, 64)
+	if orgID <= 0 || requestID <= 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid request."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.AcceptHelpRequest(r.Context(), s.db, orgID, requestID, user.ID); err != nil {
+		log.Printf("accept request failed: %v", err)
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not accept request."), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Request accepted."), http.StatusSeeOther)
+}
+
+func (s *Server) handleCancelHelpRequest(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	requestID, _ := strconv.ParseInt(r.FormValue("request_id"), 10, 64)
+	if orgID <= 0 || requestID <= 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid request."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.CancelHelpRequest(r.Context(), s.db, orgID, requestID, user.ID); err != nil {
+		log.Printf("cancel request failed: %v", err)
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not cancel request."), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Request canceled."), http.StatusSeeOther)
+}
+
+func (s *Server) handleCompleteHelpRequest(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	requestID, _ := strconv.ParseInt(r.FormValue("request_id"), 10, 64)
+	if orgID <= 0 || requestID <= 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid request."), http.StatusSeeOther)
+		return
+	}
+
+	completedHours, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("completed_hours")))
+	if err := service.CompleteHelpRequest(r.Context(), s.db, service.CompleteHelpRequestParams{
+		OrganizationID: orgID,
+		RequestID:      requestID,
+		CompletedBy:    user.ID,
+		Comment:        r.FormValue("completion_comment"),
+		CompletedHours: completedHours,
+	}); err != nil {
+		log.Printf("complete request failed: %v", err)
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not complete request."), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Request completed."), http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request) {
@@ -708,12 +848,117 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
-	var orgNames []string
-	for _, o := range orgs {
-		orgNames = append(orgNames, o.Name)
+	var currentOrgID int64
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
+			currentOrgID = parsed
+		}
+	}
+	if len(orgs) > 0 && currentOrgID == 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
+		currentOrgID = orgs[0].ID
 	}
 
-	render(w, r, templates.MyhopShare(user.Email, orgNames, hasPrimary, successMsg, errorMsg))
+	var foundedLabel string
+	var metrics types.OrgRequestMetrics
+	var memberStats types.MemberRequestStats
+	var recentCompleted []types.Request
+	var myRequests []types.Request
+	var requestsToHelp []types.Request
+
+	if currentOrgID != 0 {
+		org, err := service.GetOrganizationByID(r.Context(), s.db, currentOrgID)
+		if err != nil {
+			log.Printf("load org %d: %v", currentOrgID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
+		}
+		foundedLabel = humanOrgAge(org.CreatedAt)
+
+		if _, err := service.ExpireHelpRequests(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
+			log.Printf("expire requests org=%d: %v", currentOrgID, err)
+		}
+
+		metrics, err = service.OrgMetrics(r.Context(), s.db, currentOrgID)
+		if err != nil {
+			log.Printf("load org metrics org=%d: %v", currentOrgID, err)
+			http.Error(w, "could not load metrics", http.StatusInternalServerError)
+			return
+		}
+		memberStats, err = service.MemberStats(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load member stats org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load stats", http.StatusInternalServerError)
+			return
+		}
+		recentCompleted, err = service.RecentCompletedRequests(r.Context(), s.db, currentOrgID, 5)
+		if err != nil {
+			log.Printf("load recent completed org=%d: %v", currentOrgID, err)
+			http.Error(w, "could not load recent requests", http.StatusInternalServerError)
+			return
+		}
+		myRequests, err = service.ListMemberRequests(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load my requests org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load requests", http.StatusInternalServerError)
+			return
+		}
+		requestsToHelp, err = service.ListRequestsToHelp(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load requests to help org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load requests", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	render(w, r, templates.MyhopShare(
+		user.Email,
+		orgs,
+		currentOrgID,
+		foundedLabel,
+		metrics,
+		memberStats,
+		recentCompleted,
+		myRequests,
+		requestsToHelp,
+		hasPrimary,
+		successMsg,
+		errorMsg,
+	))
+}
+
+func orgIDInList(orgs []types.Organization, orgID int64) bool {
+	for _, o := range orgs {
+		if o.ID == orgID {
+			return true
+		}
+	}
+	return false
+}
+
+func humanOrgAge(createdAt time.Time) string {
+	d := time.Since(createdAt)
+	days := int(d.Hours() / 24)
+	if days < 30 {
+		if days <= 1 {
+			return "1 day"
+		}
+		return fmt.Sprintf("%d days", days)
+	}
+	months := days / 30
+	if months < 24 {
+		if months == 1 {
+			return "1 mo"
+		}
+		return fmt.Sprintf("%d mos", months)
+	}
+	years := months / 12
+	if years == 1 {
+		return "1 yr"
+	}
+	return fmt.Sprintf("%d yrs", years)
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
