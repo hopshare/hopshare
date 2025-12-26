@@ -22,6 +22,7 @@
 - Templates favor small, composable components; prefer HTMX swaps and Alpine state over custom JS bundles.
 - Errors: wrap with context (`fmt.Errorf("create user: %w", err)`) and use typed/sentinel errors for business rules.
 - Keep code as simple as possible, avoid any clever tricks or techniques. MUST use standard library as much as possible, keep external dependencies to a MINIMUM.
+- NEVER edit the TODO.md file- that file is only for manual changes by me. Ignore any changes in TODO.md that might differ from the current git commit.
 
 ## Testing Guidelines
 - Mirror tests next to code (`internal/timebank/service_test.go`); use table-driven cases.

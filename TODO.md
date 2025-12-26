@@ -1,7 +1,14 @@
-Going very slowly here...
+# TODO
 
-Okay- we have basic Member and Organization management working- not pretty but seems functional.
+## Now
 
-We could add more details to an Organization (description, type, location, owning Member, etc..) when browsing and getting the details.
+* Pick the right UI now- simple, intuitive
+* Keep testing Request lifecycle- edge cases, etc. 
+* We should add some mocked email service- or an in-app messaging facility so that Members can communicate around a Request.
+* Add ability to add comments to a completed Request.
+* Create a 'celebration' page for the Organization?
 
-Are we ready to actually start implementing the time bank??
+## Later
+
+* Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
+

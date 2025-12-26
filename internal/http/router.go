@@ -835,8 +835,12 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
-	_, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
+	primaryOrg, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 	hasPrimary := err == nil
+	var primaryOrgID int64
+	if err == nil {
+		primaryOrgID = primaryOrg.ID
+	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Printf("load primary organization for member %d: %v", user.ID, err)
 	}
@@ -857,9 +861,12 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	if len(orgs) > 0 && currentOrgID == 0 {
 		currentOrgID = orgs[0].ID
 	}
+	// WHAT SORT OF HACK IS THIS??
 	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
 		currentOrgID = orgs[0].ID
 	}
+
+	isPrimaryOwnerCurrent := currentOrgID != 0 && primaryOrgID == currentOrgID
 
 	var foundedLabel string
 	var metrics types.OrgRequestMetrics
@@ -877,6 +884,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		}
 		foundedLabel = humanOrgAge(org.CreatedAt)
 
+		// TODO: We should expire old requests asynchronously through a delay-configurable goroutine, not whenever we render the myhopshare page
 		if _, err := service.ExpireHelpRequests(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
 			log.Printf("expire requests org=%d: %v", currentOrgID, err)
 		}
@@ -917,6 +925,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		user.Email,
 		orgs,
 		currentOrgID,
+		isPrimaryOwnerCurrent,
 		foundedLabel,
 		metrics,
 		memberStats,

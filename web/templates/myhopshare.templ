@@ -4,12 +4,14 @@ import (
 	"time"
 
 	"hopshare/internal/types"
+
 )
 
 templ MyhopShare(
 	email string,
 	orgs []types.Organization,
 	currentOrgID int64,
+	isPrimaryOwnerCurrent bool,
 	foundedLabel string,
 	metrics types.OrgRequestMetrics,
 	memberStats types.MemberRequestStats,
@@ -24,6 +26,7 @@ templ MyhopShare(
 		email,
 		orgs,
 		currentOrgID,
+		isPrimaryOwnerCurrent,
 		foundedLabel,
 		metrics,
 		memberStats,
@@ -40,6 +43,7 @@ templ MyhopShareBody(
 	email string,
 	orgs []types.Organization,
 	currentOrgID int64,
+	isPrimaryOwnerCurrent bool,
 	foundedLabel string,
 	metrics types.OrgRequestMetrics,
 	memberStats types.MemberRequestStats,
@@ -53,10 +57,7 @@ templ MyhopShareBody(
 	<div class="space-y-8">
 		<header class="space-y-1">
 			<h1 class="text-2xl font-bold text-slate-900">My hopShare</h1>
-			<p class="text-slate-700">Welcome back, { email }.</p>
-			<p class="text-slate-600 text-sm">
-				This is your hub for requesting help, offering help, and tracking your time balance.
-			</p>
+			<p class="text-slate-700">Welcome back, { email }!</p>
 		</header>
 
 		if successMsg != "" {
@@ -72,6 +73,7 @@ templ MyhopShareBody(
 			@MyhopShareDashboard(
 				orgs,
 				currentOrgID,
+				isPrimaryOwnerCurrent,
 				foundedLabel,
 				metrics,
 				memberStats,
@@ -87,9 +89,9 @@ templ MyhopShareBody(
 templ MyhopShareNoOrganizations(hasPrimary bool) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
 		<div class="space-y-1">
-			<h2 class="text-xl font-bold text-slate-900">Join an organization to get started</h2>
+			<h2 class="text-xl font-bold text-slate-900">Join an organization to get started!</h2>
 			<p class="text-slate-600 leading-relaxed">
-				hopShare works through organizations. Once you join one, you can request help, offer help, and track your hours.
+				Everyone on hopShare need to belong to at least one Organization. Find one for yourself, or start a new one and invite others to join!
 			</p>
 		</div>
 		<div class="flex flex-wrap gap-3 pt-2">
@@ -112,6 +114,7 @@ templ MyhopShareNoOrganizations(hasPrimary bool) {
 templ MyhopShareDashboard(
 	orgs []types.Organization,
 	currentOrgID int64,
+	isPrimaryOwnerCurrent bool,
 	foundedLabel string,
 	metrics types.OrgRequestMetrics,
 	memberStats types.MemberRequestStats,
@@ -137,54 +140,77 @@ templ MyhopShareDashboard(
 		}"
 		x-on:keydown.escape.window="requestModalOpen = false; completeModalOpen = false"
 	>
-		@OrganizationSwitcher(orgs, currentOrgID, hasPrimary)
-		@MemberStats(memberStats)
+		@OrganizationSwitcher(orgs, currentOrgID, isPrimaryOwnerCurrent, hasPrimary)
 		@OrgCelebration(foundedLabel, metrics, recentCompleted)
+		@MemberStats(memberStats)
 		@RequestsWorkspace(currentOrgID, myRequests, requestsToHelp)
 		@RequestModal(currentOrgID)
 		@CompleteModal(currentOrgID)
 	</div>
 }
 
-templ OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, hasPrimary bool) {
+templ OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrimaryOwnerCurrent bool, hasPrimary bool) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
-		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-			<div class="space-y-1">
-				<p class="text-sm font-semibold text-slate-900">Current organization</p>
-				<label class="block text-sm text-slate-600" for="org_id">Choose where you're working right now</label>
-			</div>
-			<div class="flex flex-wrap gap-3">
-				if hasPrimary {
-					<a class="inline-flex justify-center rounded-lg bg-slate-800 text-white font-semibold px-4 py-2.5 hover:bg-slate-900 transition" href="/organizations/manage">
-						Manage organization
-					</a>
-				} else {
-					<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations/create">
-						Create an organization
-					</a>
+		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+			<div class="min-w-0">
+				for _, org := range orgs {
+					if org.ID == currentOrgID {
+						<div class="flex items-center gap-2 min-w-0">
+							<p class="text-xs font-semibold text-slate-600 whitespace-nowrap">Your current organization is</p>
+							<p class="text-sm font-semibold text-slate-900 truncate">{ org.Name }</p>
+							if org.LogoURL != nil && *org.LogoURL != "" {
+								<img
+									src={ *org.LogoURL }
+									alt={ org.Name + " logo" }
+									class="h-6 w-6 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+								/>
+							} else {
+								<img
+									src="/static/assets/image/logo_blue_transparent.png"
+									alt="Organization logo"
+									class="h-6 w-6 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+								/>
+							}
+						</div>
+					}
 				}
-				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
-					Search / join organizations
-				</a>
 			</div>
+
+			if len(orgs) > 1 {
+				<form class="flex flex-col sm:flex-row sm:items-end gap-2" method="GET" action="/my-hopshare">
+					<div class="space-y-1">
+						<label class="sr-only" for="org_id">Switch organization</label>
+						<select id="org_id" name="org_id" class="w-full sm:w-64 text-sm rounded-md border border-slate-300 bg-white px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+							for _, org := range orgs {
+								if org.ID == currentOrgID {
+									<option value={ org.ID } selected>{ org.Name }</option>
+								} else {
+									<option value={ org.ID }>{ org.Name }</option>
+								}
+							}
+						</select>
+					</div>
+					<button class="inline-flex justify-center rounded-md bg-sky-700 text-white text-sm font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
+						Switch to
+					</button>
+				</form>
+			}
 		</div>
 
-		<form class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end" method="GET" action="/my-hopshare">
-			<div class="space-y-1">
-				<select id="org_id" name="org_id" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-					for _, org := range orgs {
-						if org.ID == currentOrgID {
-							<option value={ org.ID } selected>{ org.Name }</option>
-						} else {
-							<option value={ org.ID }>{ org.Name }</option>
-						}
-					}
-				</select>
-			</div>
-			<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-				Switch
-			</button>
-		</form>
+		<div class="flex flex-wrap gap-2">
+			if isPrimaryOwnerCurrent {
+				<a class="inline-flex justify-center rounded-md bg-slate-800 text-white text-sm font-semibold px-3 py-1.5 hover:bg-slate-900 transition" href="/organizations/manage">
+					Manage
+				</a>
+			} else if !hasPrimary {
+				<a class="inline-flex justify-center rounded-md bg-sky-700 text-white text-sm font-semibold px-3 py-1.5 hover:bg-sky-800 transition" href="/organizations/create">
+					Create
+				</a>
+			}
+			<a class="inline-flex justify-center rounded-md border border-slate-300 text-slate-800 text-sm font-semibold px-3 py-1.5 hover:border-slate-400 transition" href="/organizations">
+				Search / join
+			</a>
+		</div>
 	</section>
 }
 
