@@ -12,3 +12,7 @@
 
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
 
+## Bugs
+
+* An Organization Owner can request membership in their own Organization- this should be prevented
+

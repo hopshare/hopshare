@@ -342,6 +342,35 @@ func OrganizationLogo(ctx context.Context, db *sql.DB, orgID int64) ([]byte, str
 	return data, ct, true, nil
 }
 
+func SetOrganizationLogo(ctx context.Context, db *sql.DB, orgID int64, contentType string, data []byte) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if strings.TrimSpace(contentType) == "" || len(data) == 0 {
+		return ErrMissingField
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET logo_content_type = $1, logo_data = $2, updated_at = NOW()
+		WHERE id = $3
+	`, contentType, data, orgID)
+	if err != nil {
+		return fmt.Errorf("set organization logo: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set organization logo rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // UpdateMemberPassword updates a member's password hash.
 func UpdateMemberPassword(ctx context.Context, db *sql.DB, memberID int64, passwordHash string) error {
 	if db == nil {

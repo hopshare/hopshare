@@ -100,20 +100,20 @@ func CreateOrganizationBody(orgName string, successMsg string, errorMsg string) 
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/organizations/create\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_name\">Organization name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_name\" name=\"name\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/organizations/create\" enctype=\"multipart/form-data\" x-data=\"{\n\t\t\t\tlogoChanged: false,\n\t\t\t\tlogoName: '',\n\t\t\t\tlogoPreview: '',\n\t\t\t\thandleLogoChange(e) {\n\t\t\t\t\tconst f = e.target.files && e.target.files[0];\n\t\t\t\t\tif (!f) {\n\t\t\t\t\t\tthis.logoChanged = false;\n\t\t\t\t\t\tthis.logoName = '';\n\t\t\t\t\t\tthis.logoPreview = '';\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tthis.logoChanged = true;\n\t\t\t\t\tthis.logoName = f.name;\n\t\t\t\t\tconst reader = new FileReader();\n\t\t\t\t\treader.onload = () => { this.logoPreview = reader.result; };\n\t\t\t\t\treader.readAsDataURL(f);\n\t\t\t\t},\n\t\t\t}\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_name\">Organization name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_name\" name=\"name\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(orgName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/create_organization.templ`, Line: 22, Col: 184}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/create_organization.templ`, Line: 46, Col: 184}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"></div><p class=\"text-sm text-slate-600\">Logo uploading is coming soon.</p><div class=\"flex flex-wrap gap-3\"><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Create organization</button> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/my-hopshare\">Back to My hopShare</a></div><p class=\"text-xs text-slate-500\">You can only manage one organization as the primary owner.</p></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"logo_file\">Organization logo (optional)</label><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"logoChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a logo here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max 20MB)</p><template x-if=\"logoChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded bg-white object-contain ring-1 ring-slate-200\" x-show=\"logoPreview\" x-bind:src=\"logoPreview\" alt=\"Selected logo preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"logoName\"></span> <span class=\"text-slate-600\">(will upload on submit)</span></p></div></template><input id=\"logo_file\" name=\"logo_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full opacity-0 cursor-pointer\" x-on:change=\"handleLogoChange($event)\"></div></div><div class=\"flex flex-wrap gap-3\"><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Create organization</button> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/my-hopshare\">Back to My hopShare</a></div><p class=\"text-xs text-slate-500\">You can only manage one organization as the primary owner.</p></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

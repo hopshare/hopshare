@@ -15,6 +15,7 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 			this.selected = {
 				id: Number(d.orgId),
 				name: d.orgName,
+				updated: Number(d.orgUpdated),
 				enabled: d.orgEnabled === 'true',
 				created: d.orgCreated,
 			};
@@ -47,6 +48,7 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 							data-org-id={ org.ID }
 							data-org-name={ org.Name }
 							data-org-enabled={ org.Enabled }
+							data-org-updated={ org.UpdatedAt.Unix() }
 							data-org-created={ org.CreatedAt.Format("Jan 2, 2006") }>
 							{ org.Name }
 						</button>
@@ -62,7 +64,7 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 							<div class="flex items-center gap-3">
 								<img
 									class="h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200"
-									x-bind:src="'/organizations/logo?org_id=' + selected.id"
+									x-bind:src="'/organizations/logo?org_id=' + selected.id + '&v=' + selected.updated"
 									x-bind:alt="selected.name + ' logo'"
 								/>
 								<div class="flex-1">

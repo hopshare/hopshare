@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -454,11 +455,20 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 	case http.MethodGet:
 		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "", successMsg, errorMsg))
 	case http.MethodPost:
-		if err := r.ParseForm(); err != nil {
+		const maxLogoUploadBytes = 20 << 20
+		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		if err := r.ParseMultipartForm(maxBodyBytes); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
 		}
+
 		name := strings.TrimSpace(r.FormValue("name"))
+		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+		if err != nil {
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, "", err.Error()))
+			return
+		}
 
 		org, err := service.CreateOrganization(r.Context(), s.db, name, user.ID)
 		if err != nil {
@@ -474,6 +484,14 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 			}
 			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, "", msg))
 			return
+		}
+
+		if hasLogo {
+			if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
+				log.Printf("set org logo org=%d: %v", org.ID, err)
+				http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("Organization created, but logo upload failed."), http.StatusSeeOther)
+				return
+			}
 		}
 
 		success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
@@ -615,13 +633,21 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 	case http.MethodGet:
 		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, successMsg, errorMsg))
 	case http.MethodPost:
-		if err := r.ParseForm(); err != nil {
+		const maxLogoUploadBytes = 20 << 20
+		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		if err := r.ParseMultipartForm(maxBodyBytes); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
 		}
 
 		name := strings.TrimSpace(r.FormValue("name"))
 		orgIDStr := strings.TrimSpace(r.FormValue("org_id"))
+		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+		if err != nil {
+			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, "", err.Error()))
+			return
+		}
 
 		orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
 		if err != nil || orgID <= 0 || orgID != primaryOrg.ID {
@@ -639,9 +665,47 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, "", "Could not update organization."))
 			return
 		}
+
+		if hasLogo {
+			if err := service.SetOrganizationLogo(r.Context(), s.db, primaryOrg.ID, logoContentType, logoData); err != nil {
+				log.Printf("set org logo org=%d: %v", primaryOrg.ID, err)
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, "", "Could not upload logo."))
+				return
+			}
+		}
 		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Organization updated."), http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func readLogoUpload(r *http.Request, field string, maxBytes int64) ([]byte, string, bool, error) {
+	f, _, err := r.FormFile(field)
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) {
+			return nil, "", false, nil
+		}
+		return nil, "", false, fmt.Errorf("read logo file: %w", err)
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if err != nil {
+		return nil, "", false, fmt.Errorf("read logo file: %w", err)
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, "", false, fmt.Errorf("logo file too large (max 20MB)")
+	}
+	if len(data) == 0 {
+		return nil, "", false, fmt.Errorf("logo file is empty")
+	}
+
+	contentType := http.DetectContentType(data)
+	switch contentType {
+	case "image/png", "image/jpeg":
+		return data, contentType, true, nil
+	default:
+		return nil, "", false, fmt.Errorf("logo must be a PNG or JPEG")
 	}
 }
 
