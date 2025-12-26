@@ -15,7 +15,6 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 			this.selected = {
 				id: Number(d.orgId),
 				name: d.orgName,
-				logo: d.orgLogo,
 				enabled: d.orgEnabled === 'true',
 				created: d.orgCreated,
 			};
@@ -60,8 +59,13 @@ templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg s
 			<div class="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-5 min-h-[220px]">
 				<template x-if="selected">
 					<div class="space-y-3">
-						<div class="flex items-center gap-3">
-							<div class="flex-1">
+							<div class="flex items-center gap-3">
+								<img
+									class="h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200"
+									x-bind:src="'/organizations/logo?org_id=' + selected.id"
+									x-bind:alt="selected.name + ' logo'"
+								/>
+								<div class="flex-1">
 								<h2 class="text-xl font-bold text-slate-900" x-text="selected.name"></h2>
 								<p class="text-sm text-slate-600">
 									<span x-text="selected.enabled ? 'Enabled' : 'Disabled'"></span>

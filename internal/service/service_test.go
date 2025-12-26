@@ -117,7 +117,7 @@ func TestCreateOrganization(t *testing.T) {
 		t.Fatalf("CreateMember returned error: %v", err)
 	}
 
-	org, err := CreateOrganization(ctx, db, base+" Org", member.ID, nil)
+	org, err := CreateOrganization(ctx, db, base+" Org", member.ID)
 	if err != nil {
 		t.Fatalf("CreateOrganization returned error: %v", err)
 	}

@@ -37,6 +37,7 @@ type Member struct {
 	Interests              *string
 	Enabled                bool
 	Verified               bool
+	LastLoginAt            *time.Time
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }
@@ -45,7 +46,8 @@ type Member struct {
 type Organization struct {
 	ID        int64
 	Name      string
-	LogoURL   *string
+	LogoContentType *string
+	HasLogo         bool
 	Enabled   bool
 	CreatedBy *int64
 	CreatedAt time.Time

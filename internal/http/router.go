@@ -61,6 +61,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/requests/cancel", srv.handleCancelHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/requests/complete", srv.handleCompleteHelpRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organizations/logo", srv.handleOrganizationLogo, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/organizations/create", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage", srv.handleManageOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage/request", srv.handleManageMembershipRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
@@ -118,6 +119,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
+
+		if err := service.UpdateMemberLastLogin(r.Context(), s.db, member.ID, time.Now().UTC()); err != nil {
+			log.Printf("update last login member=%d: %v", member.ID, err)
+		}
 
 		http.Redirect(w, r, "/my-hopshare", http.StatusSeeOther)
 	default:
@@ -447,20 +452,15 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "", "", successMsg, errorMsg))
+		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "", successMsg, errorMsg))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
 		}
 		name := strings.TrimSpace(r.FormValue("name"))
-		logo := strings.TrimSpace(r.FormValue("logo_url"))
-		var logoPtr *string
-		if logo != "" {
-			logoPtr = &logo
-		}
 
-		org, err := service.CreateOrganization(r.Context(), s.db, name, user.ID, logoPtr)
+		org, err := service.CreateOrganization(r.Context(), s.db, name, user.ID)
 		if err != nil {
 			log.Printf("create organization failed: %v", err)
 			msg := "Could not create organization right now."
@@ -472,7 +472,7 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 			case errors.Is(err, service.ErrAlreadyPrimaryOwner):
 				msg = "You already manage an organization."
 			}
-			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, logo, "", msg))
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, "", msg))
 			return
 		}
 
@@ -501,6 +501,34 @@ func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
 	errorMsg := r.URL.Query().Get("error")
 
 	render(w, r, templates.Organizations(&user.Email, orgs, successMsg, errorMsg))
+}
+
+func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {
+	orgID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("org_id")), 10, 64)
+	if err != nil || orgID <= 0 {
+		http.Error(w, "invalid organization", http.StatusBadRequest)
+		return
+	}
+
+	data, contentType, ok, err := service.OrganizationLogo(r.Context(), s.db, orgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load organization logo org=%d: %v", orgID, err)
+		http.Error(w, "could not load logo", http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.Redirect(w, r, "/static/assets/image/logo_blue_transparent.png", http.StatusFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request) {
@@ -580,17 +608,12 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	logoVal := ""
-	if primaryOrg.LogoURL != nil {
-		logoVal = *primaryOrg.LogoURL
-	}
-
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, successMsg, errorMsg))
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, successMsg, errorMsg))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -598,28 +621,22 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		}
 
 		name := strings.TrimSpace(r.FormValue("name"))
-		logo := strings.TrimSpace(r.FormValue("logo_url"))
-		var logoPtr *string
-		if logo != "" {
-			logoPtr = &logo
-		}
 		orgIDStr := strings.TrimSpace(r.FormValue("org_id"))
 
 		orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
 		if err != nil || orgID <= 0 || orgID != primaryOrg.ID {
-			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, "", "You can only manage your organization."))
+			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, "", "You can only manage your organization."))
 			return
 		}
 
 		updateOrg := types.Organization{
 			ID:      primaryOrg.ID,
 			Name:    name,
-			LogoURL: logoPtr,
 			Enabled: primaryOrg.Enabled,
 		}
 		if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 			log.Printf("update organization %d: %v", primaryOrg.ID, err)
-			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, logoVal, requests, members, "", "Could not update organization."))
+			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), primaryOrg, requests, members, "", "Could not update organization."))
 			return
 		}
 		http.Redirect(w, r, "/organizations/manage?success="+url.QueryEscape("Organization updated."), http.StatusSeeOther)
@@ -835,6 +852,15 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
+	displayName := strings.TrimSpace(user.Username)
+	if displayName == "" {
+		displayName = user.Email
+	}
+	lastLoginLabel := "First login"
+	if user.LastLoginAt != nil {
+		lastLoginLabel = user.LastLoginAt.Format("January 2, 2006")
+	}
+
 	primaryOrg, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 	hasPrimary := err == nil
 	var primaryOrgID int64
@@ -868,22 +894,13 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 
 	isPrimaryOwnerCurrent := currentOrgID != 0 && primaryOrgID == currentOrgID
 
-	var foundedLabel string
 	var metrics types.OrgRequestMetrics
 	var memberStats types.MemberRequestStats
-	var recentCompleted []types.Request
 	var myRequests []types.Request
 	var requestsToHelp []types.Request
+	var activityCount int
 
 	if currentOrgID != 0 {
-		org, err := service.GetOrganizationByID(r.Context(), s.db, currentOrgID)
-		if err != nil {
-			log.Printf("load org %d: %v", currentOrgID, err)
-			http.Error(w, "could not load organization", http.StatusInternalServerError)
-			return
-		}
-		foundedLabel = humanOrgAge(org.CreatedAt)
-
 		// TODO: We should expire old requests asynchronously through a delay-configurable goroutine, not whenever we render the myhopshare page
 		if _, err := service.ExpireHelpRequests(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
 			log.Printf("expire requests org=%d: %v", currentOrgID, err)
@@ -901,12 +918,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			http.Error(w, "could not load stats", http.StatusInternalServerError)
 			return
 		}
-		recentCompleted, err = service.RecentCompletedRequests(r.Context(), s.db, currentOrgID, 5)
-		if err != nil {
-			log.Printf("load recent completed org=%d: %v", currentOrgID, err)
-			http.Error(w, "could not load recent requests", http.StatusInternalServerError)
-			return
-		}
+		activityCount = memberStats.RequestsMade + memberStats.RequestsFulfilled
 		myRequests, err = service.ListMemberRequests(r.Context(), s.db, currentOrgID, user.ID)
 		if err != nil {
 			log.Printf("load my requests org=%d member=%d: %v", currentOrgID, user.ID, err)
@@ -923,15 +935,16 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 
 	render(w, r, templates.MyhopShare(
 		user.Email,
+		displayName,
+		lastLoginLabel,
 		orgs,
 		currentOrgID,
 		isPrimaryOwnerCurrent,
-		foundedLabel,
 		metrics,
 		memberStats,
-		recentCompleted,
 		myRequests,
 		requestsToHelp,
+		activityCount,
 		hasPrimary,
 		successMsg,
 		errorMsg,

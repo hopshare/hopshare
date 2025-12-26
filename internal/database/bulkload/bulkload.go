@@ -68,7 +68,7 @@ func Load(ctx context.Context, db *sql.DB, memberCount, orgCount int) (Result, e
 	for i := 0; i < orgCount; i++ {
 		owner := members[rnd.Intn(len(members))]
 		orgName := fmt.Sprintf("Organization %d", i+1)
-		org, err := service.CreateOrganization(ctx, db, orgName, owner.ID, nil)
+		org, err := service.CreateOrganization(ctx, db, orgName, owner.ID)
 		if err != nil {
 			return Result{}, fmt.Errorf("create organization %s: %w", orgName, err)
 		}

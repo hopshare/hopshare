@@ -1,10 +1,10 @@
 package templates
 
-templ CreateOrganization(userEmail *string, orgName string, logo string, successMsg string, errorMsg string) {
-	@Base("hopShare | Create organization", userEmail, CreateOrganizationBody(orgName, logo, successMsg, errorMsg))
+templ CreateOrganization(userEmail *string, orgName string, successMsg string, errorMsg string) {
+	@Base("hopShare | Create organization", userEmail, CreateOrganizationBody(orgName, successMsg, errorMsg))
 }
 
-templ CreateOrganizationBody(orgName string, logo string, successMsg string, errorMsg string) {
+templ CreateOrganizationBody(orgName string, successMsg string, errorMsg string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h1 class="text-2xl font-bold text-slate-900">Create an organization</h1>
@@ -21,10 +21,7 @@ templ CreateOrganizationBody(orgName string, logo string, successMsg string, err
 				<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required value={ orgName } />
 			</div>
-			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="logo_url">Logo URL (optional)</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="url" id="logo_url" name="logo_url" value={ logo } />
-			</div>
+			<p class="text-sm text-slate-600">Logo uploading is coming soon.</p>
 			<div class="flex flex-wrap gap-3">
 				<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
 					Create organization

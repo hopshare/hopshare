@@ -131,7 +131,7 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, created_at, updated_at
+		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, last_login_at, created_at, updated_at
 		FROM members
 		WHERE id = $1
 	`, memberID)
@@ -150,6 +150,7 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.Interests,
 		&m.Enabled,
 		&m.Verified,
+		&m.LastLoginAt,
 		&m.CreatedAt,
 		&m.UpdatedAt,
 	); err != nil {
@@ -170,7 +171,7 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, created_at, updated_at
+		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, last_login_at, created_at, updated_at
 		FROM members
 		WHERE LOWER(email) = LOWER($1)
 	`, email)
@@ -189,6 +190,7 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.Interests,
 		&m.Enabled,
 		&m.Verified,
+		&m.LastLoginAt,
 		&m.CreatedAt,
 		&m.UpdatedAt,
 	); err != nil {
@@ -208,14 +210,14 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.logo_url, o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL
 	`, memberID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -231,7 +233,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.logo_url, o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.left_at IS NULL
@@ -245,7 +247,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -267,13 +269,13 @@ func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Or
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, logo_url, enabled, created_by, created_at, updated_at
+		SELECT id, name, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE id = $1
 	`, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by id: %w", err)
 	}
 	return o, nil
@@ -286,7 +288,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, logo_url, enabled, created_by, created_at, updated_at
+		SELECT id, name, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		ORDER BY name
 	`)
@@ -298,7 +300,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.LogoURL, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -308,6 +310,36 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	return orgs, nil
+}
+
+func OrganizationLogo(ctx context.Context, db *sql.DB, orgID int64) ([]byte, string, bool, error) {
+	if db == nil {
+		return nil, "", false, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, "", false, ErrMissingOrgID
+	}
+
+	var contentType sql.NullString
+	var data []byte
+	if err := db.QueryRowContext(ctx, `
+		SELECT logo_content_type, logo_data
+		FROM organizations
+		WHERE id = $1
+	`, orgID).Scan(&contentType, &data); err != nil {
+		return nil, "", false, fmt.Errorf("get organization logo: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, "", false, nil
+	}
+
+	ct := contentType.String
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+
+	return data, ct, true, nil
 }
 
 // UpdateMemberPassword updates a member's password hash.
@@ -339,6 +371,33 @@ func UpdateMemberPassword(ctx context.Context, db *sql.DB, memberID int64, passw
 		return sql.ErrNoRows
 	}
 
+	return nil
+}
+
+func UpdateMemberLastLogin(ctx context.Context, db *sql.DB, memberID int64, at time.Time) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE members
+		SET last_login_at = $1, updated_at = NOW()
+		WHERE id = $2
+	`, at, memberID)
+	if err != nil {
+		return fmt.Errorf("update member last login: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update member last login rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
 	return nil
 }
 
@@ -625,16 +684,16 @@ func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization)
 
 	if _, err := db.ExecContext(ctx, `
 		UPDATE organizations
-		SET name = $1, logo_url = $2, updated_at = NOW()
-		WHERE id = $3
-	`, name, org.LogoURL, org.ID); err != nil {
+		SET name = $1, updated_at = NOW()
+		WHERE id = $2
+	`, name, org.ID); err != nil {
 		return fmt.Errorf("update organization: %w", err)
 	}
 	return nil
 }
 
 // CreateOrganization inserts an organization and sets the given member as the primary owner.
-func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwnerMemberID int64, logoURL *string) (types.Organization, error) {
+func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwnerMemberID int64) (types.Organization, error) {
 	if db == nil {
 		return types.Organization{}, ErrNilDB
 	}
@@ -664,11 +723,11 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwn
 
 	var org types.Organization
 	row := tx.QueryRowContext(ctx, `
-		INSERT INTO organizations (name, logo_url, created_by)
-		VALUES ($1, $2, $3)
-		RETURNING id, name, logo_url, enabled, created_by, created_at, updated_at
-	`, name, logoURL, primaryOwnerMemberID)
-	if err = row.Scan(&org.ID, &org.Name, &org.LogoURL, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
+		INSERT INTO organizations (name, created_by)
+		VALUES ($1, $2)
+		RETURNING id, name, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+	`, name, primaryOwnerMemberID)
+	if err = row.Scan(&org.ID, &org.Name, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("insert organization: %w", err)
 	}
 
