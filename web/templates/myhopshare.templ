@@ -7,6 +7,11 @@ import (
 
 )
 
+const (
+	timebankMinBalance = -5
+	timebankMaxBalance = 15
+)
+
 templ MyhopShare(
 	email string,
 	orgs []types.Organization,
@@ -266,7 +271,7 @@ templ OrgCelebration(foundedLabel string, metrics types.OrgRequestMetrics, recen
 templ MetricCardText(label string, value string, hint string) {
 	<div class="rounded-lg border border-slate-200 bg-white p-4">
 		<p class="text-xs uppercase tracking-wide text-slate-500">{ label }</p>
-		<p class="text-xl font-bold text-slate-900 mt-1">{ value }</p>
+		<p class="text-xl font-bold text-slate-900 mt-1 text-center">{ value }</p>
 		<p class="text-xs text-slate-500 mt-1">{ hint }</p>
 	</div>
 }
@@ -274,7 +279,7 @@ templ MetricCardText(label string, value string, hint string) {
 templ MetricCardNumber(label string, value int, hint string) {
 	<div class="rounded-lg border border-slate-200 bg-white p-4">
 		<p class="text-xs uppercase tracking-wide text-slate-500">{ label }</p>
-		<p class="text-xl font-bold text-slate-900 mt-1">{ value }</p>
+		<p class="text-xl font-bold text-slate-900 mt-1 text-center">{ value }</p>
 		<p class="text-xs text-slate-500 mt-1">{ hint }</p>
 	</div>
 }
@@ -322,7 +327,7 @@ templ MemberStats(stats types.MemberRequestStats) {
 }
 
 templ StatCardBalance(balanceHours int) {
-	<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+	<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">
 		<p class="text-sm font-semibold text-slate-900">Your balance</p>
 		<p class="text-3xl font-bold text-slate-900 mt-2">
 			if balanceHours > 0 {
@@ -333,12 +338,26 @@ templ StatCardBalance(balanceHours int) {
 				0 hours
 			}
 		</p>
-		<p class="text-sm text-slate-600 mt-2">Credits are exchanged when requests are completed.</p>
+		<p class="text-sm text-slate-600 mt-2">
+			if balanceHours >= timebankMaxBalance {
+				You've hit the maximum balance for this time bank. Completing requests from this point on won't increase your balance. Go make some requests of your own to pay hours forward to other users!
+			} else if balanceHours > 10 {
+				Your balance is really growing- amazing work helping others! Don't forget to make some requests so others can help you too!
+			} else if balanceHours > 5 {
+				You've got a healthy balance! Make some requests to pay those hours forward to someone else!
+			} else if balanceHours <= timebankMinBalance {
+				You've hit the minimum balance for this time bank. Give some hours to another user so that you can make more requests!
+			} else if balanceHours < 0 {
+				Negative balances are fine! Go help someone else to get back to a positive balance!
+			} else {
+				You're out of hours but don't worry! You can go down to {timebankMinBalance} hours. Find some other users who need help and build up your balance!
+			}
+		</p>
 	</div>
 }
 
 templ StatCardCount(title string, count int, lastAt *time.Time) {
-	<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+	<div class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">
 		<p class="text-sm font-semibold text-slate-900">{ title }</p>
 		<p class="text-3xl font-bold text-slate-900 mt-2">{ count }</p>
 		<p class="text-sm text-slate-600 mt-2">
