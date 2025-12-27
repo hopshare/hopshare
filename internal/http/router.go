@@ -528,6 +528,10 @@ func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// TODO: Add some filesystem caching here to alleviate load on the database.
+	//       First time we render this logo, save it to the filesystem and serve from there on subsequent requests.
+	//       This way we keep 'state' all in the database for backups, etc, but use filesystem for regular requests.
+	//       Make sure we invalidate this cache if the logo ever gets updated.
 	data, contentType, ok, err := service.OrganizationLogo(r.Context(), s.db, orgID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

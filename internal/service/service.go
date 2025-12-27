@@ -1103,7 +1103,13 @@ func ListMemberRequests(ctx context.Context, db *sql.DB, orgID, memberID int64) 
 		FROM requests r
 		JOIN members mc ON mc.id = r.created_by
 		LEFT JOIN members ma ON ma.id = r.accepted_by
-		WHERE r.organization_id = $1 AND r.created_by = $2
+		WHERE r.organization_id = $1
+			AND (
+				r.created_by = $2
+				OR r.accepted_by = $2
+				OR r.canceled_by = $2
+				OR r.completed_by = $2
+			)
 		ORDER BY r.created_at DESC
 	`, orgID, memberID)
 	if err != nil {
