@@ -1,12 +1,31 @@
 # TODO
 
+## Running local Postgres
+    podman run --detach \
+    --name postgres \
+    -e POSTGRES_USER=hopuser \
+    -e POSTGRES_PASSWORD=hoppass \
+    -e POSTGRES_DB=hopshare \
+    -e POSTGRES_ADMIN_PASSWORD=adminpass \
+    -v postgres_data:/var/lib/postgresql/data:Z \
+    -p 5432:5432 \
+    docker.io/library/postgres:17.7
+
 ## Now
 
-* Pick the right UI now- simple, intuitive
-* Decide on terminology are they "Requests" or "Shares"? 
+* Decide on terminology are they "Requests" or "Shares"? "Shares" gets confusing with the concept of ownership "shares".
+    * What about calling them "Hops"? "Request a Hop", "Give a Hop". I like that much better!!!!!!
+    * Hops have a specific number of Hours associated with them. Hours per Hop, Hops per Hour.
 * Keep testing Request lifecycle- edge cases, etc. 
-* Filter by Member in Requests page not working
-* Requests should be clickable
+* Add a new state- confirmation of help- after an offer to help. What if multiple users offer to help? Accepted requests need to be confirmed by the person raising the request. Or time out.
+* Also- ask for more details- before Accepting? Like FB Marketplace.
+* Add location to Organization- that can be searched by.
+* Organization "Wall"- closest thing to 'social media' feature- inspire others.
+* Make a photo mandatory for closing a request (Simon's idea)? Organization Album concept?
+* Owners are moderators for listings- they can flag/delete inappropriate requests/comments
+* Organizations need to have a readable URL for new joiners. A way for users and non-users to sign up quickly.
+* Skills profiles for users? We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
+* Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
 
 
 ## Later
