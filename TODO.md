@@ -20,15 +20,25 @@
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Hop Filters say "Created" instead of "Pending" in Your Hops page
 * Double check all the messaging on the MyHopShare dashboard- not sure they are correct as Hours numbers change
-* Sign Up Page
-    * "Send Request" button enabled before you choose a preferred contact (which is required)
-    * "Send Request" button should be "Sign Up"
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 
 
 ## Now
 
-* Add location to Organization- that can be searched by.
+* My HopShare Dashboard
+    * "Change..." for Organization should be a pulldown of all Organizations Member belongs to. 
+    * At bottom of that card, have a link "Find an Organization..." that goes to Find Organization page.
+* My Profile
+    * Have a link to let you manage your Organization or create a new one.
+* Manage Organization page
+    * Add location, description, etc.
+    * Stack Membership Requests horizontally below Org Details
+    * Remove "Back To My Hopshare" button- make a link like Messages/My Hops
+* Find Organization Page
+    * Long Organization names do not fit into the search results- should put those into larger results- with ability to drill into details on the organization before asking to join.
+* Joining an Organization should use messages
+    * Send an Action message to all Organization Owners when asking to join an Organization. This should handle the organization membership action automatically. Send all Owners another message with the results of an action taken by any Owner. It should not be possible to Reject after it's been Accepted by another Owner.
+    * Send yourself an information message that you requested membership in an Organization.
 * Organization "Wall"- closest thing to 'social media' feature- inspire others.
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
 * Organizations need to have a readable URL for new joiners. A way for users and non-users to sign up quickly.

@@ -20,6 +20,7 @@ templ SignupBody(successMsg string, errorMsg string) {
 			password: '',
 			strength: 'Too weak',
 			ok: false,
+			contactMethod: '',
 			update(p) {
 				this.password = p;
 				const hasLength = p.length >= 8;
@@ -27,7 +28,7 @@ templ SignupBody(successMsg string, errorMsg string) {
 				const hasLetter = /[A-Za-z]/.test(p);
 				const hasSpecial = /[^A-Za-z0-9]/.test(p);
 				const score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;
-				this.ok = hasLength && score >= 3;
+				this.ok = hasLength && score >= 3 && this.contactMethod !== '';
 				if (this.ok && score === 4) {
 					this.strength = 'Strong';
 				} else if (this.ok) {
@@ -64,7 +65,7 @@ templ SignupBody(successMsg string, errorMsg string) {
 			</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="preferred_contact_method">Preferred contact method</label>
-				<select class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="preferred_contact_method" name="preferred_contact_method" required>
+				<select class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="preferred_contact_method" name="preferred_contact_method" required x-on:change="contactMethod = $event.target.value; update(password)">
 					<option value="" disabled selected>Select a contact method</option>
 					<option value="email">Email</option>
 					<option value="phone">Phone</option>
@@ -88,7 +89,7 @@ templ SignupBody(successMsg string, errorMsg string) {
 				type="submit"
 				:disabled="!ok"
 				:aria-disabled="!ok">
-				Send request
+				Sign Up
 			</button>
 		</form>
 	</section>
