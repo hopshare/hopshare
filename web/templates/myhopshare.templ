@@ -653,11 +653,11 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 				<span x-show="open" style="display: none;">Less</span>
 			</button>
 			if hop.Status == types.HopStatusOpen {
-				<form method="POST" action="/hops/accept">
+				<form method="POST" action="/hops/offer">
 					<input type="hidden" name="org_id" value={ orgID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
-						Offer help
+						Offer to help
 					</button>
 				</form>
 			}

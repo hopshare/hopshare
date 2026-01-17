@@ -61,8 +61,9 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/messages/unread-count", srv.handleUnreadMessageCount, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages/delete", srv.handleDeleteMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/messages/reply", srv.handleReplyMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/messages/action", srv.handleMessageAction, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/create", srv.handleCreateHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
-	srv.register(mux, "/hops/accept", srv.handleAcceptHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/hops/offer", srv.handleOfferHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/cancel", srv.handleCancelHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/complete", srv.handleCompleteHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -353,7 +354,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Hop created."), http.StatusSeeOther)
 }
 
-func (s *Server) handleAcceptHop(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleOfferHop(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -370,12 +371,22 @@ func (s *Server) handleAcceptHop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := service.AcceptHop(r.Context(), s.db, orgID, hopID, user.ID); err != nil {
-		log.Printf("accept hop failed: %v", err)
-		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not accept hop."), http.StatusSeeOther)
+	offererName := strings.TrimSpace(user.Username)
+	if offererName == "" {
+		offererName = user.Email
+	}
+
+	if err := service.OfferHopHelp(r.Context(), s.db, service.OfferHopParams{
+		OrganizationID: orgID,
+		HopID:          hopID,
+		OffererID:      user.ID,
+		OffererName:    offererName,
+	}); err != nil {
+		log.Printf("offer hop help failed: %v", err)
+		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not send offer."), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Hop accepted."), http.StatusSeeOther)
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Offer sent."), http.StatusSeeOther)
 }
 
 func (s *Server) handleCancelHop(w http.ResponseWriter, r *http.Request) {
@@ -1150,6 +1161,10 @@ func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Could not load message."), http.StatusSeeOther)
 		return
 	}
+	if original.MessageType == types.MessageTypeAction {
+		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Replies are not available for this message."), http.StatusSeeOther)
+		return
+	}
 	if original.SenderID == nil {
 		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Replies are not available for this message."), http.StatusSeeOther)
 		return
@@ -1181,6 +1196,49 @@ func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&success="+url.QueryEscape("Reply sent."), http.StatusSeeOther)
+}
+
+func (s *Server) handleMessageAction(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	messageID, _ := strconv.ParseInt(r.FormValue("message_id"), 10, 64)
+	action := strings.TrimSpace(r.FormValue("action"))
+	if messageID <= 0 || (action != "accept" && action != "decline") {
+		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Invalid message action."), http.StatusSeeOther)
+		return
+	}
+
+	responderName := strings.TrimSpace(user.Username)
+	if responderName == "" {
+		responderName = user.Email
+	}
+
+	var err error
+	switch action {
+	case "accept":
+		err = service.AcceptHopOfferMessage(r.Context(), s.db, messageID, user.ID, responderName, r.FormValue("body"))
+	case "decline":
+		err = service.DeclineHopOfferMessage(r.Context(), s.db, messageID, user.ID, responderName, r.FormValue("body"))
+	}
+	if err != nil {
+		log.Printf("message action failed: %v", err)
+		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Could not update message."), http.StatusSeeOther)
+		return
+	}
+
+	successMsg := "Offer declined."
+	if action == "accept" {
+		successMsg = "Offer accepted."
+	}
+	http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&success="+url.QueryEscape(successMsg), http.StatusSeeOther)
 }
 
 func orgIDInList(orgs []types.Organization, orgID int64) bool {

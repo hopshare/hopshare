@@ -32,6 +32,7 @@ var (
 	ErrHopInvalidState = errors.New("hop invalid state")
 
 	ErrMessageNotFound = errors.New("message not found")
+	ErrInvalidMessage  = errors.New("invalid message")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -868,9 +869,115 @@ func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) 
 		return err
 	}
 
+	res, err := db.ExecContext(ctx, `
+		UPDATE hops
+		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
+		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_by <> $2
+	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen)
+	if err != nil {
+		return fmt.Errorf("accept hop: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("accept hop rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrHopInvalidState
+	}
+	return nil
+}
+
+type OfferHopParams struct {
+	OrganizationID int64
+	HopID          int64
+	OffererID      int64
+	OffererName    string
+}
+
+func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if p.OrganizationID == 0 {
+		return ErrMissingOrgID
+	}
+	if p.HopID == 0 {
+		return ErrHopNotFound
+	}
+	if p.OffererID == 0 {
+		return ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, p.OrganizationID, p.OffererID); err != nil {
+		return err
+	}
+
+	var createdBy int64
+	var status string
+	var title string
+	var details sql.NullString
+	if err := db.QueryRowContext(ctx, `
+		SELECT created_by, status, title, details
+		FROM hops
+		WHERE id = $1 AND organization_id = $2
+	`, p.HopID, p.OrganizationID).Scan(&createdBy, &status, &title, &details); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrHopNotFound
+		}
+		return fmt.Errorf("load hop for offer: %w", err)
+	}
+	if status != types.HopStatusOpen {
+		return ErrHopInvalidState
+	}
+	if createdBy == p.OffererID {
+		return ErrHopForbidden
+	}
+
+	offererName := strings.TrimSpace(p.OffererName)
+	if offererName == "" {
+		return ErrMissingField
+	}
+
+	description := hopDescription(title, stringPtrFromNull(details))
+	body := fmt.Sprintf(
+		"Congratulations! %s has offered to help you with your Hop request! If you wish to accept their help, use the button below!\n\nHop request:\n%s",
+		offererName,
+		description,
+	)
+	senderID := p.OffererID
+	if err := SendMessage(ctx, db, SendMessageParams{
+		SenderID:    &senderID,
+		SenderName:  offererName,
+		RecipientID: createdBy,
+		MessageType: types.MessageTypeAction,
+		HopID:       &p.HopID,
+		Subject:     "Hop help offer",
+		Body:        body,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func AcceptHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64, responderName, responseBody string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if messageID == 0 {
+		return ErrMessageNotFound
+	}
+	if recipientID == 0 {
+		return ErrMissingMemberID
+	}
+	responderName = strings.TrimSpace(responderName)
+	if responderName == "" {
+		return ErrMissingField
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin accept hop: %w", err)
+		return fmt.Errorf("begin accept offer: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -878,35 +985,141 @@ func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) 
 		}
 	}()
 
+	offererID, hopID, err := loadPendingActionMessage(ctx, tx, messageID, recipientID)
+	if err != nil {
+		return err
+	}
+	if offererID == recipientID {
+		return ErrHopForbidden
+	}
+
+	var orgID int64
 	var createdBy int64
+	var status string
+	var title string
+	var details sql.NullString
 	if err = tx.QueryRowContext(ctx, `
+		SELECT organization_id, created_by, status, title, details
+		FROM hops
+		WHERE id = $1
+		FOR UPDATE
+	`, hopID).Scan(&orgID, &createdBy, &status, &title, &details); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrHopNotFound
+		}
+		return fmt.Errorf("load hop for accept offer: %w", err)
+	}
+	if createdBy != recipientID {
+		return ErrHopForbidden
+	}
+	if status != types.HopStatusOpen {
+		return ErrHopInvalidState
+	}
+
+	if err := requireActiveMembership(ctx, tx, orgID, recipientID); err != nil {
+		return err
+	}
+	if err := requireActiveMembership(ctx, tx, orgID, offererID); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(ctx, `
 		UPDATE hops
 		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
-		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_by <> $2
-		RETURNING created_by
-	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen).Scan(&createdBy); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrHopInvalidState
-		}
-		return fmt.Errorf("accept hop: %w", err)
+		WHERE id = $3 AND organization_id = $4
+	`, types.HopStatusAccepted, offererID, hopID, orgID); err != nil {
+		return fmt.Errorf("accept hop offer: %w", err)
 	}
 
-	var accepterName string
-	if err = tx.QueryRowContext(ctx, `
-		SELECT username
-		FROM members
-		WHERE id = $1
-	`, accepterID).Scan(&accepterName); err != nil {
-		return fmt.Errorf("load accepter name: %w", err)
+	now := time.Now().UTC()
+	if err = markActionMessage(ctx, tx, messageID, recipientID, types.MessageActionAccepted, now); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL AND id <> $6
+	`, types.MessageActionDeclined, now, recipientID, hopID, types.MessageTypeAction, messageID); err != nil {
+		return fmt.Errorf("decline other offers: %w", err)
 	}
 
-	messageBody := fmt.Sprintf("Congratulations! %s has offered to help you with your Hop request!", accepterName)
-	if err = insertMessage(ctx, tx, createdBy, &accepterID, accepterName, "Hop offer received", messageBody); err != nil {
+	description := hopDescription(title, stringPtrFromNull(details))
+	subject := "Accepted: " + truncateRunes(description, 100)
+	body := strings.TrimSpace(responseBody)
+	if body == "" {
+		body = fmt.Sprintf("Your offer to help with \"%s\" was accepted.", description)
+	}
+	senderID := recipientID
+	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit accept hop: %w", err)
+		return fmt.Errorf("commit accept offer: %w", err)
+	}
+	return nil
+}
+
+func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64, responderName, responseBody string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if messageID == 0 {
+		return ErrMessageNotFound
+	}
+	if recipientID == 0 {
+		return ErrMissingMemberID
+	}
+	responderName = strings.TrimSpace(responderName)
+	if responderName == "" {
+		return ErrMissingField
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin decline offer: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	offererID, hopID, err := loadPendingActionMessage(ctx, tx, messageID, recipientID)
+	if err != nil {
+		return err
+	}
+	if offererID == recipientID {
+		return ErrHopForbidden
+	}
+
+	if err = markActionMessage(ctx, tx, messageID, recipientID, types.MessageActionDeclined, time.Now().UTC()); err != nil {
+		return err
+	}
+
+	var title string
+	var details sql.NullString
+	if err = tx.QueryRowContext(ctx, `
+		SELECT title, details
+		FROM hops
+		WHERE id = $1
+	`, hopID).Scan(&title, &details); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("load hop title: %w", err)
+	}
+
+	description := hopDescription(title, stringPtrFromNull(details))
+	subject := "Declined: " + truncateRunes(description, 100)
+	body := strings.TrimSpace(responseBody)
+	if body == "" {
+		body = fmt.Sprintf("Your offer to help with \"%s\" was declined.", description)
+	}
+	senderID := recipientID
+	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit decline offer: %w", err)
 	}
 	return nil
 }
@@ -1360,6 +1573,8 @@ type SendMessageParams struct {
 	SenderID    *int64
 	SenderName  string
 	RecipientID int64
+	MessageType string
+	HopID       *int64
 	Subject     string
 	Body        string
 }
@@ -1376,6 +1591,20 @@ func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
 	body := strings.TrimSpace(p.Body)
 	if subject == "" || body == "" {
 		return ErrMissingField
+	}
+
+	messageType := strings.TrimSpace(p.MessageType)
+	if messageType == "" {
+		messageType = types.MessageTypeInformation
+	}
+	switch messageType {
+	case types.MessageTypeInformation:
+	case types.MessageTypeAction:
+		if p.HopID == nil || *p.HopID == 0 {
+			return ErrMissingField
+		}
+	default:
+		return ErrInvalidMessage
 	}
 
 	senderName := strings.TrimSpace(p.SenderName)
@@ -1396,7 +1625,7 @@ func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
 		return ErrMissingField
 	}
 
-	if err := insertMessage(ctx, db, p.RecipientID, p.SenderID, senderName, subject, body); err != nil {
+	if err := insertMessage(ctx, db, p.RecipientID, p.SenderID, senderName, messageType, p.HopID, nil, nil, subject, body); err != nil {
 		return err
 	}
 	return nil
@@ -1411,7 +1640,7 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, sender_member_id, sender_name, subject, read_at, created_at
+		SELECT id, sender_member_id, sender_name, message_type, hop_id, action_status, action_taken_at, subject, read_at, created_at
 		FROM messages
 		WHERE recipient_member_id = $1
 		ORDER BY created_at DESC
@@ -1425,13 +1654,36 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 	for rows.Next() {
 		var msg types.Message
 		var senderID sql.NullInt64
+		var hopID sql.NullInt64
+		var actionStatus sql.NullString
+		var actionTakenAt sql.NullTime
 		var readAt sql.NullTime
-		if err := rows.Scan(&msg.ID, &senderID, &msg.SenderName, &msg.Subject, &readAt, &msg.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&msg.ID,
+			&senderID,
+			&msg.SenderName,
+			&msg.MessageType,
+			&hopID,
+			&actionStatus,
+			&actionTakenAt,
+			&msg.Subject,
+			&readAt,
+			&msg.CreatedAt,
+		); err != nil {
 			return nil, fmt.Errorf("scan message: %w", err)
 		}
 		msg.RecipientID = recipientID
 		if senderID.Valid {
 			msg.SenderID = &senderID.Int64
+		}
+		if hopID.Valid {
+			msg.HopID = &hopID.Int64
+		}
+		if actionStatus.Valid {
+			msg.ActionStatus = &actionStatus.String
+		}
+		if actionTakenAt.Valid {
+			msg.ActionTakenAt = &actionTakenAt.Time
 		}
 		if readAt.Valid {
 			msg.ReadAt = &readAt.Time
@@ -1456,19 +1708,26 @@ func GetMessageForMember(ctx context.Context, db *sql.DB, messageID, recipientID
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, recipient_member_id, sender_member_id, sender_name, subject, body, read_at, created_at
+		SELECT id, recipient_member_id, sender_member_id, sender_name, message_type, hop_id, action_status, action_taken_at, subject, body, read_at, created_at
 		FROM messages
 		WHERE id = $1 AND recipient_member_id = $2
 	`, messageID, recipientID)
 
 	var msg types.Message
 	var senderID sql.NullInt64
+	var hopID sql.NullInt64
+	var actionStatus sql.NullString
+	var actionTakenAt sql.NullTime
 	var readAt sql.NullTime
 	if err := row.Scan(
 		&msg.ID,
 		&msg.RecipientID,
 		&senderID,
 		&msg.SenderName,
+		&msg.MessageType,
+		&hopID,
+		&actionStatus,
+		&actionTakenAt,
 		&msg.Subject,
 		&msg.Body,
 		&readAt,
@@ -1481,6 +1740,15 @@ func GetMessageForMember(ctx context.Context, db *sql.DB, messageID, recipientID
 	}
 	if senderID.Valid {
 		msg.SenderID = &senderID.Int64
+	}
+	if hopID.Valid {
+		msg.HopID = &hopID.Int64
+	}
+	if actionStatus.Valid {
+		msg.ActionStatus = &actionStatus.String
+	}
+	if actionTakenAt.Valid {
+		msg.ActionTakenAt = &actionTakenAt.Time
 	}
 	if readAt.Valid {
 		msg.ReadAt = &readAt.Time
@@ -1537,6 +1805,56 @@ func DeleteMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64
 	return nil
 }
 
+func loadPendingActionMessage(ctx context.Context, q queryer, messageID, recipientID int64) (int64, int64, error) {
+	row := q.QueryRowContext(ctx, `
+		SELECT sender_member_id, hop_id, message_type, action_status
+		FROM messages
+		WHERE id = $1 AND recipient_member_id = $2
+		FOR UPDATE
+	`, messageID, recipientID)
+
+	var senderID sql.NullInt64
+	var hopID sql.NullInt64
+	var messageType string
+	var actionStatus sql.NullString
+	if err := row.Scan(&senderID, &hopID, &messageType, &actionStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, ErrMessageNotFound
+		}
+		return 0, 0, fmt.Errorf("load action message: %w", err)
+	}
+	if messageType != types.MessageTypeAction || !senderID.Valid || !hopID.Valid {
+		return 0, 0, ErrInvalidMessage
+	}
+	if actionStatus.Valid {
+		return 0, 0, ErrInvalidMessage
+	}
+	return senderID.Int64, hopID.Int64, nil
+}
+
+func markActionMessage(ctx context.Context, e execer, messageID, recipientID int64, status string, now time.Time) error {
+	if status != types.MessageActionAccepted && status != types.MessageActionDeclined {
+		return ErrInvalidMessage
+	}
+
+	res, err := e.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE id = $3 AND recipient_member_id = $4 AND message_type = $5 AND action_status IS NULL
+	`, status, now, messageID, recipientID, types.MessageTypeAction)
+	if err != nil {
+		return fmt.Errorf("update action message: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update action message rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrInvalidMessage
+	}
+	return nil
+}
+
 func UnreadMessageCount(ctx context.Context, db *sql.DB, recipientID int64) (int, error) {
 	if db == nil {
 		return 0, ErrNilDB
@@ -1556,9 +1874,9 @@ func UnreadMessageCount(ctx context.Context, db *sql.DB, recipientID int64) (int
 	return count, nil
 }
 
-func requireActiveMembership(ctx context.Context, db *sql.DB, orgID, memberID int64) error {
+func requireActiveMembership(ctx context.Context, q queryer, orgID, memberID int64) error {
 	var exists bool
-	if err := db.QueryRowContext(ctx, `
+	if err := q.QueryRowContext(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM organization_memberships
 			WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
@@ -1598,6 +1916,10 @@ type execer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
 
+type queryer interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
 func nullableInt64(id *int64) interface{} {
 	if id == nil || *id == 0 {
 		return nil
@@ -1605,11 +1927,77 @@ func nullableInt64(id *int64) interface{} {
 	return *id
 }
 
-func insertMessage(ctx context.Context, e execer, recipientID int64, senderID *int64, senderName, subject, body string) error {
+func nullableStringPtr(v *string) interface{} {
+	if v == nil {
+		return nil
+	}
+	if strings.TrimSpace(*v) == "" {
+		return nil
+	}
+	return *v
+}
+
+func nullableTimePtr(t *time.Time) interface{} {
+	if t == nil {
+		return nil
+	}
+	return *t
+}
+
+func stringPtrFromNull(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	v := strings.TrimSpace(ns.String)
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+
+func hopDescription(title string, details *string) string {
+	desc := strings.TrimSpace(title)
+	if details != nil {
+		detailsValue := strings.TrimSpace(*details)
+		if detailsValue != "" {
+			if desc != "" {
+				desc = desc + ": " + detailsValue
+			} else {
+				desc = detailsValue
+			}
+		}
+	}
+	if desc == "" {
+		desc = "Hop request"
+	}
+	return desc
+}
+
+func truncateRunes(s string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= limit {
+		return s
+	}
+	return string(runes[:limit])
+}
+
+func insertMessage(ctx context.Context, e execer, recipientID int64, senderID *int64, senderName, messageType string, hopID *int64, actionStatus *string, actionTakenAt *time.Time, subject, body string) error {
 	if _, err := e.ExecContext(ctx, `
-		INSERT INTO messages (recipient_member_id, sender_member_id, sender_name, subject, body)
-		VALUES ($1, $2, $3, $4, $5)
-	`, recipientID, nullableInt64(senderID), senderName, subject, body); err != nil {
+		INSERT INTO messages (
+			recipient_member_id,
+			sender_member_id,
+			sender_name,
+			message_type,
+			hop_id,
+			action_status,
+			action_taken_at,
+			subject,
+			body
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, recipientID, nullableInt64(senderID), senderName, messageType, nullableInt64(hopID), nullableStringPtr(actionStatus), nullableTimePtr(actionTakenAt), subject, body); err != nil {
 		return fmt.Errorf("send message: %w", err)
 	}
 	return nil

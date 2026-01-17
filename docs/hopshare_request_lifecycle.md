@@ -13,15 +13,21 @@ Members create Hops in order to ask for help from other Members. Because people 
 
 Once created, a Hop is publicly available within the Organization for any Member to view. Hopshare will attempt to match Members who might be qualified or interested in helping (see below). At this point, the Hop can potentially be in one of six states:
 
-* Created: the Member who needs help has submitted the Hop to the Organization.
-    * Accepted: another Member has indicated they would like to fulfil the Hop.
-      * Expired: the timeframe for the hop has passed.
-      * Completed: the hop has been fulfilled. This is a terminal state.
-    * Interested: another Member has indicated they are interested in helping but want additional information.
-      * Canceled
-      * Expired
-* Canceled: the Member who needs help has withdrawn the Hop. This is a terminal state.
-* Expired: the timeframe for the hop has passed and it is no longer relevant. This is a terminal state.
+* Open: the Member who needs help has submitted the Hop to the Organization. One or more Members can indicate they are interested in helping. This creates a notification to the Member who raised the Hop request. That user can then choose which Member they want to have fulfil the Hop request.
+  * Accepted: The Member requesting the Hop has indicated which Member they would like to fulfil the Hop.
+    * Expired: the timeframe for the hop has passed.
+    * Completed: the hop has been fulfilled. This is a terminal state.
+  * Canceled: the Member who needs help has withdrawn the Hop. This is a terminal state.
+  * Expired: the timeframe for the hop has passed and it is no longer relevant. This is a terminal state.
+  * Completed: the hop has been fulfilled. This is a terminal state.
+
+  Open ---------> Accepted -----+
+   |                            |
+   +------------> Canceled <----+ 
+   |                            |
+   +------------> Completed <---+
+   |
+   +------------> Expired
 
 
 ## Fulfilling Hops and Member Communication

@@ -23,6 +23,16 @@ const (
 	HopNeededByNoLaterThan = "no_later_than"
 )
 
+const (
+	MessageTypeInformation = "information"
+	MessageTypeAction      = "action"
+)
+
+const (
+	MessageActionAccepted = "accepted"
+	MessageActionDeclined = "declined"
+)
+
 // Member represents a row in the members table.
 type Member struct {
 	ID                     int64
@@ -109,14 +119,18 @@ type Hop struct {
 
 // Message represents a single inbox message.
 type Message struct {
-	ID          int64
-	RecipientID int64
-	SenderID    *int64
-	SenderName  string
-	Subject     string
-	Body        string
-	ReadAt      *time.Time
-	CreatedAt   time.Time
+	ID            int64
+	RecipientID   int64
+	SenderID      *int64
+	SenderName    string
+	MessageType   string
+	HopID         *int64
+	ActionStatus  *string
+	ActionTakenAt *time.Time
+	Subject       string
+	Body          string
+	ReadAt        *time.Time
+	CreatedAt     time.Time
 }
 
 type OrgHopMetrics struct {

@@ -1341,7 +1341,7 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if hop.Status == types.HopStatusOpen {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<form method=\"POST\" action=\"/hops/accept\"><input type=\"hidden\" name=\"org_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<form method=\"POST\" action=\"/hops/offer\"><input type=\"hidden\" name=\"org_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1367,7 +1367,7 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\"> <button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition\" type=\"submit\">Offer help</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "\"> <button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition\" type=\"submit\">Offer to help</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

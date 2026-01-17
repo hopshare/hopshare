@@ -47,29 +47,57 @@ templ MessagesBody(
 				} else {
 					for _, msg := range messages {
 						if msg.ReadAt == nil {
-							<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900">
-								<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
-								<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-								<div class="flex items-center justify-between gap-3 min-w-0">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-									<form method="POST" action="/messages/delete" class="shrink-0">
-										<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-										<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-									</form>
+							if selected != nil && selected.ID == msg.ID {
+								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900 bg-sky-50">
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+									<div class="flex items-center justify-between gap-3 min-w-0">
+										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+										<form method="POST" action="/messages/delete" class="shrink-0">
+											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+										</form>
+									</div>
 								</div>
-							</div>
+							} else {
+								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900">
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+									<div class="flex items-center justify-between gap-3 min-w-0">
+										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+										<form method="POST" action="/messages/delete" class="shrink-0">
+											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+										</form>
+									</div>
+								</div>
+							}
 						} else {
-							<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700">
-								<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
-								<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-								<div class="flex items-center justify-between gap-3 min-w-0">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-									<form method="POST" action="/messages/delete" class="shrink-0">
-										<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-										<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-									</form>
+							if selected != nil && selected.ID == msg.ID {
+								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700 bg-sky-50">
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+									<div class="flex items-center justify-between gap-3 min-w-0">
+										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+										<form method="POST" action="/messages/delete" class="shrink-0">
+											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+										</form>
+									</div>
 								</div>
-							</div>
+							} else {
+								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700">
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+									<div class="flex items-center justify-between gap-3 min-w-0">
+										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+										<form method="POST" action="/messages/delete" class="shrink-0">
+											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+										</form>
+									</div>
+								</div>
+							}
 						}
 					}
 				}
@@ -85,7 +113,7 @@ templ MessagesBody(
 					<span class="font-semibold text-slate-800">From:</span>
 					{ " " + selected.SenderName }
 					<span class="ml-3 font-semibold text-slate-800">Sent:</span>
-					{ " " + selected.CreatedAt.Format("Jan 2, 2006") }
+					{ " " + selected.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
 				</div>
 				<div class="text-sm text-slate-600">
 					<span class="font-semibold text-slate-800">Subject:</span>
@@ -99,6 +127,25 @@ templ MessagesBody(
 			<h2 class="text-lg font-semibold text-slate-900">Reply</h2>
 			if selected == nil {
 				<p class="text-slate-600">Choose a message above to reply.</p>
+			} else if selected.MessageType == types.MessageTypeAction {
+				if selected.ActionStatus == nil {
+					<form method="POST" action="/messages/action" class="space-y-3">
+						<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
+						<textarea
+							name="body"
+							class="w-full min-h-[160px] rounded-lg border border-slate-300 p-3 text-sm text-slate-900"
+							placeholder="Type your response here..."
+						></textarea>
+						<div class="flex flex-wrap justify-end gap-3">
+							<button class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="submit" name="action" value="decline">Decline</button>
+							<button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" type="submit" name="action" value="accept">Accept</button>
+						</div>
+					</form>
+				} else if *selected.ActionStatus == types.MessageActionAccepted {
+					<p class="text-slate-600">You accepted this offer.</p>
+				} else {
+					<p class="text-slate-600">You declined this offer.</p>
+				}
 			} else if selected.SenderID == nil {
 				<p class="text-slate-600">Replies are not available for this message.</p>
 			} else {

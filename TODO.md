@@ -13,9 +13,8 @@
 
 ## Now
 
-* Remember the last Organization I was in (set current organization in User table?)
-* Add a new state- confirmation of help- after an offer to help. What if multiple users offer to help? Accepted requests need to be confirmed by the person raising the request. Or time out.
 * Also- ask for more details- before Accepting? Like FB Marketplace.
+* Remember the last Organization I was in (set current organization in User table?)
 * Refactor service.go into separate files by concept- orgs/members, hops, messages
 * Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout
     * Create a user Profile page where users can change password, upload photo, manage Skills, etc...
@@ -30,7 +29,6 @@
 
 ## Later
 
-* We should add some mocked email service- or an in-app messaging facility so that Members can communicate around a Request.
 * Add ability to add comments to a completed Request.
 * Create a 'celebration' page for the Organization?
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
@@ -38,4 +36,5 @@
 ## Bugs
 
 * An Organization Owner can request membership in their own Organization- this should be prevented
+* "Your Activity" should fetch new every time it opens- otherwise you get stale Hop statuses.
 
