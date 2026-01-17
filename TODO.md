@@ -14,11 +14,16 @@
 
 ## Bugs
 
+* Login should take username. Usernames should be unique at the service level- do not take email address.
 * You can offer to help the same Hop multiple times
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Hop Filters say "Created" instead of "Pending" in Your Hops page
 * Double check all the messaging on the MyHopShare dashboard- not sure they are correct as Hours numbers change
+* Sign Up Page
+    * "Send Request" button enabled before you choose a preferred contact (which is required)
+    * "Send Request" button should be "Sign Up"
+* Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 
 
 ## Now

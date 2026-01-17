@@ -23,7 +23,10 @@ templ MyProfileBody(member types.Member, successMsg string, errorMsg string) {
 		}
 
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-			<h1 class="text-2xl font-bold text-slate-900">My Profile</h1>
+			<div>
+				<h1 class="text-2xl font-bold text-slate-900">My Profile</h1>
+				<p class="text-sm text-slate-600">{ member.FirstName } { member.LastName }</p>
+			</div>
 			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
 		</div>
 
@@ -56,6 +59,30 @@ templ MyProfileBody(member types.Member, successMsg string, errorMsg string) {
 					}"
 				>
 					<input type="hidden" name="action" value="profile" />
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="first_name">First name</label>
+							<input
+								class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+								type="text"
+								id="first_name"
+								name="first_name"
+								required
+								value={ member.FirstName }
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="last_name">Last name</label>
+							<input
+								class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+								type="text"
+								id="last_name"
+								name="last_name"
+								required
+								value={ member.LastName }
+							/>
+						</div>
+					</div>
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="email">Email address</label>
 						<input
@@ -65,6 +92,17 @@ templ MyProfileBody(member types.Member, successMsg string, errorMsg string) {
 							name="email"
 							required
 							value={ member.Email }
+						/>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="username">Username</label>
+						<input
+							class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-slate-600"
+							type="text"
+							id="username"
+							name="username"
+							readonly
+							value={ member.Username }
 						/>
 					</div>
 					<div class="space-y-1">

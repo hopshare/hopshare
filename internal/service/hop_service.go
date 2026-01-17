@@ -579,11 +579,11 @@ func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop,
 
 	row := db.QueryRowContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, mc.username,
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
 			r.title, r.details, r.estimated_hours,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, ma.username, r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -619,11 +619,11 @@ func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, mc.username,
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
 			r.title, r.details, r.estimated_hours,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, ma.username, r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -680,11 +680,11 @@ func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, mc.username,
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
 			r.title, r.details, r.estimated_hours,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, ma.username, r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -730,11 +730,11 @@ func RecentCompletedHops(ctx context.Context, db *sql.DB, orgID int64, limit int
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, mc.username,
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
 			r.title, r.details, r.estimated_hours,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, ma.username, r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at

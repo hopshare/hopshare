@@ -55,13 +55,17 @@ func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
 			return ErrMissingMemberID
 		}
 		if senderName == "" {
+			var firstName string
+			var lastName string
+			var username string
 			if err := db.QueryRowContext(ctx, `
-				SELECT username
+				SELECT first_name, last_name, username
 				FROM members
 				WHERE id = $1
-			`, *p.SenderID).Scan(&senderName); err != nil {
+			`, *p.SenderID).Scan(&firstName, &lastName, &username); err != nil {
 				return fmt.Errorf("load sender name: %w", err)
 			}
+			senderName = memberDisplayName(firstName, lastName, username)
 		}
 	} else if senderName == "" {
 		return ErrMissingField
@@ -217,6 +221,15 @@ func MarkMessageRead(ctx context.Context, db *sql.DB, messageID, recipientID int
 		return fmt.Errorf("mark message read: %w", err)
 	}
 	return nil
+}
+
+func memberDisplayName(firstName, lastName, fallback string) string {
+	full := strings.TrimSpace(strings.TrimSpace(firstName) + " " + strings.TrimSpace(lastName))
+	if full != "" {
+		return full
+	}
+	fallback = strings.TrimSpace(fallback)
+	return fallback
 }
 
 func DeleteMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64) error {

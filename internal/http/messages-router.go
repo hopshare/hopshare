@@ -157,10 +157,7 @@ func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	senderName := strings.TrimSpace(user.Username)
-	if senderName == "" {
-		senderName = user.Email
-	}
+	senderName := memberDisplayName(user)
 
 	senderID := user.ID
 	subject := "Re: " + original.Subject
@@ -197,10 +194,7 @@ func (s *Server) handleMessageAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responderName := strings.TrimSpace(user.Username)
-	if responderName == "" {
-		responderName = user.Email
-	}
+	responderName := memberDisplayName(user)
 
 	var err error
 	switch action {

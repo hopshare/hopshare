@@ -68,6 +68,8 @@ func TestCreateMember(t *testing.T) {
 	email := fmt.Sprintf("%s@example.com", username)
 
 	input := types.Member{
+		FirstName:              "Test",
+		LastName:               "Member",
 		Username:               username,
 		Email:                  email,
 		PasswordHash:           "hashed_password",
@@ -85,7 +87,7 @@ func TestCreateMember(t *testing.T) {
 	if member.ID == 0 {
 		t.Fatalf("expected member ID to be set")
 	}
-	if member.Username != input.Username || member.Email != input.Email || member.PasswordHash != input.PasswordHash {
+	if member.FirstName != input.FirstName || member.LastName != input.LastName || member.Username != input.Username || member.Email != input.Email || member.PasswordHash != input.PasswordHash {
 		t.Fatalf("returned member does not match input")
 	}
 	if member.CreatedAt.IsZero() || member.UpdatedAt.IsZero() {
@@ -103,6 +105,8 @@ func TestCreateOrganization(t *testing.T) {
 	memberEmail := fmt.Sprintf("%s@example.com", base)
 
 	memberInput := types.Member{
+		FirstName:              "Owner",
+		LastName:               "Member",
 		Username:               base,
 		Email:                  memberEmail,
 		PasswordHash:           "hashed_password",

@@ -14,7 +14,7 @@ const (
 
 templ MyhopShare(
 	email string,
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -30,7 +30,7 @@ templ MyhopShare(
 ) {
 	@Base("hopShare | My hopShare", &email, MyhopShareBody(
 		email,
-		username,
+		displayName,
 		lastLoginLabel,
 		orgs,
 		currentOrgID,
@@ -48,7 +48,7 @@ templ MyhopShare(
 
 templ MyhopShareBody(
 	email string,
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -74,7 +74,7 @@ templ MyhopShareBody(
 			@MyhopShareNoOrganizations(hasPrimary)
 		} else {
 			@MyhopShareDashboard(
-				username,
+				displayName,
 				lastLoginLabel,
 				orgs,
 				currentOrgID,
@@ -116,7 +116,7 @@ templ MyhopShareNoOrganizations(hasPrimary bool) {
 }
 
 templ MyhopShareDashboard(
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -150,7 +150,7 @@ templ MyhopShareDashboard(
 		<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<div class="space-y-6">
 				<section class="rounded-2xl bg-sky-100 p-8">
-					<h1 class="text-3xl font-bold text-slate-900">Welcome, { username }!</h1>
+				<h1 class="text-3xl font-bold text-slate-900">Welcome, { displayName }!</h1>
 					<p class="mt-3 text-slate-700">
 						Last login: { lastLoginLabel }
 					</p>

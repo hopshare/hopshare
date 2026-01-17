@@ -47,6 +47,8 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		action := strings.TrimSpace(r.FormValue("action"))
 		switch action {
 		case "profile":
+			firstName := strings.TrimSpace(r.FormValue("first_name"))
+			lastName := strings.TrimSpace(r.FormValue("last_name"))
 			email := strings.TrimSpace(r.FormValue("email"))
 			preferredContactMethod := strings.TrimSpace(r.FormValue("preferred_contact_method"))
 			preferredContact := strings.TrimSpace(r.FormValue("preferred_contact"))
@@ -59,11 +61,11 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := service.UpdateMemberProfile(r.Context(), s.db, user.ID, email, preferredContactMethod, preferredContact, city, state); err != nil {
+			if err := service.UpdateMemberProfile(r.Context(), s.db, user.ID, firstName, lastName, email, preferredContactMethod, preferredContact, city, state); err != nil {
 				msg := "Could not update profile."
 				switch {
 				case errors.Is(err, service.ErrMissingField):
-					msg = "Email, contact method, and preferred contact are required."
+					msg = "Name, email, contact method, and preferred contact are required."
 				case errors.Is(err, service.ErrInvalidContactMethod):
 					msg = "Please choose a preferred contact method."
 				}
@@ -141,7 +143,7 @@ func (s *Server) handleMemberAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	initial := avatarInitial(user.Username)
+	initial := avatarInitial(memberDisplayName(user))
 	if initial == "" {
 		initial = avatarInitial(user.Email)
 	}

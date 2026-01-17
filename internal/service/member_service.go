@@ -24,6 +24,8 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 
 	stmt := `
 		INSERT INTO members (
+			first_name,
+			last_name,
 			username,
 			email,
 			password_hash,
@@ -35,12 +37,14 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 			interests,
 			enabled,
 			verified
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING id, created_at, updated_at`
 
 	row := db.QueryRowContext(
 		ctx,
 		stmt,
+		m.FirstName,
+		m.LastName,
 		m.Username,
 		m.Email,
 		m.PasswordHash,
@@ -62,7 +66,7 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 }
 
 func validateMemberInput(m types.Member) error {
-	if m.Username == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContactMethod == "" || m.PreferredContact == "" {
+	if m.FirstName == "" || m.LastName == "" || m.Username == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContactMethod == "" || m.PreferredContact == "" {
 		return ErrMissingField
 	}
 
@@ -113,6 +117,8 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 
 	row := db.QueryRowContext(ctx, `
 		SELECT id,
+			first_name,
+			last_name,
 			username,
 			email,
 			password_hash,
@@ -140,6 +146,8 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	var hasAvatar bool
 	if err := row.Scan(
 		&m.ID,
+		&m.FirstName,
+		&m.LastName,
 		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
@@ -183,6 +191,8 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 
 	row := db.QueryRowContext(ctx, `
 		SELECT id,
+			first_name,
+			last_name,
 			username,
 			email,
 			password_hash,
@@ -210,6 +220,8 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	var hasAvatar bool
 	if err := row.Scan(
 		&m.ID,
+		&m.FirstName,
+		&m.LastName,
 		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
@@ -330,21 +342,60 @@ func UpdateMemberCurrentOrganization(ctx context.Context, db *sql.DB, memberID, 
 	return nil
 }
 
+// EnsureUniqueUsername returns an available username based on the provided base.
+func EnsureUniqueUsername(ctx context.Context, db *sql.DB, base string) (string, error) {
+	if db == nil {
+		return "", ErrNilDB
+	}
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "user"
+	}
+
+	for i := 0; i < 1000; i++ {
+		candidate := base
+		if i > 0 {
+			candidate = fmt.Sprintf("%s_%d", base, i)
+		}
+		exists, err := usernameExists(ctx, db, candidate)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+
+	return "", fmt.Errorf("no available username for base %q", base)
+}
+
+func usernameExists(ctx context.Context, db *sql.DB, username string) (bool, error) {
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM members WHERE username = $1)
+	`, username).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check username: %w", err)
+	}
+	return exists, nil
+}
+
 // UpdateMemberProfile updates a member's profile details.
-func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, email, preferredContactMethod, preferredContact, city, state string) error {
+func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstName, lastName, email, preferredContactMethod, preferredContact, city, state string) error {
 	if db == nil {
 		return ErrNilDB
 	}
 	if memberID == 0 {
 		return ErrMissingMemberID
 	}
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
 	email = strings.TrimSpace(email)
 	preferredContactMethod = strings.TrimSpace(preferredContactMethod)
 	preferredContact = strings.TrimSpace(preferredContact)
 	city = strings.TrimSpace(city)
 	state = strings.TrimSpace(state)
 
-	if email == "" || preferredContactMethod == "" || preferredContact == "" {
+	if firstName == "" || lastName == "" || email == "" || preferredContactMethod == "" || preferredContact == "" {
 		return ErrMissingField
 	}
 	switch preferredContactMethod {
@@ -355,14 +406,16 @@ func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, email,
 
 	res, err := db.ExecContext(ctx, `
 		UPDATE members
-		SET email = $1,
-			preferred_contact_method = $2,
-			preferred_contact = $3,
-			city = $4,
-			state = $5,
+		SET first_name = $1,
+			last_name = $2,
+			email = $3,
+			preferred_contact_method = $4,
+			preferred_contact = $5,
+			city = $6,
+			state = $7,
 			updated_at = NOW()
-		WHERE id = $6
-	`, email, preferredContactMethod, preferredContact, nullableMemberString(city), nullableMemberString(state), memberID)
+		WHERE id = $8
+	`, firstName, lastName, email, preferredContactMethod, preferredContact, nullableMemberString(city), nullableMemberString(state), memberID)
 	if err != nil {
 		return fmt.Errorf("update member profile: %w", err)
 	}

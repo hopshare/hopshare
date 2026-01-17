@@ -22,7 +22,7 @@ const (
 
 func MyhopShare(
 	email string,
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -58,7 +58,7 @@ func MyhopShare(
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = Base("hopShare | My hopShare", &email, MyhopShareBody(
 			email,
-			username,
+			displayName,
 			lastLoginLabel,
 			orgs,
 			currentOrgID,
@@ -81,7 +81,7 @@ func MyhopShare(
 
 func MyhopShareBody(
 	email string,
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -164,7 +164,7 @@ func MyhopShareBody(
 			}
 		} else {
 			templ_7745c5c3_Err = MyhopShareDashboard(
-				username,
+				displayName,
 				lastLoginLabel,
 				orgs,
 				currentOrgID,
@@ -233,7 +233,7 @@ func MyhopShareNoOrganizations(hasPrimary bool) templ.Component {
 }
 
 func MyhopShareDashboard(
-	username string,
+	displayName string,
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
@@ -270,9 +270,9 @@ func MyhopShareDashboard(
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(username)
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(displayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 153, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 153, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {

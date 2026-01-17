@@ -167,10 +167,7 @@ func (s *Server) handleOfferHop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	offererName := strings.TrimSpace(user.Username)
-	if offererName == "" {
-		offererName = user.Email
-	}
+	offererName := memberDisplayName(user)
 
 	if err := service.OfferHopHelp(r.Context(), s.db, service.OfferHopParams{
 		OrganizationID: orgID,

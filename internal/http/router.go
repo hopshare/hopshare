@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/lib/pq"
 
 	"hopshare/internal/auth"
 	"hopshare/internal/service"
@@ -146,7 +147,8 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		name := strings.TrimSpace(r.FormValue("name"))
+		firstName := strings.TrimSpace(r.FormValue("first_name"))
+		lastName := strings.TrimSpace(r.FormValue("last_name"))
 		email := strings.TrimSpace(r.FormValue("email"))
 		password := r.FormValue("password")
 		preferredContactMethod := strings.TrimSpace(r.FormValue("preferred_contact_method"))
@@ -154,6 +156,10 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		state := strings.TrimSpace(r.FormValue("state"))
 		interests := strings.TrimSpace(r.FormValue("interests"))
 
+		if firstName == "" || lastName == "" {
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please enter your first and last name."))
+			return
+		}
 		if preferredContactMethod != types.ContactMethodEmail && preferredContactMethod != types.ContactMethodPhone && preferredContactMethod != types.ContactMethodOther {
 			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please choose a preferred contact method."))
 			return
@@ -173,27 +179,48 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		member := types.Member{
-			Username:               deriveUsername(name, email),
-			Email:                  email,
-			PasswordHash:           passwordHash,
-			PreferredContactMethod: preferredContactMethod,
-			PreferredContact:       email,
-			City:                   strPtr(city),
-			State:                  strPtr(state),
-			Interests:              strPtr(interests),
-			Enabled:                true,
-			Verified:               false,
-		}
+		baseUsername := deriveUsername(strings.TrimSpace(firstName+" "+lastName), email)
+		var created types.Member
+		var username string
+		var createErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			username, err = service.EnsureUniqueUsername(r.Context(), s.db, baseUsername)
+			if err != nil {
+				log.Printf("generate username failed: %v", err)
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+				return
+			}
 
-		created, err := service.CreateMember(r.Context(), s.db, member)
-		if err != nil {
-			log.Printf("create member failed: %v", err)
+			member := types.Member{
+				FirstName:              firstName,
+				LastName:               lastName,
+				Username:               username,
+				Email:                  email,
+				PasswordHash:           passwordHash,
+				PreferredContactMethod: preferredContactMethod,
+				PreferredContact:       email,
+				City:                   strPtr(city),
+				State:                  strPtr(state),
+				Interests:              strPtr(interests),
+				Enabled:                true,
+				Verified:               false,
+			}
+
+			created, createErr = service.CreateMember(r.Context(), s.db, member)
+			if createErr == nil {
+				break
+			}
+			if !isUniqueViolation(createErr, "members_username_key") {
+				break
+			}
+		}
+		if createErr != nil {
+			log.Printf("create member failed: %v", createErr)
 			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
 			return
 		}
 
-		log.Printf("signup request: name=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", name, email, preferredContactMethod, city, state, interests, created.ID)
+		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", firstName, lastName, username, email, preferredContactMethod, city, state, interests, created.ID)
 		http.Redirect(w, r, "/signup-success", http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -349,10 +376,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
-	displayName := strings.TrimSpace(user.Username)
-	if displayName == "" {
-		displayName = user.Email
-	}
+	displayName := memberDisplayName(user)
 	lastLoginLabel := "First login"
 	if user.LastLoginAt != nil {
 		lastLoginLabel = user.LastLoginAt.Format("January 2, 2006")
@@ -572,6 +596,34 @@ func currentUserFromContext(ctx context.Context) *types.Member {
 		return u
 	}
 	return nil
+}
+
+func memberDisplayName(member *types.Member) string {
+	if member == nil {
+		return ""
+	}
+	full := strings.TrimSpace(strings.TrimSpace(member.FirstName) + " " + strings.TrimSpace(member.LastName))
+	if full != "" {
+		return full
+	}
+	if member.Username != "" {
+		return member.Username
+	}
+	return member.Email
+}
+
+func isUniqueViolation(err error, constraint string) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+	if pqErr.Code != "23505" {
+		return false
+	}
+	if constraint == "" {
+		return true
+	}
+	return pqErr.Constraint == constraint
 }
 
 func deriveUsername(name, email string) string {

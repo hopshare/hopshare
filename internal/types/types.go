@@ -41,6 +41,8 @@ const (
 // Member represents a row in the members table.
 type Member struct {
 	ID                     int64
+	FirstName              string
+	LastName               string
 	Username               string
 	Email                  string
 	PasswordHash           string
