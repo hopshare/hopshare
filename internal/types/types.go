@@ -47,6 +47,8 @@ type Member struct {
 	PreferredContactMethod string
 	PreferredContact       string
 	ProfilePictureURL      *string
+	AvatarContentType      *string
+	HasAvatar              bool
 	City                   *string
 	State                  *string
 	Interests              *string

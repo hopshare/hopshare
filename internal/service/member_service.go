@@ -112,13 +112,32 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, current_organization, enabled, verified, last_login_at, created_at, updated_at
+		SELECT id,
+			username,
+			email,
+			password_hash,
+			preferred_contact_method,
+			preferred_contact,
+			profile_picture_url,
+			avatar_content_type,
+			(avatar_data IS NOT NULL),
+			city,
+			state,
+			interests,
+			current_organization,
+			enabled,
+			verified,
+			last_login_at,
+			created_at,
+			updated_at
 		FROM members
 		WHERE id = $1
 	`, memberID)
 
 	var m types.Member
 	var currentOrg sql.NullInt64
+	var avatarContentType sql.NullString
+	var hasAvatar bool
 	if err := row.Scan(
 		&m.ID,
 		&m.Username,
@@ -127,6 +146,8 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.PreferredContactMethod,
 		&m.PreferredContact,
 		&m.ProfilePictureURL,
+		&avatarContentType,
+		&hasAvatar,
 		&m.City,
 		&m.State,
 		&m.Interests,
@@ -142,6 +163,10 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	if currentOrg.Valid {
 		m.CurrentOrganization = &currentOrg.Int64
 	}
+	if avatarContentType.Valid {
+		m.AvatarContentType = &avatarContentType.String
+	}
+	m.HasAvatar = hasAvatar
 
 	return m, nil
 }
@@ -157,13 +182,32 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, current_organization, enabled, verified, last_login_at, created_at, updated_at
+		SELECT id,
+			username,
+			email,
+			password_hash,
+			preferred_contact_method,
+			preferred_contact,
+			profile_picture_url,
+			avatar_content_type,
+			(avatar_data IS NOT NULL),
+			city,
+			state,
+			interests,
+			current_organization,
+			enabled,
+			verified,
+			last_login_at,
+			created_at,
+			updated_at
 		FROM members
 		WHERE LOWER(email) = LOWER($1)
 	`, email)
 
 	var m types.Member
 	var currentOrg sql.NullInt64
+	var avatarContentType sql.NullString
+	var hasAvatar bool
 	if err := row.Scan(
 		&m.ID,
 		&m.Username,
@@ -172,6 +216,8 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.PreferredContactMethod,
 		&m.PreferredContact,
 		&m.ProfilePictureURL,
+		&avatarContentType,
+		&hasAvatar,
 		&m.City,
 		&m.State,
 		&m.Interests,
@@ -187,6 +233,10 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	if currentOrg.Valid {
 		m.CurrentOrganization = &currentOrg.Int64
 	}
+	if avatarContentType.Valid {
+		m.AvatarContentType = &avatarContentType.String
+	}
+	m.HasAvatar = hasAvatar
 
 	return m, nil
 }
@@ -278,4 +328,119 @@ func UpdateMemberCurrentOrganization(ctx context.Context, db *sql.DB, memberID, 
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+// UpdateMemberProfile updates a member's profile details.
+func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, email, preferredContactMethod, preferredContact, city, state string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	email = strings.TrimSpace(email)
+	preferredContactMethod = strings.TrimSpace(preferredContactMethod)
+	preferredContact = strings.TrimSpace(preferredContact)
+	city = strings.TrimSpace(city)
+	state = strings.TrimSpace(state)
+
+	if email == "" || preferredContactMethod == "" || preferredContact == "" {
+		return ErrMissingField
+	}
+	switch preferredContactMethod {
+	case types.ContactMethodEmail, types.ContactMethodPhone, types.ContactMethodOther:
+	default:
+		return ErrInvalidContactMethod
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE members
+		SET email = $1,
+			preferred_contact_method = $2,
+			preferred_contact = $3,
+			city = $4,
+			state = $5,
+			updated_at = NOW()
+		WHERE id = $6
+	`, email, preferredContactMethod, preferredContact, nullableMemberString(city), nullableMemberString(state), memberID)
+	if err != nil {
+		return fmt.Errorf("update member profile: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update member profile rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+// MemberAvatar returns avatar data for a member.
+func MemberAvatar(ctx context.Context, db *sql.DB, memberID int64) ([]byte, string, bool, error) {
+	if db == nil {
+		return nil, "", false, ErrNilDB
+	}
+	if memberID == 0 {
+		return nil, "", false, ErrMissingMemberID
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT avatar_content_type, avatar_data
+		FROM members
+		WHERE id = $1
+	`, memberID)
+
+	var contentType sql.NullString
+	var data []byte
+	if err := row.Scan(&contentType, &data); err != nil {
+		return nil, "", false, fmt.Errorf("get member avatar: %w", err)
+	}
+	if !contentType.Valid || len(data) == 0 {
+		return nil, "", false, nil
+	}
+	return data, contentType.String, true, nil
+}
+
+// SetMemberAvatar updates a member's avatar.
+func SetMemberAvatar(ctx context.Context, db *sql.DB, memberID int64, contentType string, data []byte) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	if contentType == "" || len(data) == 0 {
+		return ErrMissingField
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE members
+		SET avatar_content_type = $1,
+			avatar_data = $2,
+			updated_at = NOW()
+		WHERE id = $3
+	`, contentType, data, memberID)
+	if err != nil {
+		return fmt.Errorf("update member avatar: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update member avatar rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func nullableMemberString(v string) sql.NullString {
+	if v == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: v, Valid: true}
 }

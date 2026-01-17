@@ -34,9 +34,26 @@ templ Base(title string, userEmail *string, body templ.Component) {
 								</svg>
 								<span hx-get="/messages/unread-count" hx-trigger="load" hx-swap="outerHTML"></span>
 							</a>
-							<form method="POST" action="/logout" class="inline">
-								<button class="text-slate-700 hover:text-slate-900">Logout</button>
-							</form>
+							<div class="relative" x-data="{ open: false }" x-on:click.outside="open = false" x-on:keydown.escape.window="open = false">
+								<button
+									type="button"
+									class="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-slate-200 hover:ring-slate-300"
+									x-on:click="open = !open"
+									aria-label="Profile menu"
+								>
+									<img src="/members/avatar" alt="Profile avatar" class="h-9 w-9 rounded-full object-cover" />
+								</button>
+								<div
+									class="absolute right-0 mt-2 w-40 rounded-lg border border-slate-200 bg-white py-1 text-sm text-slate-700 shadow-lg"
+									x-show="open"
+									x-transition
+								>
+									<a class="block px-3 py-2 hover:bg-slate-50" href="/profile">Profile</a>
+									<form method="POST" action="/logout">
+										<button class="block w-full px-3 py-2 text-left hover:bg-slate-50">Logout</button>
+									</form>
+								</div>
+							</div>
 						} else {
 							<a class="hover:text-slate-900" href="/login">Login</a>
 							<a class="hover:text-slate-900" href="/signup">Sign Up</a>

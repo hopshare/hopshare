@@ -55,6 +55,8 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/profile", srv.handleProfile, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/members/avatar", srv.handleMemberAvatar, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages", srv.handleMessages, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages/unread-count", srv.handleUnreadMessageCount, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages/delete", srv.handleDeleteMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))

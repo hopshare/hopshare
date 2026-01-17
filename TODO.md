@@ -18,19 +18,16 @@
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Hop Filters say "Created" instead of "Pending" in Your Hops page
+* Double check all the messaging on the MyHopShare dashboard- not sure they are correct as Hours numbers change
 
 
 ## Now
 
-* Refactor service.go into separate files by concept- orgs/members, hops, messages
-* Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout
-    * Create a user Profile page where users can change password, upload photo, manage Skills, etc...
 * Add location to Organization- that can be searched by.
 * Organization "Wall"- closest thing to 'social media' feature- inspire others.
-* Make a photo mandatory for closing a request (Simon's idea)? Organization Album concept?
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
 * Organizations need to have a readable URL for new joiners. A way for users and non-users to sign up quickly.
-* Skills profiles for users? We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
+* Manage Skills on the Member profile page. We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
 * Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
 
 ## Later
