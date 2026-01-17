@@ -30,6 +30,8 @@ var (
 	ErrHopNotFound     = errors.New("hop not found")
 	ErrHopForbidden    = errors.New("hop forbidden")
 	ErrHopInvalidState = errors.New("hop invalid state")
+
+	ErrMessageNotFound = errors.New("message not found")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -866,20 +868,45 @@ func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) 
 		return err
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin accept hop: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var createdBy int64
+	if err = tx.QueryRowContext(ctx, `
 		UPDATE hops
 		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
 		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_by <> $2
-	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen)
-	if err != nil {
+		RETURNING created_by
+	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen).Scan(&createdBy); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrHopInvalidState
+		}
 		return fmt.Errorf("accept hop: %w", err)
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("accept hop rows affected: %w", err)
+
+	var accepterName string
+	if err = tx.QueryRowContext(ctx, `
+		SELECT username
+		FROM members
+		WHERE id = $1
+	`, accepterID).Scan(&accepterName); err != nil {
+		return fmt.Errorf("load accepter name: %w", err)
 	}
-	if affected == 0 {
-		return ErrHopInvalidState
+
+	messageBody := fmt.Sprintf("Congratulations! %s has offered to help you with your Hop request!", accepterName)
+	if err = insertMessage(ctx, tx, createdBy, &accepterID, accepterName, "Hop offer received", messageBody); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit accept hop: %w", err)
 	}
 	return nil
 }
@@ -1329,6 +1356,206 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	return stats, nil
 }
 
+type SendMessageParams struct {
+	SenderID    *int64
+	SenderName  string
+	RecipientID int64
+	Subject     string
+	Body        string
+}
+
+func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if p.RecipientID == 0 {
+		return ErrMissingMemberID
+	}
+
+	subject := strings.TrimSpace(p.Subject)
+	body := strings.TrimSpace(p.Body)
+	if subject == "" || body == "" {
+		return ErrMissingField
+	}
+
+	senderName := strings.TrimSpace(p.SenderName)
+	if p.SenderID != nil {
+		if *p.SenderID == 0 {
+			return ErrMissingMemberID
+		}
+		if senderName == "" {
+			if err := db.QueryRowContext(ctx, `
+				SELECT username
+				FROM members
+				WHERE id = $1
+			`, *p.SenderID).Scan(&senderName); err != nil {
+				return fmt.Errorf("load sender name: %w", err)
+			}
+		}
+	} else if senderName == "" {
+		return ErrMissingField
+	}
+
+	if err := insertMessage(ctx, db, p.RecipientID, p.SenderID, senderName, subject, body); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.Message, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if recipientID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, sender_member_id, sender_name, subject, read_at, created_at
+		FROM messages
+		WHERE recipient_member_id = $1
+		ORDER BY created_at DESC
+	`, recipientID)
+	if err != nil {
+		return nil, fmt.Errorf("list messages: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.Message
+	for rows.Next() {
+		var msg types.Message
+		var senderID sql.NullInt64
+		var readAt sql.NullTime
+		if err := rows.Scan(&msg.ID, &senderID, &msg.SenderName, &msg.Subject, &readAt, &msg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan message: %w", err)
+		}
+		msg.RecipientID = recipientID
+		if senderID.Valid {
+			msg.SenderID = &senderID.Int64
+		}
+		if readAt.Valid {
+			msg.ReadAt = &readAt.Time
+		}
+		out = append(out, msg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list messages: %w", err)
+	}
+	return out, nil
+}
+
+func GetMessageForMember(ctx context.Context, db *sql.DB, messageID, recipientID int64) (types.Message, error) {
+	if db == nil {
+		return types.Message{}, ErrNilDB
+	}
+	if recipientID == 0 {
+		return types.Message{}, ErrMissingMemberID
+	}
+	if messageID == 0 {
+		return types.Message{}, ErrMessageNotFound
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT id, recipient_member_id, sender_member_id, sender_name, subject, body, read_at, created_at
+		FROM messages
+		WHERE id = $1 AND recipient_member_id = $2
+	`, messageID, recipientID)
+
+	var msg types.Message
+	var senderID sql.NullInt64
+	var readAt sql.NullTime
+	if err := row.Scan(
+		&msg.ID,
+		&msg.RecipientID,
+		&senderID,
+		&msg.SenderName,
+		&msg.Subject,
+		&msg.Body,
+		&readAt,
+		&msg.CreatedAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return types.Message{}, ErrMessageNotFound
+		}
+		return types.Message{}, fmt.Errorf("get message: %w", err)
+	}
+	if senderID.Valid {
+		msg.SenderID = &senderID.Int64
+	}
+	if readAt.Valid {
+		msg.ReadAt = &readAt.Time
+	}
+	return msg, nil
+}
+
+func MarkMessageRead(ctx context.Context, db *sql.DB, messageID, recipientID int64, readAt time.Time) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if recipientID == 0 {
+		return ErrMissingMemberID
+	}
+	if messageID == 0 {
+		return ErrMessageNotFound
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		UPDATE messages
+		SET read_at = $1
+		WHERE id = $2 AND recipient_member_id = $3 AND read_at IS NULL
+	`, readAt, messageID, recipientID); err != nil {
+		return fmt.Errorf("mark message read: %w", err)
+	}
+	return nil
+}
+
+func DeleteMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if recipientID == 0 {
+		return ErrMissingMemberID
+	}
+	if messageID == 0 {
+		return ErrMessageNotFound
+	}
+
+	res, err := db.ExecContext(ctx, `
+		DELETE FROM messages
+		WHERE id = $1 AND recipient_member_id = $2
+	`, messageID, recipientID)
+	if err != nil {
+		return fmt.Errorf("delete message: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete message rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrMessageNotFound
+	}
+	return nil
+}
+
+func UnreadMessageCount(ctx context.Context, db *sql.DB, recipientID int64) (int, error) {
+	if db == nil {
+		return 0, ErrNilDB
+	}
+	if recipientID == 0 {
+		return 0, ErrMissingMemberID
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM messages
+		WHERE recipient_member_id = $1 AND read_at IS NULL
+	`, recipientID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count unread messages: %w", err)
+	}
+	return count, nil
+}
+
 func requireActiveMembership(ctx context.Context, db *sql.DB, orgID, memberID int64) error {
 	var exists bool
 	if err := db.QueryRowContext(ctx, `
@@ -1365,6 +1592,27 @@ func nullableTime(nt sql.NullTime) interface{} {
 		return nil
 	}
 	return nt.Time
+}
+
+type execer interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func nullableInt64(id *int64) interface{} {
+	if id == nil || *id == 0 {
+		return nil
+	}
+	return *id
+}
+
+func insertMessage(ctx context.Context, e execer, recipientID int64, senderID *int64, senderName, subject, body string) error {
+	if _, err := e.ExecContext(ctx, `
+		INSERT INTO messages (recipient_member_id, sender_member_id, sender_name, subject, body)
+		VALUES ($1, $2, $3, $4, $5)
+	`, recipientID, nullableInt64(senderID), senderName, subject, body); err != nil {
+		return fmt.Errorf("send message: %w", err)
+	}
+	return nil
 }
 
 type scanFunc interface {

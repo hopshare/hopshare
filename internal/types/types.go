@@ -107,6 +107,18 @@ type Hop struct {
 	UpdatedAt time.Time
 }
 
+// Message represents a single inbox message.
+type Message struct {
+	ID          int64
+	RecipientID int64
+	SenderID    *int64
+	SenderName  string
+	Subject     string
+	Body        string
+	ReadAt      *time.Time
+	CreatedAt   time.Time
+}
+
 type OrgHopMetrics struct {
 	MemberCount       int
 	PendingCount      int

@@ -13,12 +13,12 @@
 
 ## Now
 
-* Decide on terminology are they "Requests" or "Shares"? "Shares" gets confusing with the concept of ownership "shares".
-    * What about calling them "Hops"? "Request a Hop", "Give a Hop". I like that much better!!!!!!
-    * Hops have a specific number of Hours associated with them. Hours per Hop, Hops per Hour.
-* Keep testing Request lifecycle- edge cases, etc. 
+* Remember the last Organization I was in (set current organization in User table?)
 * Add a new state- confirmation of help- after an offer to help. What if multiple users offer to help? Accepted requests need to be confirmed by the person raising the request. Or time out.
 * Also- ask for more details- before Accepting? Like FB Marketplace.
+* Refactor service.go into separate files by concept- orgs/members, hops, messages
+* Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout
+    * Create a user Profile page where users can change password, upload photo, manage Skills, etc...
 * Add location to Organization- that can be searched by.
 * Organization "Wall"- closest thing to 'social media' feature- inspire others.
 * Make a photo mandatory for closing a request (Simon's idea)? Organization Album concept?

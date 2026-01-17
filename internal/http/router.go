@@ -57,6 +57,10 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/messages", srv.handleMessages, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/messages/unread-count", srv.handleUnreadMessageCount, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/messages/delete", srv.handleDeleteMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
+	srv.register(mux, "/messages/reply", srv.handleReplyMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/create", srv.handleCreateHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/accept", srv.handleAcceptHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/cancel", srv.handleCancelHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
@@ -1017,6 +1021,161 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		successMsg,
 		errorMsg,
 	))
+}
+
+func (s *Server) handleMessages(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+
+	var selected *types.Message
+	msgIDStr := strings.TrimSpace(r.URL.Query().Get("message_id"))
+	if msgIDStr != "" {
+		msgID, err := strconv.ParseInt(msgIDStr, 10, 64)
+		if err != nil || msgID <= 0 {
+			errorMsg = "Invalid message."
+		} else {
+			msg, err := service.GetMessageForMember(r.Context(), s.db, msgID, user.ID)
+			if err != nil {
+				if errors.Is(err, service.ErrMessageNotFound) {
+					errorMsg = "Message not found."
+				} else {
+					log.Printf("load message failed: %v", err)
+					errorMsg = "Could not load message."
+				}
+			} else {
+				if msg.ReadAt == nil {
+					now := time.Now().UTC()
+					if err := service.MarkMessageRead(r.Context(), s.db, msg.ID, user.ID, now); err != nil {
+						log.Printf("mark message read failed: %v", err)
+					} else {
+						msg.ReadAt = &now
+					}
+				}
+				selected = &msg
+			}
+		}
+	}
+
+	messages, err := service.ListMessages(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("list messages failed: %v", err)
+		http.Error(w, "could not load messages", http.StatusInternalServerError)
+		return
+	}
+
+	render(w, r, templates.Messages(
+		user.Email,
+		messages,
+		selected,
+		successMsg,
+		errorMsg,
+	))
+}
+
+func (s *Server) handleUnreadMessageCount(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	count, err := service.UnreadMessageCount(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("count unread messages failed: %v", err)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("0"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = w.Write([]byte(strconv.Itoa(count)))
+}
+
+func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	messageID, _ := strconv.ParseInt(r.FormValue("message_id"), 10, 64)
+	if messageID <= 0 {
+		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Invalid message."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.DeleteMessage(r.Context(), s.db, messageID, user.ID); err != nil {
+		log.Printf("delete message failed: %v", err)
+		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Could not delete message."), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/messages?success="+url.QueryEscape("Message deleted."), http.StatusSeeOther)
+}
+
+func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	messageID, _ := strconv.ParseInt(r.FormValue("message_id"), 10, 64)
+	if messageID <= 0 {
+		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Invalid message."), http.StatusSeeOther)
+		return
+	}
+
+	original, err := service.GetMessageForMember(r.Context(), s.db, messageID, user.ID)
+	if err != nil {
+		log.Printf("load message for reply failed: %v", err)
+		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Could not load message."), http.StatusSeeOther)
+		return
+	}
+	if original.SenderID == nil {
+		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Replies are not available for this message."), http.StatusSeeOther)
+		return
+	}
+
+	body := strings.TrimSpace(r.FormValue("body"))
+	if body == "" {
+		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Reply cannot be empty."), http.StatusSeeOther)
+		return
+	}
+
+	senderName := strings.TrimSpace(user.Username)
+	if senderName == "" {
+		senderName = user.Email
+	}
+
+	senderID := user.ID
+	subject := "Re: " + original.Subject
+	if err := service.SendMessage(r.Context(), s.db, service.SendMessageParams{
+		SenderID:    &senderID,
+		SenderName:  senderName,
+		RecipientID: *original.SenderID,
+		Subject:     subject,
+		Body:        body,
+	}); err != nil {
+		log.Printf("send reply failed: %v", err)
+		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Could not send reply."), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&success="+url.QueryEscape("Reply sent."), http.StatusSeeOther)
 }
 
 func orgIDInList(orgs []types.Organization, orgID int64) bool {
