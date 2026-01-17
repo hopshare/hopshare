@@ -13,7 +13,6 @@
 
 ## Now
 
-* Also- ask for more details- before Accepting? Like FB Marketplace.
 * Remember the last Organization I was in (set current organization in User table?)
 * Refactor service.go into separate files by concept- orgs/members, hops, messages
 * Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout

@@ -134,12 +134,13 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, last_login_at, created_at, updated_at
+		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, current_organization, enabled, verified, last_login_at, created_at, updated_at
 		FROM members
 		WHERE id = $1
 	`, memberID)
 
 	var m types.Member
+	var currentOrg sql.NullInt64
 	if err := row.Scan(
 		&m.ID,
 		&m.Username,
@@ -151,6 +152,7 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.City,
 		&m.State,
 		&m.Interests,
+		&currentOrg,
 		&m.Enabled,
 		&m.Verified,
 		&m.LastLoginAt,
@@ -158,6 +160,9 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.UpdatedAt,
 	); err != nil {
 		return types.Member{}, fmt.Errorf("get member by id: %w", err)
+	}
+	if currentOrg.Valid {
+		m.CurrentOrganization = &currentOrg.Int64
 	}
 
 	return m, nil
@@ -174,12 +179,13 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, enabled, verified, last_login_at, created_at, updated_at
+		SELECT id, username, email, password_hash, preferred_contact_method, preferred_contact, profile_picture_url, city, state, interests, current_organization, enabled, verified, last_login_at, created_at, updated_at
 		FROM members
 		WHERE LOWER(email) = LOWER($1)
 	`, email)
 
 	var m types.Member
+	var currentOrg sql.NullInt64
 	if err := row.Scan(
 		&m.ID,
 		&m.Username,
@@ -191,6 +197,7 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.City,
 		&m.State,
 		&m.Interests,
+		&currentOrg,
 		&m.Enabled,
 		&m.Verified,
 		&m.LastLoginAt,
@@ -198,6 +205,9 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.UpdatedAt,
 	); err != nil {
 		return types.Member{}, fmt.Errorf("get member by email: %w", err)
+	}
+	if currentOrg.Valid {
+		m.CurrentOrganization = &currentOrg.Int64
 	}
 
 	return m, nil
@@ -426,6 +436,36 @@ func UpdateMemberLastLogin(ctx context.Context, db *sql.DB, memberID int64, at t
 	affected, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("update member last login rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func UpdateMemberCurrentOrganization(ctx context.Context, db *sql.DB, memberID, orgID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE members
+		SET current_organization = $1, updated_at = NOW()
+		WHERE id = $2
+	`, orgID, memberID)
+	if err != nil {
+		return fmt.Errorf("update member current organization: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update member current organization rows affected: %w", err)
 	}
 	if affected == 0 {
 		return sql.ErrNoRows

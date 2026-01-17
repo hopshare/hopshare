@@ -962,10 +962,15 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	}
 
 	var currentOrgID int64
+	var selectedFromQuery bool
 	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
 		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
 			currentOrgID = parsed
+			selectedFromQuery = true
 		}
+	}
+	if currentOrgID == 0 && user.CurrentOrganization != nil {
+		currentOrgID = *user.CurrentOrganization
 	}
 	if len(orgs) > 0 && currentOrgID == 0 {
 		currentOrgID = orgs[0].ID
@@ -973,6 +978,12 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	// WHAT SORT OF HACK IS THIS??
 	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
 		currentOrgID = orgs[0].ID
+	}
+
+	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
+		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
+			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		}
 	}
 
 	isPrimaryOwnerCurrent := currentOrgID != 0 && primaryOrgID == currentOrgID

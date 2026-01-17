@@ -45,6 +45,7 @@ type Member struct {
 	City                   *string
 	State                  *string
 	Interests              *string
+	CurrentOrganization    *int64
 	Enabled                bool
 	Verified               bool
 	LastLoginAt            *time.Time
