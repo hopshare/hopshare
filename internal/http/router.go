@@ -99,13 +99,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
 		}
-		email := strings.TrimSpace(r.FormValue("email"))
+		username := strings.TrimSpace(r.FormValue("username"))
 		password := r.FormValue("password")
 
-		member, err := service.AuthenticateMember(r.Context(), s.db, email, password)
+		member, err := service.AuthenticateMemberByUsername(r.Context(), s.db, username, password)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
-				render(w, r, templates.Login(nil, "Invalid email or password.", ""))
+				render(w, r, templates.Login(nil, "Invalid username or password.", ""))
 				return
 			}
 			log.Printf("authenticate member: %v", err)

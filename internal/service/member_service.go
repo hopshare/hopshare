@@ -88,9 +88,9 @@ func HashPassword(pw string) (string, error) {
 	return string(hashed), nil
 }
 
-// AuthenticateMember validates credentials and returns the member record.
-func AuthenticateMember(ctx context.Context, db *sql.DB, email, password string) (types.Member, error) {
-	member, err := GetMemberByEmail(ctx, db, email)
+// AuthenticateMemberByUsername validates credentials and returns the member record.
+func AuthenticateMemberByUsername(ctx context.Context, db *sql.DB, username, password string) (types.Member, error) {
+	member, err := GetMemberByUsername(ctx, db, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return types.Member{}, ErrInvalidCredentials
@@ -241,6 +241,80 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.UpdatedAt,
 	); err != nil {
 		return types.Member{}, fmt.Errorf("get member by email: %w", err)
+	}
+	if currentOrg.Valid {
+		m.CurrentOrganization = &currentOrg.Int64
+	}
+	if avatarContentType.Valid {
+		m.AvatarContentType = &avatarContentType.String
+	}
+	m.HasAvatar = hasAvatar
+
+	return m, nil
+}
+
+// GetMemberByUsername fetches a member by username (case-insensitive).
+func GetMemberByUsername(ctx context.Context, db *sql.DB, username string) (types.Member, error) {
+	if db == nil {
+		return types.Member{}, ErrNilDB
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return types.Member{}, ErrMissingField
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT id,
+			first_name,
+			last_name,
+			username,
+			email,
+			password_hash,
+			preferred_contact_method,
+			preferred_contact,
+			profile_picture_url,
+			avatar_content_type,
+			(avatar_data IS NOT NULL),
+			city,
+			state,
+			interests,
+			current_organization,
+			enabled,
+			verified,
+			last_login_at,
+			created_at,
+			updated_at
+		FROM members
+		WHERE LOWER(username) = LOWER($1)
+	`, username)
+
+	var m types.Member
+	var currentOrg sql.NullInt64
+	var avatarContentType sql.NullString
+	var hasAvatar bool
+	if err := row.Scan(
+		&m.ID,
+		&m.FirstName,
+		&m.LastName,
+		&m.Username,
+		&m.Email,
+		&m.PasswordHash,
+		&m.PreferredContactMethod,
+		&m.PreferredContact,
+		&m.ProfilePictureURL,
+		&avatarContentType,
+		&hasAvatar,
+		&m.City,
+		&m.State,
+		&m.Interests,
+		&currentOrg,
+		&m.Enabled,
+		&m.Verified,
+		&m.LastLoginAt,
+		&m.CreatedAt,
+		&m.UpdatedAt,
+	); err != nil {
+		return types.Member{}, fmt.Errorf("get member by username: %w", err)
 	}
 	if currentOrg.Valid {
 		m.CurrentOrganization = &currentOrg.Int64
