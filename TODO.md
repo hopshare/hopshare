@@ -11,13 +11,22 @@
     -p 5432:5432 \
     docker.io/library/postgres:17.7
 
+
+## Bugs
+
+* "Your Activity" should fetch new every time it opens- otherwise you get stale Hop statuses.
+* You can offer to help the same Hop multiple times
+* Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
+* An Organization Owner can request membership in their own Organization- this should be prevented
+* Hop Filters say "Created" instead of "Pending" in Your Hops page
+
+
 ## Now
 
-* There is no easy way to see what Hops I have offered to help with...should I get a message?
-    it is possible to offer help multiple times!! n
 * Refactor service.go into separate files by concept- orgs/members, hops, messages
 * Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout
     * Create a user Profile page where users can change password, upload photo, manage Skills, etc...
+* "My Hops" should be its own page, not a pop up dialogue (like Messages)
 * Add location to Organization- that can be searched by.
 * Organization "Wall"- closest thing to 'social media' feature- inspire others.
 * Make a photo mandatory for closing a request (Simon's idea)? Organization Album concept?
@@ -35,9 +44,5 @@ We need to track offers of help for Hops in the database. Create a table that ma
 * Create a 'celebration' page for the Organization?
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
 
-## Bugs
 
-* An Organization Owner can request membership in their own Organization- this should be prevented
-* "Your Activity" should fetch new every time it opens- otherwise you get stale Hop statuses.
-* Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 

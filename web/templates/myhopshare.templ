@@ -134,7 +134,6 @@ templ MyhopShareDashboard(
 			orgModalOpen: false,
 			hopModalOpen: false,
 			giveHelpModalOpen: false,
-			activityModalOpen: false,
 			completeModalOpen: false,
 			completeHopID: null,
 			completeHopTitle: '',
@@ -146,7 +145,7 @@ templ MyhopShareDashboard(
 				this.completeModalOpen = true;
 			},
 		}"
-		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; giveHelpModalOpen = false; activityModalOpen = false; completeModalOpen = false"
+		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; giveHelpModalOpen = false; completeModalOpen = false"
 	>
 		<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<div class="space-y-6">
@@ -214,13 +213,12 @@ templ MyhopShareDashboard(
 						<p class="text-xl font-bold text-slate-900">Your Activity</p>
 						<p class="mt-4 text-6xl font-extrabold text-slate-900">{ activityCount }</p>
 						<p class="mt-2 text-xl text-slate-900">Hops</p>
-						<button
-							type="button"
+						<a
 							class="mt-4 text-lg font-semibold text-sky-700 underline hover:text-sky-800"
-							x-on:click="activityModalOpen = true"
+							href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 						>
 							See More...
-						</button>
+						</a>
 					</section>
 				</div>
 			</div>
@@ -263,25 +261,7 @@ templ MyhopShareDashboard(
 				</div>
 			</div>
 		</div>
-		<div class="fixed inset-0 z-50" x-show="activityModalOpen" x-transition.opacity style="display: none;">
-			<div class="absolute inset-0 bg-slate-900/50" x-on:click="activityModalOpen = false"></div>
-			<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
-				<div class="w-full max-w-4xl" role="dialog" aria-modal="true" aria-label="Your activity" x-on:click.stop>
-					<div class="flex justify-end pb-2">
-						<button
-							type="button"
-							class="rounded-lg px-2 py-1 text-slate-200 hover:text-white"
-							aria-label="Close"
-							x-on:click="activityModalOpen = false"
-						>
-							&times;
-						</button>
-					</div>
-					@HopListMyHops(currentOrgID, myHops)
-				</div>
-			</div>
-		</div>
-		@CompleteModal(currentOrgID)
+		@CompleteModal(currentOrgID, "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
 	</div>
 }
 
@@ -493,13 +473,6 @@ templ StatCardCount(title string, count int, lastAt *time.Time) {
 	</div>
 }
 
-templ HopsWorkspace(orgID int64, myHops []types.Hop, hopsToHelp []types.Hop) {
-	<section class="space-y-6">
-		@HopListHelpOthers(orgID, hopsToHelp)
-		@HopListMyHops(orgID, myHops)
-	</section>
-}
-
 templ HopListHelpOthers(orgID int64, hops []types.Hop) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 		<div class="px-6 py-4 bg-slate-50 space-y-1">
@@ -528,102 +501,6 @@ templ HopListHelpOthers(orgID int64, hops []types.Hop) {
 			}
 			if len(hops) == 0 {
 				<li class="px-6 py-4 text-sm text-slate-600">No open hops right now.</li>
-			}
-		</ul>
-	</section>
-}
-
-templ HopListMyHops(orgID int64, hops []types.Hop) {
-	<section
-		class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden"
-		x-data="{
-			query: '',
-			status: 'any',
-			range: '30',
-			nowMs: Date.now(),
-			updatedAtMs() { return Date.now(); },
-			cutoffMs() {
-				const day = 24 * 60 * 60 * 1000;
-				switch (this.range) {
-				case 'week':
-					return this.nowMs - (7 * day);
-				case '30':
-					return this.nowMs - (30 * day);
-				case 'quarter':
-					return this.nowMs - (90 * day);
-				case 'year':
-					return this.nowMs - (365 * day);
-				default:
-					return 0;
-				}
-			},
-			matches(el) {
-				const d = el.dataset;
-				const q = (this.query || '').trim().toLowerCase();
-				if (q) {
-					const hay = (d.search || '').toLowerCase();
-					if (!hay.includes(q)) return false;
-				}
-				if (this.status !== 'any' && d.filterStatus !== this.status) return false;
-				const cutoff = this.cutoffMs();
-				if (cutoff) {
-					const createdMs = Number(d.createdMs || '0');
-					if (!createdMs || createdMs < cutoff) return false;
-				}
-				return true;
-			},
-			clear() {
-				this.query = '';
-				this.status = 'any';
-				this.range = '30';
-				this.nowMs = Date.now();
-			},
-		}"
-	>
-		<div class="px-6 py-4 bg-slate-50 space-y-1">
-			<h2 class="text-lg font-bold text-slate-900">My hops</h2>
-			<p class="text-sm text-slate-600">
-				Your statement: pending, canceled, expired, and completed hops.
-			</p>
-		</div>
-
-		<div class="px-6 py-4 border-t border-slate-200">
-			<div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-				<input class="sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" placeholder="Search my hops..." x-model="query" />
-				<select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" x-model="status">
-					<option value="any">Any status</option>
-					<option value="created">Created</option>
-					<option value="accepted">Accepted</option>
-					<option value="canceled">Canceled</option>
-					<option value="completed">Completed</option>
-				</select>
-				<select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" x-model="range">
-					<option value="week">Last week</option>
-					<option value="30">Last 30 days</option>
-					<option value="quarter">Last quarter</option>
-					<option value="year">Last year</option>
-				</select>
-			</div>
-			<div class="mt-3 flex items-center justify-between gap-3">
-				<p class="text-xs text-slate-500">Filtering updates locally as you type/select.</p>
-				<button type="button" class="text-xs font-semibold text-sky-700 hover:text-sky-800 underline" x-on:click="clear()">
-					Clear filters
-				</button>
-			</div>
-		</div>
-
-		<ul class="divide-y divide-slate-200">
-			for _, hop := range hops {
-				@MyHopRow(
-					orgID,
-					hop,
-					HopFilterStatus(hop.Status),
-					strconv.FormatInt(hop.CreatedAt.UnixMilli(), 10),
-					HopSearchText(hop),
-				)
-			}
-			if len(hops) == 0 {
-				<li class="px-6 py-4 text-sm text-slate-600">You haven't requested any hops yet.</li>
 			}
 		</ul>
 	</section>
@@ -692,109 +569,6 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 	</li>
 }
 
-templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string, search string) {
-	<li
-		class="px-6 py-4"
-		x-data="{ open: false }"
-		x-show="matches($el)"
-		x-transition.opacity
-		data-filter-status={ filterStatus }
-		data-created-ms={ createdMs }
-		data-search={ search }
-	>
-		<div class="flex items-start justify-between gap-4">
-			<div class="min-w-0">
-				<div class="flex items-center gap-2">
-					@StatusPill(hop.Status)
-					if hop.HasPendingOffer {
-						<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold">Help Offered</span>
-					}
-					<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
-				</div>
-				<div class="mt-2 space-y-1">
-					<p class="text-sm text-slate-600">Asked by: { hop.CreatedByName }</p>
-					if hop.Status == types.HopStatusAccepted && hop.AcceptedByName != nil {
-						<p class="text-sm text-slate-600">Accepted by: { *hop.AcceptedByName }</p>
-					}
-					if hop.Status == types.HopStatusCompleted && hop.CompletedHours != nil {
-						<p class="text-sm text-slate-600">Completed: { *hop.CompletedHours } hours</p>
-					}
-					<p class="text-sm text-slate-600">@HopTimingLine(hop)</p>
-				</div>
-			</div>
-			<div class="shrink-0 flex items-center gap-2">
-				<button
-					type="button"
-					class="text-sm font-semibold text-sky-700 underline hover:text-sky-800"
-					x-on:click="open = !open"
-					x-bind:aria-expanded="open.toString()"
-				>
-					<span x-show="!open">More</span>
-					<span x-show="open" style="display: none;">Less</span>
-				</button>
-				if hop.Status == types.HopStatusAccepted || (hop.Status == types.HopStatusOpen && !hop.HasPendingOffer) {
-					<form method="POST" action="/hops/cancel">
-						<input type="hidden" name="org_id" value={ orgID } />
-						<input type="hidden" name="hop_id" value={ hop.ID } />
-						<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-3 py-2 hover:border-slate-400 transition" type="submit">
-							Cancel
-						</button>
-					</form>
-				}
-				if hop.Status == types.HopStatusAccepted {
-					<button
-						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition"
-						type="button"
-						data-hop-id={ hop.ID }
-						data-hop-title={ hop.Title }
-						data-hop-hours={ hop.EstimatedHours }
-						x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours))"
-					>
-						Mark complete
-					</button>
-				}
-			</div>
-		</div>
-
-		<div class="mt-3" x-show="open" x-transition.opacity style="display: none;">
-			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
-				<p class="text-sm text-slate-700">
-					<span class="font-semibold text-slate-800">Created:</span>
-					{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
-				</p>
-				if hop.AcceptedAt != nil && hop.AcceptedByName != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Accepted:</span>
-						{ *hop.AcceptedByName } on { hop.AcceptedAt.Format("Jan 2, 2006 3:04 PM") }
-					</p>
-				}
-				if hop.CanceledAt != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Canceled:</span>
-						{ hop.CanceledAt.Format("Jan 2, 2006 3:04 PM") }
-					</p>
-				}
-				if hop.CompletedAt != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Completed:</span>
-						{ hop.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
-						if hop.CompletedHours != nil {
-							{ " • " }{ *hop.CompletedHours } hours
-						}
-					</p>
-				}
-				if hop.CompletionComment != nil && *hop.CompletionComment != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.CompletionComment }</p>
-				}
-				if hop.Details != nil && *hop.Details != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
-				} else if (hop.CompletionComment == nil || *hop.CompletionComment == "") {
-					<p class="text-sm text-slate-700">No additional information available.</p>
-				}
-			</div>
-		</div>
-	</li>
-}
 
 templ StatusPill(status string) {
 	switch status {
@@ -921,7 +695,7 @@ templ HopModal(orgID int64) {
 	</div>
 }
 
-templ CompleteModal(orgID int64) {
+templ CompleteModal(orgID int64, redirectTo string) {
 	<div class="fixed inset-0 z-50" x-show="completeModalOpen" x-transition.opacity style="display: none;">
 		<div class="absolute inset-0 bg-slate-900/50" x-on:click="completeModalOpen = false"></div>
 		<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
@@ -954,6 +728,7 @@ templ CompleteModal(orgID int64) {
 
 				<form method="POST" action="/hops/complete">
 					<input type="hidden" name="org_id" value={ orgID } />
+					<input type="hidden" name="redirect_to" value={ redirectTo } />
 					<input type="hidden" name="hop_id" x-bind:value="completeHopID" />
 					<div class="p-6 sm:p-7 space-y-4">
 						<div class="space-y-1">

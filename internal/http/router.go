@@ -57,6 +57,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages", srv.handleMessages, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages/unread-count", srv.handleUnreadMessageCount, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/messages/delete", srv.handleDeleteMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
@@ -302,6 +303,89 @@ func (s *Server) handleMyHopshare(w http.ResponseWriter, r *http.Request) {
 	s.renderMyHopshare(w, r, successMsg, errorMsg)
 }
 
+func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+
+	hasPrimary := false
+	if _, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID); err == nil {
+		hasPrimary = true
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("load primary organization for member %d: %v", user.ID, err)
+	}
+
+	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("load organizations for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
+	}
+
+	var currentOrgID int64
+	var selectedFromQuery bool
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
+			currentOrgID = parsed
+			selectedFromQuery = true
+		}
+	}
+	if currentOrgID == 0 && user.CurrentOrganization != nil {
+		currentOrgID = *user.CurrentOrganization
+	}
+	if len(orgs) > 0 && currentOrgID == 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
+		currentOrgID = orgs[0].ID
+	}
+
+	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
+		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
+			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		}
+	}
+
+	var myHops []types.Hop
+	if currentOrgID != 0 {
+		if _, err := service.ExpireHops(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
+			log.Printf("expire hops org=%d: %v", currentOrgID, err)
+		}
+
+		myHops, err = service.ListMemberHops(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load my hops org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load hops", http.StatusInternalServerError)
+			return
+		}
+		pendingOffers, err := service.PendingHopOfferIDs(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("load pending hop offers member=%d: %v", user.ID, err)
+		} else if len(pendingOffers) > 0 {
+			for i := range myHops {
+				if _, ok := pendingOffers[myHops[i].ID]; ok {
+					myHops[i].HasPendingOffer = true
+				}
+			}
+		}
+	}
+
+	render(w, r, templates.MyHops(
+		user.Email,
+		orgs,
+		currentOrgID,
+		myHops,
+		hasPrimary,
+		successMsg,
+		errorMsg,
+	))
+}
+
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -401,17 +485,22 @@ func (s *Server) handleCancelHop(w http.ResponseWriter, r *http.Request) {
 	}
 	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
 	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	defaultRedirect := "/my-hopshare"
+	if orgID > 0 {
+		defaultRedirect = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	redirectBase := safeRedirectPath(r.FormValue("redirect_to"), defaultRedirect)
 	if orgID <= 0 || hopID <= 0 {
-		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid hop."), http.StatusSeeOther)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid hop."), http.StatusSeeOther)
 		return
 	}
 
 	if err := service.CancelHop(r.Context(), s.db, orgID, hopID, user.ID); err != nil {
 		log.Printf("cancel hop failed: %v", err)
-		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not cancel hop."), http.StatusSeeOther)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not cancel hop."), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Hop canceled."), http.StatusSeeOther)
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Hop canceled."), http.StatusSeeOther)
 }
 
 func (s *Server) handleCompleteHop(w http.ResponseWriter, r *http.Request) {
@@ -426,8 +515,13 @@ func (s *Server) handleCompleteHop(w http.ResponseWriter, r *http.Request) {
 	}
 	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
 	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	defaultRedirect := "/my-hopshare"
+	if orgID > 0 {
+		defaultRedirect = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	redirectBase := safeRedirectPath(r.FormValue("redirect_to"), defaultRedirect)
 	if orgID <= 0 || hopID <= 0 {
-		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid hop."), http.StatusSeeOther)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid hop."), http.StatusSeeOther)
 		return
 	}
 
@@ -440,11 +534,11 @@ func (s *Server) handleCompleteHop(w http.ResponseWriter, r *http.Request) {
 		CompletedHours: completedHours,
 	}); err != nil {
 		log.Printf("complete hop failed: %v", err)
-		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not complete hop."), http.StatusSeeOther)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not complete hop."), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Hop completed."), http.StatusSeeOther)
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Hop completed."), http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request) {
@@ -1269,6 +1363,25 @@ func orgIDInList(orgs []types.Organization, orgID int64) bool {
 		}
 	}
 	return false
+}
+
+func safeRedirectPath(input string, fallback string) string {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return fallback
+	}
+	if !strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "//") {
+		return fallback
+	}
+	return trimmed
+}
+
+func redirectWithMessage(base string, key string, msg string) string {
+	sep := "?"
+	if strings.Contains(base, "?") {
+		sep = "&"
+	}
+	return base + sep + key + "=" + url.QueryEscape(msg)
 }
 
 func humanOrgAge(createdAt time.Time) string {
