@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"hopshare/internal/types"
-
 )
 
 const (
@@ -20,10 +19,10 @@ templ MyhopShare(
 	orgs []types.Organization,
 	currentOrgID int64,
 	isPrimaryOwnerCurrent bool,
-	metrics types.OrgRequestMetrics,
-	memberStats types.MemberRequestStats,
-	myRequests []types.Request,
-	requestsToHelp []types.Request,
+	metrics types.OrgHopMetrics,
+	memberStats types.MemberHopStats,
+	myHops []types.Hop,
+	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -38,8 +37,8 @@ templ MyhopShare(
 		isPrimaryOwnerCurrent,
 		metrics,
 		memberStats,
-		myRequests,
-		requestsToHelp,
+		myHops,
+		hopsToHelp,
 		activityCount,
 		hasPrimary,
 		successMsg,
@@ -54,10 +53,10 @@ templ MyhopShareBody(
 	orgs []types.Organization,
 	currentOrgID int64,
 	isPrimaryOwnerCurrent bool,
-	metrics types.OrgRequestMetrics,
-	memberStats types.MemberRequestStats,
-	myRequests []types.Request,
-	requestsToHelp []types.Request,
+	metrics types.OrgHopMetrics,
+	memberStats types.MemberHopStats,
+	myHops []types.Hop,
+	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -82,8 +81,8 @@ templ MyhopShareBody(
 				isPrimaryOwnerCurrent,
 				metrics,
 				memberStats,
-				myRequests,
-				requestsToHelp,
+				myHops,
+				hopsToHelp,
 				activityCount,
 				hasPrimary,
 			)
@@ -122,10 +121,10 @@ templ MyhopShareDashboard(
 	orgs []types.Organization,
 	currentOrgID int64,
 	isPrimaryOwnerCurrent bool,
-	metrics types.OrgRequestMetrics,
-	memberStats types.MemberRequestStats,
-	myRequests []types.Request,
-	requestsToHelp []types.Request,
+	metrics types.OrgHopMetrics,
+	memberStats types.MemberHopStats,
+	myHops []types.Hop,
+	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 ) {
@@ -133,21 +132,21 @@ templ MyhopShareDashboard(
 		class="space-y-6"
 		x-data="{
 			orgModalOpen: false,
-			requestModalOpen: false,
+			hopModalOpen: false,
 			giveHelpModalOpen: false,
 			activityModalOpen: false,
 			completeModalOpen: false,
-			completeRequestID: null,
-			completeRequestTitle: '',
+			completeHopID: null,
+			completeHopTitle: '',
 			completeHours: '',
 			openComplete(id, title, hours) {
-				this.completeRequestID = id;
-				this.completeRequestTitle = title;
+				this.completeHopID = id;
+				this.completeHopTitle = title;
 				this.completeHours = hours ? String(hours) : '';
 				this.completeModalOpen = true;
 			},
 		}"
-		x-on:keydown.escape.window="orgModalOpen = false; requestModalOpen = false; giveHelpModalOpen = false; activityModalOpen = false; completeModalOpen = false"
+		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; giveHelpModalOpen = false; activityModalOpen = false; completeModalOpen = false"
 	>
 		<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<div class="space-y-6">
@@ -162,16 +161,16 @@ templ MyhopShareDashboard(
 					<button
 						type="button"
 						class="w-full max-w-md rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-						x-on:click="requestModalOpen = true"
+						x-on:click="hopModalOpen = true"
 					>
-						Get Some Help
+						Request a Hop
 					</button>
 					<button
 						type="button"
 						class="w-full max-w-md rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
 						x-on:click="giveHelpModalOpen = true"
 					>
-						Give Some Help
+						Give a Hop
 					</button>
 				</section>
 			</div>
@@ -203,8 +202,8 @@ templ MyhopShareDashboard(
 					</div>
 
 					<div class="mt-6 text-center space-y-1">
-						<p class="text-2xl font-bold text-slate-900">{ metrics.CompletedCount } Shares Completed!</p>
-						<p class="text-2xl font-bold text-slate-900">{ metrics.PendingCount } Users Looking For Help!</p>
+						<p class="text-2xl font-bold text-slate-900">{ metrics.CompletedCount } Hops Completed!</p>
+						<p class="text-2xl font-bold text-slate-900">{ metrics.PendingCount } Open Hops!</p>
 					</div>
 				</section>
 
@@ -214,7 +213,7 @@ templ MyhopShareDashboard(
 					<section class="rounded-2xl bg-sky-100 p-8 text-center">
 						<p class="text-xl font-bold text-slate-900">Your Activity</p>
 						<p class="mt-4 text-6xl font-extrabold text-slate-900">{ activityCount }</p>
-						<p class="mt-2 text-xl text-slate-900">Shares</p>
+						<p class="mt-2 text-xl text-slate-900">Hops</p>
 						<button
 							type="button"
 							class="mt-4 text-lg font-semibold text-sky-700 underline hover:text-sky-800"
@@ -227,7 +226,7 @@ templ MyhopShareDashboard(
 			</div>
 		</section>
 
-		@RequestModal(currentOrgID)
+		@HopModal(currentOrgID)
 		<div class="fixed inset-0 z-50" x-show="orgModalOpen" x-transition.opacity style="display: none;">
 			<div class="absolute inset-0 bg-slate-900/50" x-on:click="orgModalOpen = false"></div>
 			<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
@@ -260,7 +259,7 @@ templ MyhopShareDashboard(
 							&times;
 						</button>
 					</div>
-					@RequestListHelpOthers(currentOrgID, requestsToHelp)
+					@HopListHelpOthers(currentOrgID, hopsToHelp)
 				</div>
 			</div>
 		</div>
@@ -278,7 +277,7 @@ templ MyhopShareDashboard(
 							&times;
 						</button>
 					</div>
-					@RequestListMyRequests(currentOrgID, myRequests)
+					@HopListMyHops(currentOrgID, myHops)
 				</div>
 			</div>
 		</div>
@@ -343,7 +342,7 @@ templ OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrim
 	</section>
 }
 
-templ OrgCelebration(foundedLabel string, metrics types.OrgRequestMetrics, recentCompleted []types.Request) {
+templ OrgCelebration(foundedLabel string, metrics types.OrgHopMetrics, recentCompleted []types.Hop) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
 		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 			<div class="space-y-1">
@@ -354,7 +353,7 @@ templ OrgCelebration(foundedLabel string, metrics types.OrgRequestMetrics, recen
 			</div>
 			<div class="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-sm text-emerald-800">
 				<span class="font-semibold">{ metrics.CompletedThisWeek }</span>
-				<span>requests completed this week</span>
+				<span>hops completed this week</span>
 			</div>
 		</div>
 
@@ -362,12 +361,12 @@ templ OrgCelebration(foundedLabel string, metrics types.OrgRequestMetrics, recen
 			@MetricCardText("Founded", foundedLabel, "Organization age")
 			@MetricCardNumber("Members", metrics.MemberCount, "Active helpers")
 			@MetricCardNumber("Pending", metrics.PendingCount, "Need help")
-			@MetricCardNumber("Completed", metrics.CompletedCount, "Requests finished")
+			@MetricCardNumber("Completed", metrics.CompletedCount, "Hops finished")
 		</div>
 
 		<div class="rounded-lg border border-slate-200 overflow-hidden" x-data="{ open: false }">
 			<div class="bg-slate-50 px-4 py-3 flex items-center justify-between gap-3">
-				<p class="text-sm font-semibold text-slate-900">Recently completed requests</p>
+				<p class="text-sm font-semibold text-slate-900">Recently completed hops</p>
 				<button
 					type="button"
 					class="text-sm font-semibold text-sky-700 hover:text-sky-800"
@@ -381,10 +380,10 @@ templ OrgCelebration(foundedLabel string, metrics types.OrgRequestMetrics, recen
 			<div x-show="open" x-transition.opacity style="display: none;">
 				<ul class="divide-y divide-slate-200">
 					for _, req := range recentCompleted {
-						@CompletedRequestRow(req)
+						@CompletedHopRow(req)
 					}
 					if len(recentCompleted) == 0 {
-						<li class="px-4 py-3 text-sm text-slate-600">No completed requests yet.</li>
+						<li class="px-4 py-3 text-sm text-slate-600">No completed hops yet.</li>
 					}
 				</ul>
 			</div>
@@ -408,26 +407,26 @@ templ MetricCardNumber(label string, value int, hint string) {
 	</div>
 }
 
-templ CompletedRequestRow(req types.Request) {
+templ CompletedHopRow(hop types.Hop) {
 	<li class="px-4 py-3 flex items-start justify-between gap-4">
 		<div class="min-w-0">
 			<div class="flex items-center gap-2">
 				<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold">Completed</span>
-				<p class="font-semibold text-slate-900 truncate">{ req.Title }</p>
+				<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
 			</div>
-			if req.CompletionComment != nil && *req.CompletionComment != "" {
-				<p class="text-sm text-slate-600 mt-1">{ *req.CompletionComment }</p>
+			if hop.CompletionComment != nil && *hop.CompletionComment != "" {
+				<p class="text-sm text-slate-600 mt-1">{ *hop.CompletionComment }</p>
 			}
 		</div>
 		<div class="text-sm text-slate-500 whitespace-nowrap">
-			if req.CompletedAt != nil {
-				{ req.CompletedAt.Format("Jan 2") }
+			if hop.CompletedAt != nil {
+				{ hop.CompletedAt.Format("Jan 2") }
 			}
 		</div>
 	</li>
 }
 
-templ MemberStats(stats types.MemberRequestStats) {
+templ MemberStats(stats types.MemberHopStats) {
 	<section class="space-y-4">
 		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
 			<div class="space-y-1">
@@ -437,15 +436,15 @@ templ MemberStats(stats types.MemberRequestStats) {
 			<button
 				class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
 				type="button"
-				x-on:click="requestModalOpen = true"
+				x-on:click="hopModalOpen = true"
 			>
-				Make a request
+				Request a hop
 			</button>
 		</div>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			@StatCardBalance(stats.BalanceHours)
-			@StatCardCount("Requests you've made", stats.RequestsMade, stats.LastRequestMadeAt)
-			@StatCardCount("Requests you've fulfilled", stats.RequestsFulfilled, stats.LastFulfilledAt)
+			@StatCardCount("Hops you've requested", stats.HopsMade, stats.LastHopMadeAt)
+			@StatCardCount("Hops you've given", stats.HopsFulfilled, stats.LastHopFulfilledAt)
 		</div>
 	</section>
 }
@@ -464,13 +463,13 @@ templ StatCardBalance(balanceHours int) {
 		<p class="mt-2 text-xl font-bold text-slate-900">Hours Earned</p>
 		<p class="mt-4 text-sm text-slate-700">
 			if balanceHours >= timebankMaxBalance {
-				You've hit the maximum balance for this time bank. Completing requests from this point on won't increase your balance. Go make some requests of your own to pay hours forward to other users!
+				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few hops of your own to pay hours forward to other users!
 			} else if balanceHours > 10 {
-				Your balance is really growing- amazing work helping others! Don't forget to make some requests so others can help you too!
+				Your balance is really growing- amazing work helping others! Don't forget to request a hop so others can help you too!
 			} else if balanceHours > 5 {
-				You've got a healthy balance! Make some requests to pay those hours forward to someone else!
+				You've got a healthy balance! Request a hop to pay those hours forward to someone else!
 			} else if balanceHours <= timebankMinBalance {
-				You've hit the minimum balance for this time bank. Give some hours to another user so that you can make more requests!
+				You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more hops!
 			} else if balanceHours < 0 {
 				Negative balances are fine! Go help someone else to get back to a positive balance!
 			} else {
@@ -494,25 +493,25 @@ templ StatCardCount(title string, count int, lastAt *time.Time) {
 	</div>
 }
 
-templ RequestsWorkspace(orgID int64, myRequests []types.Request, requestsToHelp []types.Request) {
+templ HopsWorkspace(orgID int64, myHops []types.Hop, hopsToHelp []types.Hop) {
 	<section class="space-y-6">
-		@RequestListHelpOthers(orgID, requestsToHelp)
-		@RequestListMyRequests(orgID, myRequests)
+		@HopListHelpOthers(orgID, hopsToHelp)
+		@HopListMyHops(orgID, myHops)
 	</section>
 }
 
-templ RequestListHelpOthers(orgID int64, reqs []types.Request) {
+templ HopListHelpOthers(orgID int64, hops []types.Hop) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
 		<div class="px-6 py-4 bg-slate-50 space-y-1">
-			<h2 class="text-lg font-bold text-slate-900">Requests you can help with</h2>
+			<h2 class="text-lg font-bold text-slate-900">Hops you can help with</h2>
 			<p class="text-sm text-slate-600">
-				Open requests from your organization, plus any request you've accepted.
+				Open hops from your organization, plus any hop you've accepted.
 			</p>
 		</div>
 
 		<div class="px-6 py-4 border-t border-slate-200 space-y-3">
 			<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-				<input class="sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" placeholder="Search requests..." disabled />
+				<input class="sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" placeholder="Search hops..." disabled />
 				<select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" disabled>
 					<option>Filter by member</option>
 				</select>
@@ -524,17 +523,17 @@ templ RequestListHelpOthers(orgID int64, reqs []types.Request) {
 		</div>
 
 		<ul class="divide-y divide-slate-200">
-			for _, req := range reqs {
-				@HelpRequestRow(orgID, req)
+			for _, hop := range hops {
+				@HelpHopRow(orgID, hop)
 			}
-			if len(reqs) == 0 {
-				<li class="px-6 py-4 text-sm text-slate-600">No open requests right now.</li>
+			if len(hops) == 0 {
+				<li class="px-6 py-4 text-sm text-slate-600">No open hops right now.</li>
 			}
 		</ul>
 	</section>
 }
 
-templ RequestListMyRequests(orgID int64, reqs []types.Request) {
+templ HopListMyHops(orgID int64, hops []types.Hop) {
 	<section
 		class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden"
 		x-data="{
@@ -582,15 +581,15 @@ templ RequestListMyRequests(orgID int64, reqs []types.Request) {
 		}"
 	>
 		<div class="px-6 py-4 bg-slate-50 space-y-1">
-			<h2 class="text-lg font-bold text-slate-900">My requests</h2>
+			<h2 class="text-lg font-bold text-slate-900">My hops</h2>
 			<p class="text-sm text-slate-600">
-				Your statement: pending, canceled, expired, and completed requests.
+				Your statement: pending, canceled, expired, and completed hops.
 			</p>
 		</div>
 
 		<div class="px-6 py-4 border-t border-slate-200">
 			<div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-				<input class="sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" placeholder="Search my requests..." x-model="query" />
+				<input class="sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="search" placeholder="Search my hops..." x-model="query" />
 				<select class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" x-model="status">
 					<option value="any">Any status</option>
 					<option value="created">Created</option>
@@ -614,33 +613,33 @@ templ RequestListMyRequests(orgID int64, reqs []types.Request) {
 		</div>
 
 		<ul class="divide-y divide-slate-200">
-			for _, req := range reqs {
-				@MyRequestRow(
+			for _, hop := range hops {
+				@MyHopRow(
 					orgID,
-					req,
-					RequestFilterStatus(req.Status),
-					strconv.FormatInt(req.CreatedAt.UnixMilli(), 10),
-					RequestSearchText(req),
+					hop,
+					HopFilterStatus(hop.Status),
+					strconv.FormatInt(hop.CreatedAt.UnixMilli(), 10),
+					HopSearchText(hop),
 				)
 			}
-			if len(reqs) == 0 {
-				<li class="px-6 py-4 text-sm text-slate-600">You haven't made any requests yet.</li>
+			if len(hops) == 0 {
+				<li class="px-6 py-4 text-sm text-slate-600">You haven't requested any hops yet.</li>
 			}
 		</ul>
 	</section>
 }
 
-templ HelpRequestRow(orgID int64, req types.Request) {
+templ HelpHopRow(orgID int64, hop types.Hop) {
 	<li class="px-6 py-4" x-data="{ open: false }">
 		<div class="flex items-start justify-between gap-4">
 		<div class="min-w-0">
 			<div class="flex items-center gap-2">
-				@StatusPill(req.Status)
-				<p class="font-semibold text-slate-900 truncate">{ req.Title }</p>
+				@StatusPill(hop.Status)
+				<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
 			</div>
 			<div class="mt-2 space-y-1">
-				<p class="text-sm text-slate-600">Requested by: { req.CreatedByName }</p>
-				<p class="text-sm text-slate-600">@RequestTimingLine(req)</p>
+				<p class="text-sm text-slate-600">Asked by: { hop.CreatedByName }</p>
+				<p class="text-sm text-slate-600">@HopTimingLine(hop)</p>
 			</div>
 		</div>
 		<div class="shrink-0 flex items-center gap-2">
@@ -653,23 +652,23 @@ templ HelpRequestRow(orgID int64, req types.Request) {
 				<span x-show="!open">More</span>
 				<span x-show="open" style="display: none;">Less</span>
 			</button>
-			if req.Status == types.RequestStatusOpen {
-				<form method="POST" action="/requests/accept">
+			if hop.Status == types.HopStatusOpen {
+				<form method="POST" action="/hops/accept">
 					<input type="hidden" name="org_id" value={ orgID } />
-					<input type="hidden" name="request_id" value={ req.ID } />
+					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
 						Offer help
 					</button>
 				</form>
 			}
-			if req.Status == types.RequestStatusAccepted {
+			if hop.Status == types.HopStatusAccepted {
 				<button
 					class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition"
 					type="button"
-					data-request-id={ req.ID }
-					data-request-title={ req.Title }
-					data-request-hours={ req.EstimatedHours }
-					x-on:click="openComplete(Number($el.dataset.requestId), $el.dataset.requestTitle, Number($el.dataset.requestHours))"
+					data-hop-id={ hop.ID }
+					data-hop-title={ hop.Title }
+					data-hop-hours={ hop.EstimatedHours }
+					x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours))"
 				>
 					Mark complete
 				</button>
@@ -681,10 +680,10 @@ templ HelpRequestRow(orgID int64, req types.Request) {
 			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
 				<p class="text-sm text-slate-700">
 					<span class="font-semibold text-slate-800">Created:</span>
-					{ req.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
+					{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
 				</p>
-				if req.Details != nil && *req.Details != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *req.Details }</p>
+				if hop.Details != nil && *hop.Details != "" {
+					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
 				} else {
 					<p class="text-sm text-slate-700">No additional information available.</p>
 				}
@@ -693,7 +692,7 @@ templ HelpRequestRow(orgID int64, req types.Request) {
 	</li>
 }
 
-templ MyRequestRow(orgID int64, req types.Request, filterStatus string, createdMs string, search string) {
+templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string, search string) {
 	<li
 		class="px-6 py-4"
 		x-data="{ open: false }"
@@ -706,18 +705,18 @@ templ MyRequestRow(orgID int64, req types.Request, filterStatus string, createdM
 		<div class="flex items-start justify-between gap-4">
 			<div class="min-w-0">
 				<div class="flex items-center gap-2">
-					@StatusPill(req.Status)
-					<p class="font-semibold text-slate-900 truncate">{ req.Title }</p>
+					@StatusPill(hop.Status)
+					<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
 				</div>
 				<div class="mt-2 space-y-1">
-					<p class="text-sm text-slate-600">Requested by: { req.CreatedByName }</p>
-					if req.Status == types.RequestStatusAccepted && req.AcceptedByName != nil {
-						<p class="text-sm text-slate-600">Accepted by: { *req.AcceptedByName }</p>
+					<p class="text-sm text-slate-600">Asked by: { hop.CreatedByName }</p>
+					if hop.Status == types.HopStatusAccepted && hop.AcceptedByName != nil {
+						<p class="text-sm text-slate-600">Accepted by: { *hop.AcceptedByName }</p>
 					}
-					if req.Status == types.RequestStatusCompleted && req.CompletedHours != nil {
-						<p class="text-sm text-slate-600">Completed: { *req.CompletedHours } hours</p>
+					if hop.Status == types.HopStatusCompleted && hop.CompletedHours != nil {
+						<p class="text-sm text-slate-600">Completed: { *hop.CompletedHours } hours</p>
 					}
-					<p class="text-sm text-slate-600">@RequestTimingLine(req)</p>
+					<p class="text-sm text-slate-600">@HopTimingLine(hop)</p>
 				</div>
 			</div>
 			<div class="shrink-0 flex items-center gap-2">
@@ -730,23 +729,23 @@ templ MyRequestRow(orgID int64, req types.Request, filterStatus string, createdM
 					<span x-show="!open">More</span>
 					<span x-show="open" style="display: none;">Less</span>
 				</button>
-				if req.Status == types.RequestStatusOpen || req.Status == types.RequestStatusAccepted {
-					<form method="POST" action="/requests/cancel">
+				if hop.Status == types.HopStatusOpen || hop.Status == types.HopStatusAccepted {
+					<form method="POST" action="/hops/cancel">
 						<input type="hidden" name="org_id" value={ orgID } />
-						<input type="hidden" name="request_id" value={ req.ID } />
+						<input type="hidden" name="hop_id" value={ hop.ID } />
 						<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-3 py-2 hover:border-slate-400 transition" type="submit">
 							Cancel
 						</button>
 					</form>
 				}
-				if req.Status == types.RequestStatusAccepted {
+				if hop.Status == types.HopStatusAccepted {
 					<button
 						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition"
 						type="button"
-						data-request-id={ req.ID }
-						data-request-title={ req.Title }
-						data-request-hours={ req.EstimatedHours }
-						x-on:click="openComplete(Number($el.dataset.requestId), $el.dataset.requestTitle, Number($el.dataset.requestHours))"
+						data-hop-id={ hop.ID }
+						data-hop-title={ hop.Title }
+						data-hop-hours={ hop.EstimatedHours }
+						x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours))"
 					>
 						Mark complete
 					</button>
@@ -758,35 +757,35 @@ templ MyRequestRow(orgID int64, req types.Request, filterStatus string, createdM
 			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
 				<p class="text-sm text-slate-700">
 					<span class="font-semibold text-slate-800">Created:</span>
-					{ req.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
+					{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
 				</p>
-				if req.AcceptedAt != nil && req.AcceptedByName != nil {
+				if hop.AcceptedAt != nil && hop.AcceptedByName != nil {
 					<p class="text-sm text-slate-700">
 						<span class="font-semibold text-slate-800">Accepted:</span>
-						{ *req.AcceptedByName } on { req.AcceptedAt.Format("Jan 2, 2006 3:04 PM") }
+						{ *hop.AcceptedByName } on { hop.AcceptedAt.Format("Jan 2, 2006 3:04 PM") }
 					</p>
 				}
-				if req.CanceledAt != nil {
+				if hop.CanceledAt != nil {
 					<p class="text-sm text-slate-700">
 						<span class="font-semibold text-slate-800">Canceled:</span>
-						{ req.CanceledAt.Format("Jan 2, 2006 3:04 PM") }
+						{ hop.CanceledAt.Format("Jan 2, 2006 3:04 PM") }
 					</p>
 				}
-				if req.CompletedAt != nil {
+				if hop.CompletedAt != nil {
 					<p class="text-sm text-slate-700">
 						<span class="font-semibold text-slate-800">Completed:</span>
-						{ req.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
-						if req.CompletedHours != nil {
-							{ " • " }{ *req.CompletedHours } hours
+						{ hop.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
+						if hop.CompletedHours != nil {
+							{ " • " }{ *hop.CompletedHours } hours
 						}
 					</p>
 				}
-				if req.CompletionComment != nil && *req.CompletionComment != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *req.CompletionComment }</p>
+				if hop.CompletionComment != nil && *hop.CompletionComment != "" {
+					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.CompletionComment }</p>
 				}
-				if req.Details != nil && *req.Details != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *req.Details }</p>
-				} else if (req.CompletionComment == nil || *req.CompletionComment == "") {
+				if hop.Details != nil && *hop.Details != "" {
+					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
+				} else if (hop.CompletionComment == nil || *hop.CompletionComment == "") {
 					<p class="text-sm text-slate-700">No additional information available.</p>
 				}
 			</div>
@@ -796,59 +795,59 @@ templ MyRequestRow(orgID int64, req types.Request, filterStatus string, createdM
 
 templ StatusPill(status string) {
 	switch status {
-	case types.RequestStatusOpen:
+	case types.HopStatusOpen:
 		<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold">Pending</span>
-	case types.RequestStatusAccepted:
+	case types.HopStatusAccepted:
 		<span class="inline-flex items-center rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-xs font-semibold">Accepted</span>
-	case types.RequestStatusCompleted:
+	case types.HopStatusCompleted:
 		<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold">Completed</span>
-	case types.RequestStatusCanceled:
+	case types.HopStatusCanceled:
 		<span class="inline-flex items-center rounded-full bg-slate-200 text-slate-800 px-2 py-0.5 text-xs font-semibold">Canceled</span>
-	case types.RequestStatusExpired:
+	case types.HopStatusExpired:
 		<span class="inline-flex items-center rounded-full bg-slate-200 text-slate-800 px-2 py-0.5 text-xs font-semibold">Expired</span>
 	default:
 		<span class="inline-flex items-center rounded-full bg-slate-200 text-slate-800 px-2 py-0.5 text-xs font-semibold">{ status }</span>
 	}
 }
 
-templ RequestTimingLine(req types.Request) {
+templ HopTimingLine(hop types.Hop) {
 	<span>
-		Estimated: { req.EstimatedHours }
-		if req.EstimatedHours == 1 {
+		Estimated: { hop.EstimatedHours }
+		if hop.EstimatedHours == 1 {
 			{ " " }hour
 		} else {
 			{ " " }hours
 		}
 		<span class="mx-2">•</span>
-		if req.NeededByKind == types.RequestNeededByAnytime {
+		if hop.NeededByKind == types.HopNeededByAnytime {
 			Needed: anytime
-		} else if req.NeededByDate != nil {
-			if req.NeededByKind == types.RequestNeededByOn {
-				Needed on { req.NeededByDate.Format("Jan 2, 2006") }
-			} else if req.NeededByKind == types.RequestNeededByAround {
-				Needed around { req.NeededByDate.Format("Jan 2, 2006") }
-			} else if req.NeededByKind == types.RequestNeededByNoLaterThan {
-				Needed no later than { req.NeededByDate.Format("Jan 2, 2006") }
+		} else if hop.NeededByDate != nil {
+			if hop.NeededByKind == types.HopNeededByOn {
+				Needed on { hop.NeededByDate.Format("Jan 2, 2006") }
+			} else if hop.NeededByKind == types.HopNeededByAround {
+				Needed around { hop.NeededByDate.Format("Jan 2, 2006") }
+			} else if hop.NeededByKind == types.HopNeededByNoLaterThan {
+				Needed no later than { hop.NeededByDate.Format("Jan 2, 2006") }
 			}
 		}
 	</span>
 }
 
-templ RequestModal(orgID int64) {
-	<div class="fixed inset-0 z-50" x-show="requestModalOpen" x-transition.opacity style="display: none;">
-		<div class="absolute inset-0 bg-slate-900/50" x-on:click="requestModalOpen = false"></div>
+templ HopModal(orgID int64) {
+	<div class="fixed inset-0 z-50" x-show="hopModalOpen" x-transition.opacity style="display: none;">
+		<div class="absolute inset-0 bg-slate-900/50" x-on:click="hopModalOpen = false"></div>
 		<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
 			<div
 				class="w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200"
 				role="dialog"
 				aria-modal="true"
-				aria-label="Make a request"
+				aria-label="Request a hop"
 				x-on:click.stop
 			>
 				<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
 					<div class="flex items-start justify-between gap-4">
 						<div>
-							<h2 class="text-xl font-bold text-slate-900">Make a request</h2>
+							<h2 class="text-xl font-bold text-slate-900">Request a hop</h2>
 							<p class="text-slate-600 leading-relaxed">
 								Tell your organization what you need. Be specific so others can say yes quickly.
 							</p>
@@ -857,37 +856,37 @@ templ RequestModal(orgID int64) {
 							type="button"
 							class="rounded-lg px-2 py-1 text-slate-500 hover:text-slate-700"
 							aria-label="Close"
-							x-on:click="requestModalOpen = false"
+							x-on:click="hopModalOpen = false"
 						>
 							&times;
 						</button>
 					</div>
 				</div>
 
-				<form method="POST" action="/requests/create">
+				<form method="POST" action="/hops/create">
 					<input type="hidden" name="org_id" value={ orgID } />
 					<div class="p-6 sm:p-7 space-y-4">
 						<div class="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3">
 							<div class="space-y-1 sm:col-span-2">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-request-title">What do you need?</label>
-								<input id="modal-request-title" name="title" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" placeholder="Example: Help moving a couch" required />
+								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-title">What do you need?</label>
+								<input id="modal-hop-title" name="title" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" placeholder="Example: Help moving a couch" required />
 							</div>
 
 							<div class="space-y-1">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-request-when-kind">When do you need it?</label>
+								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-when-kind">When do you need it?</label>
 								<div class="flex gap-2">
-									<select id="modal-request-when-kind" name="needed_by_kind" class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-										<option value={ types.RequestNeededByOn }>on</option>
-										<option value={ types.RequestNeededByAround }>around</option>
-										<option value={ types.RequestNeededByNoLaterThan }>no later than</option>
+									<select id="modal-hop-when-kind" name="needed_by_kind" class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+										<option value={ types.HopNeededByOn }>on</option>
+										<option value={ types.HopNeededByAround }>around</option>
+										<option value={ types.HopNeededByNoLaterThan }>no later than</option>
 									</select>
-									<input id="modal-request-when-date" name="needed_by_date" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="date" required />
+									<input id="modal-hop-when-date" name="needed_by_date" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="date" required />
 								</div>
 							</div>
 
 							<div class="space-y-1 sm:justify-self-end">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-request-hours">How long will it take?</label>
-								<select id="modal-request-hours" name="estimated_hours" class="w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-hours">How long will it take?</label>
+								<select id="modal-hop-hours" name="estimated_hours" class="w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
 									<option value="1">1 hour</option>
 									<option value="2">2 hours</option>
 									<option value="3">3 hours</option>
@@ -900,16 +899,16 @@ templ RequestModal(orgID int64) {
 							</div>
 						</div>
 						<div class="space-y-1">
-							<label class="block text-sm font-semibold text-slate-800" for="modal-request-details">Details</label>
-							<textarea id="modal-request-details" name="details" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" placeholder="Share what matters: location, timing, tools, accessibility needs..."></textarea>
+							<label class="block text-sm font-semibold text-slate-800" for="modal-hop-details">Details</label>
+							<textarea id="modal-hop-details" name="details" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" placeholder="Share what matters: location, timing, tools, accessibility needs..."></textarea>
 						</div>
 					</div>
 
 					<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">
 						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-							Submit request
+							Submit hop
 						</button>
-						<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" type="button" x-on:click="requestModalOpen = false">
+						<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" type="button" x-on:click="hopModalOpen = false">
 							Cancel
 						</button>
 					</div>
@@ -927,7 +926,7 @@ templ CompleteModal(orgID int64) {
 				class="w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200"
 				role="dialog"
 				aria-modal="true"
-				aria-label="Complete request"
+				aria-label="Complete hop"
 				x-on:click.stop
 			>
 				<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
@@ -937,7 +936,7 @@ templ CompleteModal(orgID int64) {
 							<p class="text-slate-600 leading-relaxed">
 								Add a short comment so others can celebrate the help that happened.
 							</p>
-							<p class="text-sm text-slate-700 mt-2" x-text="completeRequestTitle"></p>
+							<p class="text-sm text-slate-700 mt-2" x-text="completeHopTitle"></p>
 						</div>
 						<button
 							type="button"
@@ -950,9 +949,9 @@ templ CompleteModal(orgID int64) {
 					</div>
 				</div>
 
-				<form method="POST" action="/requests/complete">
+				<form method="POST" action="/hops/complete">
 					<input type="hidden" name="org_id" value={ orgID } />
-					<input type="hidden" name="request_id" x-bind:value="completeRequestID" />
+					<input type="hidden" name="hop_id" x-bind:value="completeHopID" />
 					<div class="p-6 sm:p-7 space-y-4">
 						<div class="space-y-1">
 							<label class="block text-sm font-semibold text-slate-800" for="complete-hours">How many hours?</label>

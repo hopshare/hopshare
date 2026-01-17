@@ -27,9 +27,9 @@ var (
 	ErrMembershipNotFound   = errors.New("membership not found")
 	ErrInvalidRoleChange    = errors.New("invalid role change")
 
-	ErrHelpRequestNotFound     = errors.New("help request not found")
-	ErrHelpRequestForbidden    = errors.New("help request forbidden")
-	ErrHelpRequestInvalidState = errors.New("help request invalid state")
+	ErrHopNotFound     = errors.New("hop not found")
+	ErrHopForbidden    = errors.New("hop forbidden")
+	ErrHopInvalidState = errors.New("hop invalid state")
 )
 
 // CreateMember inserts a member row and returns the stored record with ID/timestamps.
@@ -774,7 +774,7 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name string, primaryOwn
 	return org, nil
 }
 
-type CreateHelpRequestParams struct {
+type CreateHopParams struct {
 	OrganizationID int64
 	MemberID       int64
 	Title          string
@@ -784,48 +784,48 @@ type CreateHelpRequestParams struct {
 	NeededByDate   *time.Time
 }
 
-func CreateHelpRequest(ctx context.Context, db *sql.DB, p CreateHelpRequestParams) (types.Request, error) {
+func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, error) {
 	if db == nil {
-		return types.Request{}, ErrNilDB
+		return types.Hop{}, ErrNilDB
 	}
 	if p.OrganizationID == 0 {
-		return types.Request{}, ErrMissingOrgID
+		return types.Hop{}, ErrMissingOrgID
 	}
 	if p.MemberID == 0 {
-		return types.Request{}, ErrMissingMemberID
+		return types.Hop{}, ErrMissingMemberID
 	}
 	title := strings.TrimSpace(p.Title)
 	if title == "" {
-		return types.Request{}, ErrMissingField
+		return types.Hop{}, ErrMissingField
 	}
 	if p.EstimatedHours < 1 || p.EstimatedHours > 8 {
-		return types.Request{}, ErrMissingField
+		return types.Hop{}, ErrMissingField
 	}
 
 	if err := requireActiveMembership(ctx, db, p.OrganizationID, p.MemberID); err != nil {
-		return types.Request{}, err
+		return types.Hop{}, err
 	}
 
 	neededByKind := strings.TrimSpace(p.NeededByKind)
 	var neededByDate sql.NullTime
 	var expiresAt sql.NullTime
 	switch neededByKind {
-	case types.RequestNeededByAnytime:
-	case types.RequestNeededByOn, types.RequestNeededByAround, types.RequestNeededByNoLaterThan:
+	case types.HopNeededByAnytime:
+	case types.HopNeededByOn, types.HopNeededByAround, types.HopNeededByNoLaterThan:
 		if p.NeededByDate == nil || p.NeededByDate.IsZero() {
-			return types.Request{}, ErrMissingField
+			return types.Hop{}, ErrMissingField
 		}
 		date := *p.NeededByDate
 		neededByDate = sql.NullTime{Time: date, Valid: true}
-		expiry := requestExpiryAt(neededByKind, date)
+		expiry := hopExpiryAt(neededByKind, date)
 		expiresAt = sql.NullTime{Time: expiry, Valid: true}
 	default:
-		return types.Request{}, ErrMissingField
+		return types.Hop{}, ErrMissingField
 	}
 
-	var requestID int64
+	var hopID int64
 	if err := db.QueryRowContext(ctx, `
-		INSERT INTO requests (
+		INSERT INTO hops (
 			organization_id,
 			created_by,
 			title,
@@ -837,26 +837,26 @@ func CreateHelpRequest(ctx context.Context, db *sql.DB, p CreateHelpRequestParam
 			status
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id
-	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.RequestStatusOpen).Scan(&requestID); err != nil {
-		return types.Request{}, fmt.Errorf("create help request: %w", err)
+	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
+		return types.Hop{}, fmt.Errorf("create hop: %w", err)
 	}
 
-	req, err := GetHelpRequestByID(ctx, db, p.OrganizationID, requestID)
+	req, err := GetHopByID(ctx, db, p.OrganizationID, hopID)
 	if err != nil {
-		return types.Request{}, err
+		return types.Hop{}, err
 	}
 	return req, nil
 }
 
-func AcceptHelpRequest(ctx context.Context, db *sql.DB, orgID, requestID, accepterID int64) error {
+func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) error {
 	if db == nil {
 		return ErrNilDB
 	}
 	if orgID == 0 {
 		return ErrMissingOrgID
 	}
-	if requestID == 0 {
-		return ErrHelpRequestNotFound
+	if hopID == 0 {
+		return ErrHopNotFound
 	}
 	if accepterID == 0 {
 		return ErrMissingMemberID
@@ -867,32 +867,32 @@ func AcceptHelpRequest(ctx context.Context, db *sql.DB, orgID, requestID, accept
 	}
 
 	res, err := db.ExecContext(ctx, `
-		UPDATE requests
+		UPDATE hops
 		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
 		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_by <> $2
-	`, types.RequestStatusAccepted, accepterID, requestID, orgID, types.RequestStatusOpen)
+	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen)
 	if err != nil {
-		return fmt.Errorf("accept help request: %w", err)
+		return fmt.Errorf("accept hop: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("accept help request rows affected: %w", err)
+		return fmt.Errorf("accept hop rows affected: %w", err)
 	}
 	if affected == 0 {
-		return ErrHelpRequestInvalidState
+		return ErrHopInvalidState
 	}
 	return nil
 }
 
-func CancelHelpRequest(ctx context.Context, db *sql.DB, orgID, requestID, cancelerID int64) error {
+func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) error {
 	if db == nil {
 		return ErrNilDB
 	}
 	if orgID == 0 {
 		return ErrMissingOrgID
 	}
-	if requestID == 0 {
-		return ErrHelpRequestNotFound
+	if hopID == 0 {
+		return ErrHopNotFound
 	}
 	if cancelerID == 0 {
 		return ErrMissingMemberID
@@ -903,40 +903,40 @@ func CancelHelpRequest(ctx context.Context, db *sql.DB, orgID, requestID, cancel
 	}
 
 	res, err := db.ExecContext(ctx, `
-		UPDATE requests
+		UPDATE hops
 		SET status = $1, canceled_by = $2, canceled_at = NOW(), updated_at = NOW()
 		WHERE id = $3 AND organization_id = $4 AND created_by = $2 AND status IN ($5, $6)
-	`, types.RequestStatusCanceled, cancelerID, requestID, orgID, types.RequestStatusOpen, types.RequestStatusAccepted)
+	`, types.HopStatusCanceled, cancelerID, hopID, orgID, types.HopStatusOpen, types.HopStatusAccepted)
 	if err != nil {
-		return fmt.Errorf("cancel help request: %w", err)
+		return fmt.Errorf("cancel hop: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("cancel help request rows affected: %w", err)
+		return fmt.Errorf("cancel hop rows affected: %w", err)
 	}
 	if affected == 0 {
-		return ErrHelpRequestInvalidState
+		return ErrHopInvalidState
 	}
 	return nil
 }
 
-type CompleteHelpRequestParams struct {
+type CompleteHopParams struct {
 	OrganizationID int64
-	RequestID      int64
+	HopID          int64
 	CompletedBy    int64
 	Comment        string
 	CompletedHours int
 }
 
-func CompleteHelpRequest(ctx context.Context, db *sql.DB, p CompleteHelpRequestParams) error {
+func CompleteHop(ctx context.Context, db *sql.DB, p CompleteHopParams) error {
 	if db == nil {
 		return ErrNilDB
 	}
 	if p.OrganizationID == 0 {
 		return ErrMissingOrgID
 	}
-	if p.RequestID == 0 {
-		return ErrHelpRequestNotFound
+	if p.HopID == 0 {
+		return ErrHopNotFound
 	}
 	if p.CompletedBy == 0 {
 		return ErrMissingMemberID
@@ -952,7 +952,7 @@ func CompleteHelpRequest(ctx context.Context, db *sql.DB, p CompleteHelpRequestP
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin complete request: %w", err)
+		return fmt.Errorf("begin complete hop: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -966,22 +966,22 @@ func CompleteHelpRequest(ctx context.Context, db *sql.DB, p CompleteHelpRequestP
 	var status string
 	row := tx.QueryRowContext(ctx, `
 		SELECT created_by, accepted_by, estimated_hours, status
-		FROM requests
+		FROM hops
 		WHERE id = $1 AND organization_id = $2
 		FOR UPDATE
-	`, p.RequestID, p.OrganizationID)
+	`, p.HopID, p.OrganizationID)
 	if err = row.Scan(&createdBy, &acceptedBy, &estimatedHours, &status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrHelpRequestNotFound
+			return ErrHopNotFound
 		}
-		return fmt.Errorf("load request for completion: %w", err)
+		return fmt.Errorf("load hop for completion: %w", err)
 	}
 
-	if status != types.RequestStatusAccepted || !acceptedBy.Valid {
-		return ErrHelpRequestInvalidState
+	if status != types.HopStatusAccepted || !acceptedBy.Valid {
+		return ErrHopInvalidState
 	}
 	if p.CompletedBy != createdBy && p.CompletedBy != acceptedBy.Int64 {
-		return ErrHelpRequestForbidden
+		return ErrHopForbidden
 	}
 
 	hours := p.CompletedHours
@@ -993,27 +993,27 @@ func CompleteHelpRequest(ctx context.Context, db *sql.DB, p CompleteHelpRequestP
 	}
 
 	if _, err = tx.ExecContext(ctx, `
-		UPDATE requests
+		UPDATE hops
 		SET status = $1, completed_by = $2, completed_at = NOW(), completed_hours = $3, completion_comment = $4, updated_at = NOW()
 		WHERE id = $5 AND organization_id = $6 AND status = $7
-	`, types.RequestStatusCompleted, p.CompletedBy, hours, comment, p.RequestID, p.OrganizationID, types.RequestStatusAccepted); err != nil {
-		return fmt.Errorf("mark request completed: %w", err)
+	`, types.HopStatusCompleted, p.CompletedBy, hours, comment, p.HopID, p.OrganizationID, types.HopStatusAccepted); err != nil {
+		return fmt.Errorf("mark hop completed: %w", err)
 	}
 
 	if _, err = tx.ExecContext(ctx, `
-		INSERT INTO request_transactions (organization_id, request_id, from_member_id, to_member_id, hours)
+		INSERT INTO hop_transactions (organization_id, hop_id, from_member_id, to_member_id, hours)
 		VALUES ($1, $2, $3, $4, $5)
-	`, p.OrganizationID, p.RequestID, createdBy, acceptedBy.Int64, hours); err != nil {
-		return fmt.Errorf("insert request transaction: %w", err)
+	`, p.OrganizationID, p.HopID, createdBy, acceptedBy.Int64, hours); err != nil {
+		return fmt.Errorf("insert hop transaction: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit complete request: %w", err)
+		return fmt.Errorf("commit complete hop: %w", err)
 	}
 	return nil
 }
 
-func ExpireHelpRequests(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (int64, error) {
+func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (int64, error) {
 	if db == nil {
 		return 0, ErrNilDB
 	}
@@ -1022,32 +1022,32 @@ func ExpireHelpRequests(ctx context.Context, db *sql.DB, orgID int64, now time.T
 	}
 
 	res, err := db.ExecContext(ctx, `
-		UPDATE requests
+		UPDATE hops
 		SET status = $1, updated_at = NOW()
 		WHERE organization_id = $2
 			AND status IN ($3, $4)
 			AND expires_at IS NOT NULL
 			AND expires_at <= $5
-	`, types.RequestStatusExpired, orgID, types.RequestStatusOpen, types.RequestStatusAccepted, now)
+	`, types.HopStatusExpired, orgID, types.HopStatusOpen, types.HopStatusAccepted, now)
 	if err != nil {
-		return 0, fmt.Errorf("expire requests: %w", err)
+		return 0, fmt.Errorf("expire hops: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return 0, fmt.Errorf("expire requests rows affected: %w", err)
+		return 0, fmt.Errorf("expire hops rows affected: %w", err)
 	}
 	return affected, nil
 }
 
-func GetHelpRequestByID(ctx context.Context, db *sql.DB, orgID, requestID int64) (types.Request, error) {
+func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop, error) {
 	if db == nil {
-		return types.Request{}, ErrNilDB
+		return types.Hop{}, ErrNilDB
 	}
 	if orgID == 0 {
-		return types.Request{}, ErrMissingOrgID
+		return types.Hop{}, ErrMissingOrgID
 	}
-	if requestID == 0 {
-		return types.Request{}, ErrHelpRequestNotFound
+	if hopID == 0 {
+		return types.Hop{}, ErrHopNotFound
 	}
 
 	row := db.QueryRowContext(ctx, `
@@ -1060,22 +1060,22 @@ func GetHelpRequestByID(ctx context.Context, db *sql.DB, orgID, requestID int64)
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
-		FROM requests r
+		FROM hops r
 		JOIN members mc ON mc.id = r.created_by
 		LEFT JOIN members ma ON ma.id = r.accepted_by
 		WHERE r.organization_id = $1 AND r.id = $2
-	`, orgID, requestID)
-	req, err := scanRequestRow(row)
+	`, orgID, hopID)
+	req, err := scanHopRow(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return types.Request{}, ErrHelpRequestNotFound
+			return types.Hop{}, ErrHopNotFound
 		}
-		return types.Request{}, fmt.Errorf("get help request: %w", err)
+		return types.Hop{}, fmt.Errorf("get hop: %w", err)
 	}
 	return req, nil
 }
 
-func ListMemberRequests(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Request, error) {
+func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
 	if db == nil {
 		return nil, ErrNilDB
 	}
@@ -1100,7 +1100,7 @@ func ListMemberRequests(ctx context.Context, db *sql.DB, orgID, memberID int64) 
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
-		FROM requests r
+		FROM hops r
 		JOIN members mc ON mc.id = r.created_by
 		LEFT JOIN members ma ON ma.id = r.accepted_by
 		WHERE r.organization_id = $1
@@ -1113,25 +1113,25 @@ func ListMemberRequests(ctx context.Context, db *sql.DB, orgID, memberID int64) 
 		ORDER BY r.created_at DESC
 	`, orgID, memberID)
 	if err != nil {
-		return nil, fmt.Errorf("list member requests: %w", err)
+		return nil, fmt.Errorf("list member hops: %w", err)
 	}
 	defer rows.Close()
 
-	var out []types.Request
+	var out []types.Hop
 	for rows.Next() {
-		req, err := scanRequestRow(rows)
+		req, err := scanHopRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan request: %w", err)
+			return nil, fmt.Errorf("scan hop: %w", err)
 		}
 		out = append(out, req)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list member requests: %w", err)
+		return nil, fmt.Errorf("list member hops: %w", err)
 	}
 	return out, nil
 }
 
-func ListRequestsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Request, error) {
+func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
 	if db == nil {
 		return nil, ErrNilDB
 	}
@@ -1156,7 +1156,7 @@ func ListRequestsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) 
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
-		FROM requests r
+		FROM hops r
 		JOIN members mc ON mc.id = r.created_by
 		LEFT JOIN members ma ON ma.id = r.accepted_by
 		WHERE r.organization_id = $1
@@ -1165,27 +1165,27 @@ func ListRequestsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) 
 				OR (r.status = $4 AND r.accepted_by = $3)
 			)
 		ORDER BY r.created_at DESC
-	`, orgID, types.RequestStatusOpen, memberID, types.RequestStatusAccepted)
+	`, orgID, types.HopStatusOpen, memberID, types.HopStatusAccepted)
 	if err != nil {
-		return nil, fmt.Errorf("list requests to help: %w", err)
+		return nil, fmt.Errorf("list hops to help: %w", err)
 	}
 	defer rows.Close()
 
-	var out []types.Request
+	var out []types.Hop
 	for rows.Next() {
-		req, err := scanRequestRow(rows)
+		req, err := scanHopRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan request: %w", err)
+			return nil, fmt.Errorf("scan hop: %w", err)
 		}
 		out = append(out, req)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list requests to help: %w", err)
+		return nil, fmt.Errorf("list hops to help: %w", err)
 	}
 	return out, nil
 }
 
-func RecentCompletedRequests(ctx context.Context, db *sql.DB, orgID int64, limit int) ([]types.Request, error) {
+func RecentCompletedHops(ctx context.Context, db *sql.DB, orgID int64, limit int) ([]types.Hop, error) {
 	if db == nil {
 		return nil, ErrNilDB
 	}
@@ -1206,124 +1206,124 @@ func RecentCompletedRequests(ctx context.Context, db *sql.DB, orgID int64, limit
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
-		FROM requests r
+		FROM hops r
 		JOIN members mc ON mc.id = r.created_by
 		LEFT JOIN members ma ON ma.id = r.accepted_by
 		WHERE r.organization_id = $1 AND r.status = $2
 		ORDER BY r.completed_at DESC
 		LIMIT $3
-	`, orgID, types.RequestStatusCompleted, limit)
+	`, orgID, types.HopStatusCompleted, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list recent completed: %w", err)
+		return nil, fmt.Errorf("list recent completed hops: %w", err)
 	}
 	defer rows.Close()
 
-	var out []types.Request
+	var out []types.Hop
 	for rows.Next() {
-		req, err := scanRequestRow(rows)
+		req, err := scanHopRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan request: %w", err)
+			return nil, fmt.Errorf("scan hop: %w", err)
 		}
 		out = append(out, req)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list recent completed: %w", err)
+		return nil, fmt.Errorf("list recent completed hops: %w", err)
 	}
 	return out, nil
 }
 
-func OrgMetrics(ctx context.Context, db *sql.DB, orgID int64) (types.OrgRequestMetrics, error) {
+func OrgMetrics(ctx context.Context, db *sql.DB, orgID int64) (types.OrgHopMetrics, error) {
 	if db == nil {
-		return types.OrgRequestMetrics{}, ErrNilDB
+		return types.OrgHopMetrics{}, ErrNilDB
 	}
 	if orgID == 0 {
-		return types.OrgRequestMetrics{}, ErrMissingOrgID
+		return types.OrgHopMetrics{}, ErrMissingOrgID
 	}
 
-	var m types.OrgRequestMetrics
+	var m types.OrgHopMetrics
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
 		FROM organization_memberships
 		WHERE organization_id = $1 AND left_at IS NULL
 	`, orgID).Scan(&m.MemberCount); err != nil {
-		return types.OrgRequestMetrics{}, fmt.Errorf("count members: %w", err)
+		return types.OrgHopMetrics{}, fmt.Errorf("count members: %w", err)
 	}
 
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM requests
+		FROM hops
 		WHERE organization_id = $1 AND status IN ($2, $3)
-	`, orgID, types.RequestStatusOpen, types.RequestStatusAccepted).Scan(&m.PendingCount); err != nil {
-		return types.OrgRequestMetrics{}, fmt.Errorf("count pending requests: %w", err)
+	`, orgID, types.HopStatusOpen, types.HopStatusAccepted).Scan(&m.PendingCount); err != nil {
+		return types.OrgHopMetrics{}, fmt.Errorf("count pending hops: %w", err)
 	}
 
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM requests
+		FROM hops
 		WHERE organization_id = $1 AND status = $2
-	`, orgID, types.RequestStatusCompleted).Scan(&m.CompletedCount); err != nil {
-		return types.OrgRequestMetrics{}, fmt.Errorf("count completed requests: %w", err)
+	`, orgID, types.HopStatusCompleted).Scan(&m.CompletedCount); err != nil {
+		return types.OrgHopMetrics{}, fmt.Errorf("count completed hops: %w", err)
 	}
 
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM requests
+		FROM hops
 		WHERE organization_id = $1 AND status = $2 AND completed_at >= NOW() - INTERVAL '7 days'
-	`, orgID, types.RequestStatusCompleted).Scan(&m.CompletedThisWeek); err != nil {
-		return types.OrgRequestMetrics{}, fmt.Errorf("count completed this week: %w", err)
+	`, orgID, types.HopStatusCompleted).Scan(&m.CompletedThisWeek); err != nil {
+		return types.OrgHopMetrics{}, fmt.Errorf("count completed hops this week: %w", err)
 	}
 
 	return m, nil
 }
 
-func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.MemberRequestStats, error) {
+func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.MemberHopStats, error) {
 	if db == nil {
-		return types.MemberRequestStats{}, ErrNilDB
+		return types.MemberHopStats{}, ErrNilDB
 	}
 	if orgID == 0 {
-		return types.MemberRequestStats{}, ErrMissingOrgID
+		return types.MemberHopStats{}, ErrMissingOrgID
 	}
 	if memberID == 0 {
-		return types.MemberRequestStats{}, ErrMissingMemberID
+		return types.MemberHopStats{}, ErrMissingMemberID
 	}
 
 	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
-		return types.MemberRequestStats{}, err
+		return types.MemberHopStats{}, err
 	}
 
-	var stats types.MemberRequestStats
+	var stats types.MemberHopStats
 	if err := db.QueryRowContext(ctx, `
 		SELECT
 			COALESCE(SUM(CASE WHEN to_member_id = $2 THEN hours ELSE 0 END), 0) -
 			COALESCE(SUM(CASE WHEN from_member_id = $2 THEN hours ELSE 0 END), 0)
-		FROM request_transactions
+		FROM hop_transactions
 		WHERE organization_id = $1 AND (to_member_id = $2 OR from_member_id = $2)
 	`, orgID, memberID).Scan(&stats.BalanceHours); err != nil {
-		return types.MemberRequestStats{}, fmt.Errorf("load balance: %w", err)
+		return types.MemberHopStats{}, fmt.Errorf("load balance: %w", err)
 	}
 
 	var lastMade sql.NullTime
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*), MAX(created_at)
-		FROM requests
+		FROM hops
 		WHERE organization_id = $1 AND created_by = $2
-	`, orgID, memberID).Scan(&stats.RequestsMade, &lastMade); err != nil {
-		return types.MemberRequestStats{}, fmt.Errorf("load requests made: %w", err)
+	`, orgID, memberID).Scan(&stats.HopsMade, &lastMade); err != nil {
+		return types.MemberHopStats{}, fmt.Errorf("load hops made: %w", err)
 	}
 	if lastMade.Valid {
-		stats.LastRequestMadeAt = &lastMade.Time
+		stats.LastHopMadeAt = &lastMade.Time
 	}
 
 	var lastFulfilled sql.NullTime
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*), MAX(completed_at)
-		FROM requests
+		FROM hops
 		WHERE organization_id = $1 AND accepted_by = $2 AND status = $3
-	`, orgID, memberID, types.RequestStatusCompleted).Scan(&stats.RequestsFulfilled, &lastFulfilled); err != nil {
-		return types.MemberRequestStats{}, fmt.Errorf("load requests fulfilled: %w", err)
+	`, orgID, memberID, types.HopStatusCompleted).Scan(&stats.HopsFulfilled, &lastFulfilled); err != nil {
+		return types.MemberHopStats{}, fmt.Errorf("load hops fulfilled: %w", err)
 	}
 	if lastFulfilled.Valid {
-		stats.LastFulfilledAt = &lastFulfilled.Time
+		stats.LastHopFulfilledAt = &lastFulfilled.Time
 	}
 
 	return stats, nil
@@ -1340,14 +1340,14 @@ func requireActiveMembership(ctx context.Context, db *sql.DB, orgID, memberID in
 		return fmt.Errorf("check membership: %w", err)
 	}
 	if !exists {
-		return ErrHelpRequestForbidden
+		return ErrHopForbidden
 	}
 	return nil
 }
 
-func requestExpiryAt(kind string, date time.Time) time.Time {
+func hopExpiryAt(kind string, date time.Time) time.Time {
 	expiry := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.UTC)
-	if kind == types.RequestNeededByAround {
+	if kind == types.HopNeededByAround {
 		expiry = expiry.AddDate(0, 0, 2)
 	}
 	return expiry
@@ -1371,8 +1371,8 @@ type scanFunc interface {
 	Scan(dest ...any) error
 }
 
-func scanRequestRow(s scanFunc) (types.Request, error) {
-	var r types.Request
+func scanHopRow(s scanFunc) (types.Hop, error) {
+	var r types.Hop
 	var details sql.NullString
 	var neededByDate sql.NullTime
 	var expiresAt sql.NullTime
@@ -1396,7 +1396,7 @@ func scanRequestRow(s scanFunc) (types.Request, error) {
 		&completedBy, &completedAt, &completedHours, &completionComment,
 		&r.CreatedAt, &r.UpdatedAt,
 	); err != nil {
-		return types.Request{}, err
+		return types.Hop{}, err
 	}
 
 	if details.Valid {

@@ -9,18 +9,18 @@ const (
 )
 
 const (
-	RequestStatusOpen      = "open"
-	RequestStatusAccepted  = "accepted"
-	RequestStatusCanceled  = "canceled"
-	RequestStatusExpired   = "expired"
-	RequestStatusCompleted = "completed"
+	HopStatusOpen      = "open"
+	HopStatusAccepted  = "accepted"
+	HopStatusCanceled  = "canceled"
+	HopStatusExpired   = "expired"
+	HopStatusCompleted = "completed"
 )
 
 const (
-	RequestNeededByAnytime     = "anytime"
-	RequestNeededByOn          = "on"
-	RequestNeededByAround      = "around"
-	RequestNeededByNoLaterThan = "no_later_than"
+	HopNeededByAnytime     = "anytime"
+	HopNeededByOn          = "on"
+	HopNeededByAround      = "around"
+	HopNeededByNoLaterThan = "no_later_than"
 )
 
 // Member represents a row in the members table.
@@ -44,14 +44,14 @@ type Member struct {
 
 // Organization represents a Hopshare organization/tenant.
 type Organization struct {
-	ID        int64
-	Name      string
+	ID              int64
+	Name            string
 	LogoContentType *string
 	HasLogo         bool
-	Enabled   bool
-	CreatedBy *int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Enabled         bool
+	CreatedBy       *int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // MembershipRequest represents a pending/judged request to join an organization.
@@ -75,8 +75,8 @@ type OrganizationMember struct {
 	JoinedAt       time.Time
 }
 
-// Request represents a help request within an organization.
-type Request struct {
+// Hop represents a help hop within an organization.
+type Hop struct {
 	ID             int64
 	OrganizationID int64
 	CreatedBy      int64
@@ -107,17 +107,17 @@ type Request struct {
 	UpdatedAt time.Time
 }
 
-type OrgRequestMetrics struct {
+type OrgHopMetrics struct {
 	MemberCount       int
 	PendingCount      int
 	CompletedCount    int
 	CompletedThisWeek int
 }
 
-type MemberRequestStats struct {
-	BalanceHours      int
-	RequestsMade      int
-	LastRequestMadeAt *time.Time
-	RequestsFulfilled int
-	LastFulfilledAt   *time.Time
+type MemberHopStats struct {
+	BalanceHours       int
+	HopsMade           int
+	LastHopMadeAt      *time.Time
+	HopsFulfilled      int
+	LastHopFulfilledAt *time.Time
 }
