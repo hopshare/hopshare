@@ -29,12 +29,7 @@
 * My HopShare Dashboard
     * "Change..." for Organization should be a pulldown of all Organizations Member belongs to. 
     * At bottom of that card, have a link "Find an Organization..." that goes to Find Organization page.
-* My Profile
-    * Have a link to let you manage your Organization or create a new one.
-* Manage Organization page
-    * Add location, description, etc.
-    * Stack Membership Requests horizontally below Org Details
-    * Remove "Back To My Hopshare" button- make a link like Messages/My Hops
+    * Organization card doesn't work well with long names
 * Find Organization Page
     * Long Organization names do not fit into the search results- should put those into larger results- with ability to drill into details on the organization before asking to join.
 * Joining an Organization should use messages

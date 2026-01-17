@@ -66,6 +66,9 @@ type Member struct {
 type Organization struct {
 	ID              int64
 	Name            string
+	City            string
+	State           string
+	Description     string
 	LogoContentType *string
 	HasLogo         bool
 	Enabled         bool

@@ -38,7 +38,7 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "", successMsg, errorMsg))
+		render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), "", "", "", "", successMsg, errorMsg))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
@@ -49,25 +49,30 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 		}
 
 		name := strings.TrimSpace(r.FormValue("name"))
+		city := strings.TrimSpace(r.FormValue("city"))
+		state := strings.TrimSpace(r.FormValue("state"))
+		description := strings.TrimSpace(r.FormValue("description"))
 		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 		if err != nil {
-			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, "", err.Error()))
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, city, state, description, "", err.Error()))
 			return
 		}
 
-		org, err := service.CreateOrganization(r.Context(), s.db, name, user.ID)
+		org, err := service.CreateOrganization(r.Context(), s.db, name, city, state, description, user.ID)
 		if err != nil {
 			log.Printf("create organization failed: %v", err)
 			msg := "Could not create organization right now."
 			switch {
 			case errors.Is(err, service.ErrMissingOrgName):
 				msg = "Organization name is required."
+			case errors.Is(err, service.ErrMissingField):
+				msg = "Organization description is required."
 			case errors.Is(err, service.ErrMissingMemberID):
 				msg = "A member is required to create an organization."
 			case errors.Is(err, service.ErrAlreadyPrimaryOwner):
 				msg = "You already manage an organization."
 			}
-			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, "", msg))
+			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, city, state, description, "", msg))
 			return
 		}
 
@@ -231,6 +236,9 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		}
 
 		name := strings.TrimSpace(r.FormValue("name"))
+		city := strings.TrimSpace(r.FormValue("city"))
+		state := strings.TrimSpace(r.FormValue("state"))
+		description := strings.TrimSpace(r.FormValue("description"))
 		orgIDStr := strings.TrimSpace(r.FormValue("org_id"))
 		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 		if err != nil {
@@ -245,9 +253,12 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		}
 
 		updateOrg := types.Organization{
-			ID:      primaryOrg.ID,
-			Name:    name,
-			Enabled: primaryOrg.Enabled,
+			ID:          primaryOrg.ID,
+			Name:        name,
+			City:        city,
+			State:       state,
+			Description: description,
+			Enabled:     primaryOrg.Enabled,
 		}
 		if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 			log.Printf("update organization %d: %v", primaryOrg.ID, err)
