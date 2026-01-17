@@ -1089,12 +1089,17 @@ func (s *Server) handleUnreadMessageCount(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Printf("count unread messages failed: %v", err)
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("0"))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte(strconv.Itoa(count)))
+	if count <= 0 {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	badge := fmt.Sprintf(`<span class="absolute -top-2 -right-2 min-w-[20px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">%d</span>`, count)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(badge))
 }
 
 func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
