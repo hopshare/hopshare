@@ -706,6 +706,9 @@ templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string
 			<div class="min-w-0">
 				<div class="flex items-center gap-2">
 					@StatusPill(hop.Status)
+					if hop.HasPendingOffer {
+						<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold">Help Offered</span>
+					}
 					<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
 				</div>
 				<div class="mt-2 space-y-1">
@@ -729,7 +732,7 @@ templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string
 					<span x-show="!open">More</span>
 					<span x-show="open" style="display: none;">Less</span>
 				</button>
-				if hop.Status == types.HopStatusOpen || hop.Status == types.HopStatusAccepted {
+				if hop.Status == types.HopStatusAccepted || (hop.Status == types.HopStatusOpen && !hop.HasPendingOffer) {
 					<form method="POST" action="/hops/cancel">
 						<input type="hidden" name="org_id" value={ orgID } />
 						<input type="hidden" name="hop_id" value={ hop.ID } />

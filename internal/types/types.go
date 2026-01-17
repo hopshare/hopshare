@@ -24,6 +24,11 @@ const (
 )
 
 const (
+	HopOfferStatusAccepted = "accepted"
+	HopOfferStatusDenied   = "denied"
+)
+
+const (
 	MessageTypeInformation = "information"
 	MessageTypeAction      = "action"
 )
@@ -116,6 +121,8 @@ type Hop struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	HasPendingOffer bool
 }
 
 // Message represents a single inbox message.

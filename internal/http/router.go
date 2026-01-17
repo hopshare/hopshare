@@ -1019,6 +1019,16 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			http.Error(w, "could not load hops", http.StatusInternalServerError)
 			return
 		}
+		pendingOffers, err := service.PendingHopOfferIDs(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("load pending hop offers member=%d: %v", user.ID, err)
+		} else if len(pendingOffers) > 0 {
+			for i := range myHops {
+				if _, ok := pendingOffers[myHops[i].ID]; ok {
+					myHops[i].HasPendingOffer = true
+				}
+			}
+		}
 		hopsToHelp, err = service.ListHopsToHelp(r.Context(), s.db, currentOrgID, user.ID)
 		if err != nil {
 			log.Printf("load hops to help org=%d member=%d: %v", currentOrgID, user.ID, err)
