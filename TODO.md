@@ -14,7 +14,6 @@
 
 ## Bugs
 
-* "Your Activity" should fetch new every time it opens- otherwise you get stale Hop statuses.
 * You can offer to help the same Hop multiple times
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
@@ -26,7 +25,6 @@
 * Refactor service.go into separate files by concept- orgs/members, hops, messages
 * Refactor 'logout' tab on header to be a User avatar with pull down menu to go to Profile or Logout
     * Create a user Profile page where users can change password, upload photo, manage Skills, etc...
-* "My Hops" should be its own page, not a pop up dialogue (like Messages)
 * Add location to Organization- that can be searched by.
 * Organization "Wall"- closest thing to 'social media' feature- inspire others.
 * Make a photo mandatory for closing a request (Simon's idea)? Organization Album concept?
@@ -34,9 +32,6 @@
 * Organizations need to have a readable URL for new joiners. A way for users and non-users to sign up quickly.
 * Skills profiles for users? We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
 * Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
-
-
-We need to track offers of help for Hops in the database. Create a table that maps Member ids against Hop ids, storing the date and time when an offer to help is made, and a status of 'accepted' or 'denied' (with appropriate timestamps) based on which Member is chosen for that Hop. Populate this table when offers to help are made, or accepted/denied by Members. Also, use this table when a Member is looking at the My Hops page- it should include Hops where they have offered to help (use a new badge labeled 'Help Offered') but have not yet received an accept/denied response.
 
 ## Later
 
