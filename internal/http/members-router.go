@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"hopshare/internal/service"
+	"hopshare/internal/types"
 	"hopshare/web/templates"
 )
 
@@ -35,15 +36,15 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		hasOrg := false
-		if _, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID); err == nil {
-			hasOrg = true
+		var org *types.Organization
+		if primaryOrg, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID); err == nil {
+			org = &primaryOrg
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("load member organization %d: %v", user.ID, err)
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		render(w, r, templates.MyProfile(user.Email, member, hasOrg, successMsg, errorMsg))
+		render(w, r, templates.MyProfile(user.Email, member, org, successMsg, errorMsg))
 	case http.MethodPost:
 		const maxAvatarUploadBytes = 20 << 20
 		const maxBodyBytes = maxAvatarUploadBytes + (1 << 20)
