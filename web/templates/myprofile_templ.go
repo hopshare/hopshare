@@ -21,7 +21,7 @@ func stringOrEmpty(v *string) string {
 	return *v
 }
 
-func MyProfile(email string, member types.Member, org *types.Organization, successMsg string, errorMsg string) templ.Component {
+func MyProfile(email string, member types.Member, orgs []types.MemberOrganization, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -42,7 +42,7 @@ func MyProfile(email string, member types.Member, org *types.Organization, succe
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | My Profile", &email, MyProfileBody(member, org, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -50,7 +50,7 @@ func MyProfile(email string, member types.Member, org *types.Organization, succe
 	})
 }
 
-func MyProfileBody(member types.Member, org *types.Organization, successMsg string, errorMsg string) templ.Component {
+func MyProfileBody(member types.Member, orgs []types.MemberOrganization, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -267,61 +267,122 @@ func MyProfileBody(member types.Member, org *types.Organization, successMsg stri
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"></div></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current avatar</p><div class=\"flex items-center gap-3\"><img class=\"h-16 w-16 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" src=\"/members/avatar\" alt=\"Your avatar\"><template x-if=\"avatarChanged\"><p class=\"text-sm text-slate-600\"><span class=\"font-semibold text-slate-900\">New avatar selected:</span> <span x-text=\"avatarName\"></span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"avatar_file\">Update avatar (optional)</label><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"avatarChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new avatar here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max 20MB)</p><template x-if=\"avatarChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" x-show=\"avatarPreview\" x-bind:src=\"avatarPreview\" alt=\"Selected avatar preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"avatarName\"></span></p></div></template><input id=\"avatar_file\" name=\"avatar_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full cursor-pointer opacity-0\" x-on:change=\"handleAvatarChange($event)\"></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save profile</button></form></section><div class=\"space-y-6\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Change password</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\"><input type=\"hidden\" name=\"action\" value=\"password\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"current_password\">Current password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"current_password\" name=\"current_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"new_password\">New password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"new_password\" name=\"new_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"confirm_password\">Confirm new password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required></div><button class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400\" type=\"submit\">Update password</button></form></section><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">My Organization</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"></div></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current avatar</p><div class=\"flex items-center gap-3\"><img class=\"h-16 w-16 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" src=\"/members/avatar\" alt=\"Your avatar\"><template x-if=\"avatarChanged\"><p class=\"text-sm text-slate-600\"><span class=\"font-semibold text-slate-900\">New avatar selected:</span> <span x-text=\"avatarName\"></span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"avatar_file\">Update avatar (optional)</label><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"avatarChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new avatar here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max 20MB)</p><template x-if=\"avatarChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" x-show=\"avatarPreview\" x-bind:src=\"avatarPreview\" alt=\"Selected avatar preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"avatarName\"></span></p></div></template><input id=\"avatar_file\" name=\"avatar_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full cursor-pointer opacity-0\" x-on:change=\"handleAvatarChange($event)\"></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save profile</button></form></section><div class=\"space-y-6\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Change password</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\"><input type=\"hidden\" name=\"action\" value=\"password\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"current_password\">Current password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"current_password\" name=\"current_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"new_password\">New password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"new_password\" name=\"new_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"confirm_password\">Confirm new password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required></div><button class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400\" type=\"submit\">Update password</button></form></section><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">My Organizations</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if org != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"mt-3 flex items-center gap-3\"><img src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var14 string
-			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 258, Col: 129}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" alt=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var15 string
-			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 259, Col: 32}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" class=\"h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200\"><p class=\"text-sm text-slate-700\"><span>You own the Organization </span> <span class=\"font-semibold text-slate-900\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 264, Col: 61}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</span></p></div><div class=\"mt-4\"><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/organizations/manage\">Manage my Organization...</a></div>")
+		if len(orgs) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<p class=\"mt-2 text-sm text-slate-600\">You are not associated with any organizations yet.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<p class=\"mt-2 text-sm text-slate-600\">You do not own an Organization yet. Want to run your own time bank? Every hopShare Member can create one Organization and invite others to join!</p><div class=\"mt-4\"><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/organizations/create\">Create my Organization...</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"mt-4 space-y-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, org := range orgs {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<div class=\"flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2\"><div class=\"flex items-center gap-3\"><img src=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var14 string
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 263, Col: 132}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" alt=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var15 string
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 264, Col: 35}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" class=\"h-11 w-11 rounded bg-white object-contain ring-1 ring-slate-200\"> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if org.Role == "owner" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var16 templ.SafeURL
+					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinURLErrs("/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 268, Col: 156}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var17 string
+					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 268, Col: 169}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<span class=\"text-sm font-semibold text-slate-900\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var18 string
+					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 270, Col: 72}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if org.Role != "owner" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<a class=\"text-sm font-semibold text-slate-400 hover:text-slate-500\" href=\"#\" aria-disabled=\"true\">Leave...</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</section></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</section></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

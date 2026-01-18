@@ -526,6 +526,11 @@ func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 	}
 }
 
+func (s *Server) renderUnauthorized(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusForbidden)
+	render(w, r, templates.Unauthorized(s.currentUserEmailPtr(r)))
+}
+
 func (s *Server) register(mux *http.ServeMux, path string, h HandlerFunc, middlewares ...Middleware) {
 	// withUser runs first so downstream middleware/handlers can rely on context user.
 	all := append([]Middleware{s.withUser()}, middlewares...)

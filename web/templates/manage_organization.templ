@@ -138,6 +138,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 							<div class="flex flex-wrap gap-2">
 								<form method="POST" action="/organizations/manage/request" class="inline-flex">
 									<input type="hidden" name="request_id" value={ req.ID } />
+									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="action" value="accept" />
 									<button class="inline-flex justify-center rounded-lg bg-emerald-600 text-white font-semibold px-3 py-1.5 hover:bg-emerald-700 transition" type="submit">
 										Accept
@@ -145,6 +146,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								</form>
 								<form method="POST" action="/organizations/manage/request" class="inline-flex">
 									<input type="hidden" name="request_id" value={ req.ID } />
+									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="action" value="deny" />
 									<button class="inline-flex justify-center rounded-lg bg-red-600 text-white font-semibold px-3 py-1.5 hover:bg-red-700 transition" type="submit">
 										Deny
@@ -172,6 +174,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								if m.Role == "member" {
 									<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
 										<input type="hidden" name="member_id" value={ m.MemberID } />
+										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="action" value="make_owner" />
 										<button class="inline-flex justify-center rounded-lg border border-emerald-200 text-emerald-700 font-semibold px-3 py-1.5 hover:bg-emerald-50 transition" type="submit">
 											Make Owner
@@ -180,6 +183,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								} else if m.Role == "owner" && !m.IsPrimaryOwner {
 									<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
 										<input type="hidden" name="member_id" value={ m.MemberID } />
+										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="action" value="revoke_owner" />
 										<button class="inline-flex justify-center rounded-lg border border-amber-200 text-amber-700 font-semibold px-3 py-1.5 hover:bg-amber-50 transition" type="submit">
 											Revoke Owner
@@ -188,6 +192,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								}
 								<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
 									<input type="hidden" name="member_id" value={ m.MemberID } />
+									<input type="hidden" name="org_id" value={ org.ID } />
 									<button class="inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition" type="submit">
 										Remove
 									</button>

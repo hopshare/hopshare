@@ -69,6 +69,94 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	return orgs, nil
 }
 
+// MemberOrganizations returns all organizations for a member with role information.
+func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]types.MemberOrganization, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
+		       om.role, om.is_primary_owner
+		FROM organizations o
+		JOIN organization_memberships om ON om.organization_id = o.id
+		WHERE om.member_id = $1 AND om.left_at IS NULL
+		ORDER BY o.name
+	`, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list member organizations with roles: %w", err)
+	}
+	defer rows.Close()
+
+	var orgs []types.MemberOrganization
+	for rows.Next() {
+		var o types.MemberOrganization
+		if err := rows.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
+			return nil, fmt.Errorf("scan member organization: %w", err)
+		}
+		orgs = append(orgs, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list member organizations with roles: %w", err)
+	}
+
+	return orgs, nil
+}
+
+// OrganizationForOwner returns an organization if the member is an owner.
+func OrganizationForOwner(ctx context.Context, db *sql.DB, memberID, orgID int64) (types.Organization, error) {
+	if db == nil {
+		return types.Organization{}, ErrNilDB
+	}
+	if memberID == 0 {
+		return types.Organization{}, ErrMissingMemberID
+	}
+	if orgID == 0 {
+		return types.Organization{}, ErrMissingOrgID
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		FROM organizations o
+		JOIN organization_memberships om ON om.organization_id = o.id
+		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL
+	`, memberID, orgID)
+
+	var o types.Organization
+	if err := row.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		return types.Organization{}, err
+	}
+	return o, nil
+}
+
+// MemberOwnsOrganization reports whether the member is an active owner of the organization.
+func MemberOwnsOrganization(ctx context.Context, db *sql.DB, memberID, orgID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if memberID == 0 {
+		return false, ErrMissingMemberID
+	}
+	if orgID == 0 {
+		return false, ErrMissingOrgID
+	}
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM organization_memberships
+			WHERE member_id = $1 AND organization_id = $2 AND role = 'owner' AND left_at IS NULL
+		)
+	`, memberID, orgID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check member organization ownership: %w", err)
+	}
+	return exists, nil
+}
+
 // GetOrganizationByID returns an organization by ID.
 func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Organization, error) {
 	if db == nil {

@@ -98,6 +98,13 @@ type OrganizationMember struct {
 	JoinedAt       time.Time
 }
 
+// MemberOrganization represents an organization plus the member's role.
+type MemberOrganization struct {
+	Organization
+	Role           string
+	IsPrimaryOwner bool
+}
+
 // Hop represents a help hop within an organization.
 type Hop struct {
 	ID             int64
