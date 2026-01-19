@@ -1,0 +1,141 @@
+package templates
+
+import (
+	"strconv"
+
+	"hopshare/internal/types"
+)
+
+func hopNeededByLabel(hop types.Hop) string {
+	switch hop.NeededByKind {
+	case types.HopNeededByAnytime:
+		return "Anytime"
+	default:
+		if hop.NeededByDate == nil {
+			return "Not specified"
+		}
+		switch hop.NeededByKind {
+		case types.HopNeededByOn:
+			return "On " + hop.NeededByDate.Format("Jan 2, 2006")
+		case types.HopNeededByAround:
+			return "Around " + hop.NeededByDate.Format("Jan 2, 2006")
+		case types.HopNeededByNoLaterThan:
+			return "No later than " + hop.NeededByDate.Format("Jan 2, 2006")
+		default:
+			return hop.NeededByDate.Format("Jan 2, 2006")
+		}
+	}
+}
+
+func hopHoursLabel(hours int) string {
+	if hours == 1 {
+		return "1 hour"
+	}
+	return strconv.Itoa(hours) + " hours"
+}
+
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool) {
+	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack))
+}
+
+templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool) {
+	<div class="space-y-6">
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex items-center gap-3 min-w-0">
+				<img
+					src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+					alt={ org.Name + " logo" }
+					class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+				/>
+				<p class="text-2xl font-bold text-slate-900 truncate">{ org.Name }</p>
+			</div>
+			if showBack {
+				<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(org.ID, 10) }>Back to My Hops</a>
+			}
+		</div>
+
+		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+			<div class="flex items-center gap-2">
+				@StatusPill(hop.Status)
+				<h1 class="text-2xl font-bold text-slate-900 truncate">{ hop.Title }</h1>
+			</div>
+
+			<div class="grid gap-6 lg:grid-cols-[2fr_1fr]">
+				<div class="space-y-6">
+					<div class="space-y-2">
+						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Details</h2>
+						if hop.Details != nil && *hop.Details != "" {
+							<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
+						} else {
+							<p class="text-sm text-slate-600">No details provided.</p>
+						}
+					</div>
+
+					<div class="space-y-3">
+						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">People</h2>
+						<div class="space-y-3">
+							<div class="flex items-center gap-3">
+								<img
+									class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+									src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+									alt={ hop.CreatedByName + " avatar" }
+								/>
+								<div>
+									<p class="text-xs uppercase text-slate-500">Requested by</p>
+									<p class="text-sm font-semibold text-slate-900">{ hop.CreatedByName }</p>
+								</div>
+							</div>
+							if hop.AcceptedBy != nil && hop.AcceptedByName != nil {
+								<div class="flex items-center gap-3">
+									<img
+										class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+										src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+										alt={ *hop.AcceptedByName + " avatar" }
+									/>
+									<div>
+										<p class="text-xs uppercase text-slate-500">Accepted by</p>
+										<p class="text-sm font-semibold text-slate-900">{ *hop.AcceptedByName }</p>
+									</div>
+								</div>
+							}
+						</div>
+					</div>
+
+					if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
+						<div class="space-y-2">
+							<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Completion</h2>
+							<p class="text-sm text-slate-700">
+								Completed { hop.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
+								if hop.CompletedHours != nil {
+									{ " • " }{ hopHoursLabel(*hop.CompletedHours) }
+								}
+							</p>
+						</div>
+					}
+				</div>
+
+				<div class="space-y-4">
+					<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Summary</h2>
+						<div class="flex items-center justify-between text-sm text-slate-700">
+							<span class="text-slate-500">Estimated</span>
+							<span class="font-semibold">{ hopHoursLabel(hop.EstimatedHours) }</span>
+						</div>
+						<div class="flex items-center justify-between text-sm text-slate-700">
+							<span class="text-slate-500">Created</span>
+							<span class="font-semibold">{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</span>
+						</div>
+						<div class="flex items-center justify-between text-sm text-slate-700">
+							<span class="text-slate-500">Needed by</span>
+							<span class="font-semibold">{ hopNeededByLabel(hop) }</span>
+						</div>
+						<div class="flex items-center justify-between text-sm text-slate-700">
+							<span class="text-slate-500">Status</span>
+							@StatusPill(hop.Status)
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</div>
+}

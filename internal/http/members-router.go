@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -135,9 +136,39 @@ func (s *Server) handleMemberAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, contentType, ok, err := service.MemberAvatar(r.Context(), s.db, user.ID)
+	memberID := user.ID
+	target := user
+	if memberIDStr := strings.TrimSpace(r.URL.Query().Get("member_id")); memberIDStr != "" {
+		parsed, err := strconv.ParseInt(memberIDStr, 10, 64)
+		if err != nil || parsed <= 0 {
+			http.Error(w, "invalid member", http.StatusBadRequest)
+			return
+		}
+		memberID = parsed
+		if memberID != user.ID {
+			shared, err := service.MembersShareOrganization(r.Context(), s.db, user.ID, memberID)
+			if err != nil {
+				log.Printf("check shared organization member=%d other=%d: %v", user.ID, memberID, err)
+				http.Error(w, "could not load avatar", http.StatusInternalServerError)
+				return
+			}
+			if !shared {
+				http.NotFound(w, r)
+				return
+			}
+			member, err := service.GetMemberByID(r.Context(), s.db, memberID)
+			if err != nil {
+				log.Printf("load member %d: %v", memberID, err)
+				http.NotFound(w, r)
+				return
+			}
+			target = &member
+		}
+	}
+
+	data, contentType, ok, err := service.MemberAvatar(r.Context(), s.db, memberID)
 	if err != nil {
-		log.Printf("load member avatar %d: %v", user.ID, err)
+		log.Printf("load member avatar %d: %v", memberID, err)
 		http.Error(w, "could not load avatar", http.StatusInternalServerError)
 		return
 	}
@@ -149,9 +180,9 @@ func (s *Server) handleMemberAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	initial := avatarInitial(memberDisplayName(user))
+	initial := avatarInitial(memberDisplayName(target))
 	if initial == "" {
-		initial = avatarInitial(user.Email)
+		initial = avatarInitial(target.Email)
 	}
 	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 	_, _ = w.Write(avatarPlaceholderSVG(initial))

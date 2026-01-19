@@ -602,6 +602,29 @@ func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop,
 	return req, nil
 }
 
+// HopOrganizationID returns the organization ID for the hop.
+func HopOrganizationID(ctx context.Context, db *sql.DB, hopID int64) (int64, error) {
+	if db == nil {
+		return 0, ErrNilDB
+	}
+	if hopID == 0 {
+		return 0, ErrHopNotFound
+	}
+
+	var orgID int64
+	if err := db.QueryRowContext(ctx, `
+		SELECT organization_id
+		FROM hops
+		WHERE id = $1
+	`, hopID).Scan(&orgID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrHopNotFound
+		}
+		return 0, fmt.Errorf("get hop organization: %w", err)
+	}
+	return orgID, nil
+}
+
 func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
 	if db == nil {
 		return nil, ErrNilDB

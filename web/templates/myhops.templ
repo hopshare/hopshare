@@ -173,8 +173,7 @@ templ HopListMyHops(orgID int64, hops []types.Hop) {
 
 templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string, search string) {
 	<li
-		class="px-6 py-4"
-		x-data="{ open: false }"
+		class="px-6 py-4 hover:bg-slate-50 transition"
 		x-show="matches($el)"
 		x-transition.opacity
 		data-filter-status={ filterStatus }
@@ -182,7 +181,7 @@ templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string
 		data-search={ search }
 	>
 		<div class="flex items-start justify-between gap-4">
-			<div class="min-w-0">
+			<a class="min-w-0 flex-1" href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=my-hops" }>
 				<div class="flex items-center gap-2">
 					@StatusPill(hop.Status)
 					if hop.HasPendingOffer {
@@ -191,26 +190,33 @@ templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string
 					<p class="font-semibold text-slate-900 truncate">{ hop.Title }</p>
 				</div>
 				<div class="mt-2 space-y-1">
-					<p class="text-sm text-slate-600">Asked by: { hop.CreatedByName }</p>
-					if hop.Status == types.HopStatusAccepted && hop.AcceptedByName != nil {
-						<p class="text-sm text-slate-600">Accepted by: { *hop.AcceptedByName }</p>
+					<p class="text-sm text-slate-600 flex items-center gap-2">
+						<span class="text-slate-500">Asked by:</span>
+						<img
+							class="h-6 w-6 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+							src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+							alt={ hop.CreatedByName + " avatar" }
+						/>
+						<span>{ hop.CreatedByName }</span>
+					</p>
+					if hop.Status == types.HopStatusAccepted && hop.AcceptedByName != nil && hop.AcceptedBy != nil {
+						<p class="text-sm text-slate-600 flex items-center gap-2">
+							<span class="text-slate-500">Accepted by:</span>
+							<img
+								class="h-6 w-6 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+								src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+								alt={ *hop.AcceptedByName + " avatar" }
+							/>
+							<span>{ *hop.AcceptedByName }</span>
+						</p>
 					}
 					if hop.Status == types.HopStatusCompleted && hop.CompletedHours != nil {
 						<p class="text-sm text-slate-600">Completed: { *hop.CompletedHours } hours</p>
 					}
 					<p class="text-sm text-slate-600">@HopTimingLine(hop)</p>
 				</div>
-			</div>
+			</a>
 			<div class="shrink-0 flex items-center gap-2">
-				<button
-					type="button"
-					class="text-sm font-semibold text-sky-700 underline hover:text-sky-800"
-					x-on:click="open = !open"
-					x-bind:aria-expanded="open.toString()"
-				>
-					<span x-show="!open">More</span>
-					<span x-show="open" style="display: none;">Less</span>
-				</button>
 				if hop.Status == types.HopStatusAccepted || (hop.Status == types.HopStatusOpen && !hop.HasPendingOffer) {
 					<form method="POST" action="/hops/cancel">
 						<input type="hidden" name="org_id" value={ orgID } />
@@ -232,44 +238,6 @@ templ MyHopRow(orgID int64, hop types.Hop, filterStatus string, createdMs string
 					>
 						Mark complete
 					</button>
-				}
-			</div>
-		</div>
-
-		<div class="mt-3" x-show="open" x-transition.opacity style="display: none;">
-			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
-				<p class="text-sm text-slate-700">
-					<span class="font-semibold text-slate-800">Created:</span>
-					{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
-				</p>
-				if hop.AcceptedAt != nil && hop.AcceptedByName != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Accepted:</span>
-						{ *hop.AcceptedByName } on { hop.AcceptedAt.Format("Jan 2, 2006 3:04 PM") }
-					</p>
-				}
-				if hop.CanceledAt != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Canceled:</span>
-						{ hop.CanceledAt.Format("Jan 2, 2006 3:04 PM") }
-					</p>
-				}
-				if hop.CompletedAt != nil {
-					<p class="text-sm text-slate-700">
-						<span class="font-semibold text-slate-800">Completed:</span>
-						{ hop.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
-						if hop.CompletedHours != nil {
-							{ " • " }{ *hop.CompletedHours } hours
-						}
-					</p>
-				}
-				if hop.CompletionComment != nil && *hop.CompletionComment != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.CompletionComment }</p>
-				}
-				if hop.Details != nil && *hop.Details != "" {
-					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
-				} else if (hop.CompletionComment == nil || *hop.CompletionComment == "") {
-					<p class="text-sm text-slate-700">No additional information available.</p>
 				}
 			</div>
 		</div>

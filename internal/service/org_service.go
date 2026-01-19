@@ -157,6 +157,60 @@ func MemberOwnsOrganization(ctx context.Context, db *sql.DB, memberID, orgID int
 	return exists, nil
 }
 
+// MemberHasActiveMembership reports whether the member belongs to the organization.
+func MemberHasActiveMembership(ctx context.Context, db *sql.DB, memberID, orgID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if memberID == 0 {
+		return false, ErrMissingMemberID
+	}
+	if orgID == 0 {
+		return false, ErrMissingOrgID
+	}
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM organization_memberships
+			WHERE member_id = $1 AND organization_id = $2 AND left_at IS NULL
+		)
+	`, memberID, orgID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check member organization membership: %w", err)
+	}
+	return exists, nil
+}
+
+// MembersShareOrganization reports whether two members share an active organization.
+func MembersShareOrganization(ctx context.Context, db *sql.DB, memberID, otherMemberID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if memberID == 0 || otherMemberID == 0 {
+		return false, ErrMissingMemberID
+	}
+	if memberID == otherMemberID {
+		return true, nil
+	}
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1
+			FROM organization_memberships om1
+			JOIN organization_memberships om2 ON om1.organization_id = om2.organization_id
+			WHERE om1.member_id = $1
+				AND om2.member_id = $2
+				AND om1.left_at IS NULL
+				AND om2.left_at IS NULL
+		)
+	`, memberID, otherMemberID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check shared organization membership: %w", err)
+	}
+	return exists, nil
+}
+
 // GetOrganizationByID returns an organization by ID.
 func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Organization, error) {
 	if db == nil {

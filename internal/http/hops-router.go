@@ -98,6 +98,77 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 	))
 }
 
+func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	hopIDStr := strings.TrimSpace(r.URL.Query().Get("hop_id"))
+	if hopIDStr == "" {
+		http.Error(w, "missing hop id", http.StatusBadRequest)
+		return
+	}
+	hopID, err := strconv.ParseInt(hopIDStr, 10, 64)
+	if err != nil || hopID <= 0 {
+		http.Error(w, "invalid hop id", http.StatusBadRequest)
+		return
+	}
+
+	var orgID int64
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		orgID, err = strconv.ParseInt(orgIDStr, 10, 64)
+		if err != nil || orgID <= 0 {
+			http.Error(w, "invalid organization", http.StatusBadRequest)
+			return
+		}
+	} else {
+		orgID, err = service.HopOrganizationID(r.Context(), s.db, hopID)
+		if err != nil {
+			if errors.Is(err, service.ErrHopNotFound) {
+				http.NotFound(w, r)
+				return
+			}
+			log.Printf("load hop organization %d: %v", hopID, err)
+			http.Error(w, "could not load hop", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check hop membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
+	if err != nil {
+		log.Printf("load organization %d: %v", orgID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack))
+}
+
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
