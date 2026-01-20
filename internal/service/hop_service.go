@@ -19,6 +19,7 @@ type CreateHopParams struct {
 	EstimatedHours int
 	NeededByKind   string
 	NeededByDate   *time.Time
+	IsPrivate      bool
 }
 
 func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, error) {
@@ -68,13 +69,14 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 			title,
 			details,
 			estimated_hours,
+			is_private,
 			needed_by_kind,
 			needed_by_date,
 			expires_at,
 			status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id
-	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
+	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, p.IsPrivate, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
 		return types.Hop{}, fmt.Errorf("create hop: %w", err)
 	}
 
@@ -580,7 +582,7 @@ func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop,
 	row := db.QueryRowContext(ctx, `
 		SELECT
 			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
-			r.title, r.details, r.estimated_hours,
+			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
 			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
@@ -643,7 +645,7 @@ func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
-			r.title, r.details, r.estimated_hours,
+			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
 			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
@@ -704,7 +706,7 @@ func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
-			r.title, r.details, r.estimated_hours,
+			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
 			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
@@ -716,7 +718,7 @@ func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 		LEFT JOIN members ma ON ma.id = r.accepted_by
 		WHERE r.organization_id = $1
 			AND (
-				(r.status = $2 AND r.created_by <> $3)
+				(r.status = $2 AND r.created_by <> $3 AND r.is_private = FALSE)
 				OR (r.status = $4 AND r.accepted_by = $3)
 			)
 		ORDER BY r.created_at DESC
@@ -754,7 +756,7 @@ func RecentCompletedHops(ctx context.Context, db *sql.DB, orgID int64, limit int
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
-			r.title, r.details, r.estimated_hours,
+			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
 			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
@@ -916,6 +918,244 @@ func PendingHopOfferIDs(ctx context.Context, db *sql.DB, memberID int64) (map[in
 	return out, nil
 }
 
+// HopImageData includes the blob and related hop access fields.
+type HopImageData struct {
+	ID             int64
+	HopID          int64
+	OrganizationID int64
+	IsPrivate      bool
+	CreatedBy      int64
+	AcceptedBy     *int64
+	ContentType    string
+	Data           []byte
+}
+
+func SetHopPrivacy(ctx context.Context, db *sql.DB, orgID, hopID, memberID int64, isPrivate bool) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
+		return err
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE hops
+		SET is_private = $1, updated_at = NOW()
+		WHERE id = $2 AND organization_id = $3 AND (created_by = $4 OR accepted_by = $4)
+	`, isPrivate, hopID, orgID, memberID)
+	if err != nil {
+		return fmt.Errorf("update hop privacy: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update hop privacy rows affected: %w", err)
+	}
+	if affected == 0 {
+		var exists bool
+		if err := db.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM hops WHERE id = $1 AND organization_id = $2
+			)
+		`, hopID, orgID).Scan(&exists); err != nil {
+			return fmt.Errorf("check hop privacy hop: %w", err)
+		}
+		if !exists {
+			return ErrHopNotFound
+		}
+		return ErrHopForbidden
+	}
+	return nil
+}
+
+func ListHopComments(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopComment, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if hopID == 0 {
+		return nil, ErrHopNotFound
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			c.id, c.hop_id, c.member_id,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.username),
+			c.body, c.created_at
+		FROM hop_comments c
+		JOIN members m ON m.id = c.member_id
+		WHERE c.hop_id = $1
+		ORDER BY c.created_at DESC
+	`, hopID)
+	if err != nil {
+		return nil, fmt.Errorf("list hop comments: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.HopComment
+	for rows.Next() {
+		var c types.HopComment
+		if err := rows.Scan(&c.ID, &c.HopID, &c.MemberID, &c.MemberName, &c.Body, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan hop comment: %w", err)
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list hop comments: %w", err)
+	}
+	return out, nil
+}
+
+func AddHopComment(ctx context.Context, db *sql.DB, hopID, memberID int64, body string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return ErrMissingField
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO hop_comments (hop_id, member_id, body)
+		VALUES ($1, $2, $3)
+	`, hopID, memberID, body); err != nil {
+		return fmt.Errorf("create hop comment: %w", err)
+	}
+	return nil
+}
+
+func ListHopImages(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopImage, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if hopID == 0 {
+		return nil, ErrHopNotFound
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, hop_id, member_id, created_at
+		FROM hop_images
+		WHERE hop_id = $1
+		ORDER BY created_at DESC
+	`, hopID)
+	if err != nil {
+		return nil, fmt.Errorf("list hop images: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.HopImage
+	for rows.Next() {
+		var img types.HopImage
+		if err := rows.Scan(&img.ID, &img.HopID, &img.MemberID, &img.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan hop image: %w", err)
+		}
+		out = append(out, img)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list hop images: %w", err)
+	}
+	return out, nil
+}
+
+func AddHopImage(ctx context.Context, db *sql.DB, hopID, memberID int64, contentType string, data []byte) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+	contentType = strings.TrimSpace(contentType)
+	if contentType == "" || len(data) == 0 {
+		return ErrMissingField
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO hop_images (hop_id, member_id, content_type, data)
+		VALUES ($1, $2, $3, $4)
+	`, hopID, memberID, contentType, data); err != nil {
+		return fmt.Errorf("create hop image: %w", err)
+	}
+	return nil
+}
+
+func DeleteHopImage(ctx context.Context, db *sql.DB, hopID, imageID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if imageID == 0 {
+		return ErrHopImageNotFound
+	}
+
+	res, err := db.ExecContext(ctx, `
+		DELETE FROM hop_images
+		WHERE id = $1 AND hop_id = $2
+	`, imageID, hopID)
+	if err != nil {
+		return fmt.Errorf("delete hop image: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete hop image rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrHopImageNotFound
+	}
+	return nil
+}
+
+func GetHopImageData(ctx context.Context, db *sql.DB, imageID int64) (HopImageData, error) {
+	if db == nil {
+		return HopImageData{}, ErrNilDB
+	}
+	if imageID == 0 {
+		return HopImageData{}, ErrHopImageNotFound
+	}
+
+	var img HopImageData
+	var acceptedBy sql.NullInt64
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			hi.id, hi.hop_id, h.organization_id, h.is_private,
+			h.created_by, h.accepted_by, hi.content_type, hi.data
+		FROM hop_images hi
+		JOIN hops h ON h.id = hi.hop_id
+		WHERE hi.id = $1
+	`, imageID).Scan(
+		&img.ID, &img.HopID, &img.OrganizationID, &img.IsPrivate,
+		&img.CreatedBy, &acceptedBy, &img.ContentType, &img.Data,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return HopImageData{}, ErrHopImageNotFound
+		}
+		return HopImageData{}, fmt.Errorf("load hop image: %w", err)
+	}
+	if acceptedBy.Valid {
+		v := acceptedBy.Int64
+		img.AcceptedBy = &v
+	}
+	return img, nil
+}
+
 func requireActiveMembership(ctx context.Context, q queryer, orgID, memberID int64) error {
 	var exists bool
 	if err := q.QueryRowContext(ctx, `
@@ -1015,7 +1255,7 @@ func scanHopRow(s scanFunc) (types.Hop, error) {
 
 	if err := s.Scan(
 		&r.ID, &r.OrganizationID, &r.CreatedBy, &r.CreatedByName,
-		&r.Title, &details, &r.EstimatedHours,
+		&r.Title, &details, &r.EstimatedHours, &r.IsPrivate,
 		&r.NeededByKind, &neededByDate, &expiresAt,
 		&r.Status,
 		&acceptedBy, &acceptedByName, &acceptedAt,

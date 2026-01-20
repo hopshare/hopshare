@@ -679,6 +679,17 @@ templ HopModal(orgID int64) {
 							<label class="block text-sm font-semibold text-slate-800" for="modal-hop-details">Details</label>
 							<textarea id="modal-hop-details" name="details" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" placeholder="Share what matters: location, timing, tools, accessibility needs..."></textarea>
 						</div>
+						<div class="space-y-2">
+							<p class="text-sm font-semibold text-slate-800">Visibility</p>
+							<label class="flex items-start gap-2 text-sm text-slate-700">
+								<input class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="radio" name="is_public" value="false" checked />
+								<span>Private - only members on this hop can see details and updates.</span>
+							</label>
+							<label class="flex items-start gap-2 text-sm text-slate-700">
+								<input class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="radio" name="is_public" value="true" />
+								<span>Public - anyone in your organization can see and comment.</span>
+							</label>
+						</div>
 					</div>
 
 					<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">

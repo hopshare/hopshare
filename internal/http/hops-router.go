@@ -3,6 +3,7 @@ package http
 import (
 	"database/sql"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -158,6 +159,15 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if hop.IsPrivate && !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
 	org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
 	if err != nil {
 		log.Printf("load organization %d: %v", orgID, err)
@@ -165,8 +175,25 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	comments, err := service.ListHopComments(r.Context(), s.db, hopID)
+	if err != nil {
+		log.Printf("load hop comments %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	images, err := service.ListHopImages(r.Context(), s.db, hopID)
+	if err != nil {
+		log.Printf("load hop images %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
 	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack))
+	canToggle := isAssociated
+	canComment := isAssociated || !hop.IsPrivate
+	canUpload := isAssociated
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, canToggle, canComment, canUpload, comments, images))
 }
 
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
@@ -203,6 +230,11 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		neededByDate = &t
 	}
 
+	isPrivate := true
+	if strings.EqualFold(strings.TrimSpace(r.FormValue("is_public")), "true") {
+		isPrivate = false
+	}
+
 	_, err = service.CreateHop(r.Context(), s.db, service.CreateHopParams{
 		OrganizationID: orgID,
 		MemberID:       user.ID,
@@ -211,6 +243,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		EstimatedHours: estimatedHours,
 		NeededByKind:   r.FormValue("needed_by_kind"),
 		NeededByDate:   neededByDate,
+		IsPrivate:      isPrivate,
 	})
 	if err != nil {
 		log.Printf("create hop failed: %v", err)
@@ -319,6 +352,324 @@ func (s *Server) handleCompleteHop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Hop completed."), http.StatusSeeOther)
+}
+
+func (s *Server) handleHopPrivacy(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 {
+		http.Error(w, "invalid hop", http.StatusBadRequest)
+		return
+	}
+
+	privacyValue := strings.ToLower(strings.TrimSpace(r.FormValue("is_private")))
+	isPrivate := false
+	switch privacyValue {
+	case "":
+		isPrivate = false
+	case "true", "on":
+		isPrivate = true
+	case "false":
+		isPrivate = false
+	default:
+		http.Error(w, "invalid privacy selection", http.StatusBadRequest)
+		return
+	}
+	if err := service.SetHopPrivacy(r.Context(), s.db, orgID, hopID, user.ID, isPrivate); err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		if errors.Is(err, service.ErrHopForbidden) {
+			s.renderUnauthorized(w, r)
+			return
+		}
+		log.Printf("update hop privacy failed: %v", err)
+		http.Error(w, "could not update hop", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+}
+
+func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 {
+		http.Error(w, "invalid hop", http.StatusBadRequest)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check hop membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if hop.IsPrivate && !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	if err := service.AddHopComment(r.Context(), s.db, hopID, user.ID, r.FormValue("body")); err != nil {
+		log.Printf("add hop comment failed: %v", err)
+		http.Error(w, "could not add comment", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+}
+
+func (s *Server) handleUploadHopImage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	const maxHopImageSize = 5 << 20
+	r.Body = http.MaxBytesReader(w, r.Body, maxHopImageSize+1024)
+	if err := r.ParseMultipartForm(maxHopImageSize); err != nil {
+		http.Error(w, "invalid upload", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 {
+		http.Error(w, "invalid hop", http.StatusBadRequest)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check hop membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		http.Error(w, "missing image", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, maxHopImageSize+1))
+	if err != nil {
+		http.Error(w, "could not read image", http.StatusBadRequest)
+		return
+	}
+	if len(data) > maxHopImageSize {
+		http.Error(w, "image too large", http.StatusBadRequest)
+		return
+	}
+
+	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+	if contentType == "" {
+		contentType = http.DetectContentType(data)
+	}
+	if !strings.HasPrefix(contentType, "image/") {
+		http.Error(w, "invalid image type", http.StatusBadRequest)
+		return
+	}
+
+	if err := service.AddHopImage(r.Context(), s.db, hopID, user.ID, contentType, data); err != nil {
+		log.Printf("add hop image failed: %v", err)
+		http.Error(w, "could not upload image", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+}
+
+func (s *Server) handleDeleteHopImage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	imageID, _ := strconv.ParseInt(r.FormValue("image_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 || imageID <= 0 {
+		http.Error(w, "invalid image", http.StatusBadRequest)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check hop membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop %d: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	if err := service.DeleteHopImage(r.Context(), s.db, hopID, imageID); err != nil {
+		if errors.Is(err, service.ErrHopImageNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("delete hop image failed: %v", err)
+		http.Error(w, "could not delete image", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+}
+
+func (s *Server) handleHopImage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	imageID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("image_id")), 10, 64)
+	if err != nil || imageID <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	img, err := service.GetHopImageData(r.Context(), s.db, imageID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopImageNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop image %d: %v", imageID, err)
+		http.Error(w, "could not load image", http.StatusInternalServerError)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, img.OrganizationID)
+	if err != nil {
+		log.Printf("check hop image membership member=%d org=%d: %v", user.ID, img.OrganizationID, err)
+		http.Error(w, "could not load image", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		http.NotFound(w, r)
+		return
+	}
+
+	isAssociated := img.CreatedBy == user.ID
+	if !isAssociated && img.AcceptedBy != nil && *img.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if img.IsPrivate && !isAssociated {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", img.ContentType)
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(img.Data); err != nil {
+		log.Printf("write hop image %d: %v", imageID, err)
+	}
+}
+
+func hopDetailsRedirect(orgID, hopID int64, from string) string {
+	base := "/hops/view?hop_id=" + strconv.FormatInt(hopID, 10)
+	if orgID > 0 {
+		base += "&org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	if strings.EqualFold(strings.TrimSpace(from), "my-hops") {
+		base += "&from=my-hops"
+	}
+	return base
 }
 
 func safeRedirectPath(input string, fallback string) string {

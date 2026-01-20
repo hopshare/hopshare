@@ -20,9 +20,10 @@ var (
 	ErrMembershipNotFound   = errors.New("membership not found")
 	ErrInvalidRoleChange    = errors.New("invalid role change")
 
-	ErrHopNotFound     = errors.New("hop not found")
-	ErrHopForbidden    = errors.New("hop forbidden")
-	ErrHopInvalidState = errors.New("hop invalid state")
+	ErrHopNotFound      = errors.New("hop not found")
+	ErrHopForbidden     = errors.New("hop forbidden")
+	ErrHopInvalidState  = errors.New("hop invalid state")
+	ErrHopImageNotFound = errors.New("hop image not found")
 
 	ErrMessageNotFound = errors.New("message not found")
 	ErrInvalidMessage  = errors.New("invalid message")

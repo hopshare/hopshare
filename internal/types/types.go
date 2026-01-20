@@ -114,6 +114,7 @@ type Hop struct {
 	Title          string
 	Details        *string
 	EstimatedHours int
+	IsPrivate      bool
 
 	NeededByKind string
 	NeededByDate *time.Time
@@ -137,6 +138,24 @@ type Hop struct {
 	UpdatedAt time.Time
 
 	HasPendingOffer bool
+}
+
+// HopComment represents a comment on a hop.
+type HopComment struct {
+	ID         int64
+	HopID      int64
+	MemberID   int64
+	MemberName string
+	Body       string
+	CreatedAt  time.Time
+}
+
+// HopImage represents an uploaded hop image.
+type HopImage struct {
+	ID        int64
+	HopID     int64
+	MemberID  int64
+	CreatedAt time.Time
 }
 
 // Message represents a single inbox message.
