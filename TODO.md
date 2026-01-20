@@ -20,7 +20,6 @@
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
 * Hop Filters say "Created" instead of "Pending" in Your Hops page
-* Double check all the messaging on the MyHopShare dashboard- not sure they are correct as Hours numbers change
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * Trying to view a private or non-Organization Hop Detail page shows the message "This page is only available to organization owners." - need to parameterize the unauthorized page message?
 

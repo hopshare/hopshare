@@ -443,16 +443,14 @@ templ StatCardBalance(balanceHours int) {
 		<p class="mt-2 text-xl font-bold text-slate-900">Hours Earned</p>
 		<p class="mt-4 text-sm text-slate-700">
 			if balanceHours >= timebankMaxBalance {
-				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few hops of your own to pay hours forward to other users!
+				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
 			} else if balanceHours > 10 {
-				Your balance is really growing- amazing work helping others! Don't forget to request a hop so others can help you too!
-			} else if balanceHours > 5 {
-				You've got a healthy balance! Request a hop to pay those hours forward to someone else!
-			} else if balanceHours <= timebankMinBalance {
-				You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more hops!
+				Your balance is really growing- amazing work helping others! Don't forget to request some Hops so others can help you too!
+			} else if balanceHours >= 5 {
+				You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
+			} else if (balanceHours < 0) && (balanceHours <= timebankMinBalance) {
+				You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
 			} else if balanceHours < 0 {
-				Negative balances are fine! Go help someone else to get back to a positive balance!
-			} else {
 				You're out of hours but don't worry! You can go down to {timebankMinBalance} hours. Find some other users who need help and build up your balance!
 			}
 		</p>
