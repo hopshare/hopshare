@@ -29,23 +29,6 @@
 
 * Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who?
 
-* Hops are still sort of 'hidden' as far as I'm concerned- how do we make them more front and center??
-    * Hops are 'private' by default meaning they are only visible to the requster and helpers. Once Marked 'public' they can be viewed by anyone in the Organization.
-    * Hops can have a series of comments attached to them. Comments are shown most recent first. There is a place at the bottom of the Hop page where new comments can be added.
-    * Hops can have a set of images attached to them. These are shown as thumbnails in the Hop page, and can be viewed in a Carousel type UI that pops up over the Hop page. The requester and helper of the Hop can add/remove images.
-    * Have a separate "Hop" page- where it shows the details and lets the two Members collaborate with comments, pictures, etc...
-    * If the Hop is not private, then anyone in tbe Organization can view the Hop and add a comment.
-    * Click on any Hop and it goes to that page...with stable URL
-    * These can become public pages too- to show off what was done.
-    * Re-think how we show "lists" of Hops (or Hop Summaries)
-        * We should include avatar images when we show Hop details- make them more visual!!
-        * Always clickable to get to the Hop Page
-
-
-* Change bell icon to an envelope icon in the header
-
-* Drop the 'Home' item on the Header- we should only go to this page if we are not logged in.
-
 * My HopShare Dashboard
     * "Change..." for Organization should be a pulldown of all Organizations Member belongs to. 
     * At bottom of that card, have a link "Find an Organization..." that goes to Find Organization page.

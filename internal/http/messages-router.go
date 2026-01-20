@@ -89,7 +89,7 @@ func (s *Server) handleUnreadMessageCount(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	badge := fmt.Sprintf(`<span class="absolute -top-2 -right-2 min-w-[20px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">%d</span>`, count)
+	badge := fmt.Sprintf(`<span class="absolute -top-3 -right-3 min-w-[20px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">%d</span>`, count)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(badge))
 }
