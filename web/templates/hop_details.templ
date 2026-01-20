@@ -1,7 +1,9 @@
 package templates
 
 import (
+	"net/url"
 	"strconv"
+	"strings"
 
 	"hopshare/internal/types"
 )
@@ -48,11 +50,20 @@ func hopDetailsFromValue(showBack bool) string {
 	return ""
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
-	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, canToggle, canComment, canUpload, comments, images))
+func hopDetailsBackLink(orgID int64, view string) string {
+	link := "/my-hops?org_id=" + strconv.FormatInt(orgID, 10)
+	view = strings.TrimSpace(view)
+	if view != "" {
+		link += "&view=" + url.QueryEscape(view)
+	}
+	return link
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
+	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, comments, images))
+}
+
+templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
@@ -64,7 +75,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canTo
 				<p class="text-2xl font-bold text-slate-900 truncate">{ org.Name }</p>
 			</div>
 			if showBack {
-				<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(org.ID, 10) }>Back to My Hops</a>
+				<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ hopDetailsBackLink(org.ID, backView) }>Back to My Hops</a>
 			}
 		</div>
 
@@ -77,6 +88,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canTo
 							<input type="hidden" name="org_id" value={ org.ID } />
 							<input type="hidden" name="hop_id" value={ hop.ID } />
 							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+							<input type="hidden" name="view" value={ backView } />
 							<label class="relative flex items-center cursor-pointer">
 								<input type="checkbox" name="is_private" value="true" class="sr-only peer" onchange="this.form.submit()" checked?={ hop.IsPrivate } />
 								<div class="relative w-9 h-5 bg-slate-200 hover:bg-slate-300 peer-focus:outline-none rounded-full peer transition-all ease-in-out duration-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-1/2 after:left-0.5 after:-translate-y-1/2 after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-600 hover:peer-checked:bg-sky-700"></div>
@@ -207,6 +219,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canTo
 						<input type="hidden" name="org_id" value={ org.ID } />
 						<input type="hidden" name="hop_id" value={ hop.ID } />
 						<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+						<input type="hidden" name="view" value={ backView } />
 						<input class="w-full sm:w-auto text-sm" type="file" name="image" accept="image/*" required />
 						<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Upload</button>
 					</form>
@@ -232,6 +245,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canTo
 									<input type="hidden" name="hop_id" value={ hop.ID } />
 									<input type="hidden" name="image_id" value={ img.ID } />
 									<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+									<input type="hidden" name="view" value={ backView } />
 									<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
 								</form>
 							}
@@ -296,6 +310,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, canTo
 					<input type="hidden" name="org_id" value={ org.ID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+					<input type="hidden" name="view" value={ backView } />
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="hop-comment-body">Add a comment</label>
 						<textarea id="hop-comment-body" name="body" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" rows="3" required placeholder="Share an update, ask a question, or say thanks."></textarea>

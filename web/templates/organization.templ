@@ -1,0 +1,31 @@
+package templates
+
+import (
+	"strconv"
+
+	"hopshare/internal/types"
+)
+
+templ Organization(email string, org types.Organization) {
+	@Base("hopShare | Organization", &email, OrganizationBody(org))
+}
+
+templ OrganizationBody(org types.Organization) {
+	<div class="space-y-6">
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex items-center gap-3 min-w-0">
+				<img
+					src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+					alt={ org.Name + " logo" }
+					class="h-12 w-12 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+				/>
+				<h1 class="text-3xl font-bold text-slate-900 truncate">{ org.Name }</h1>
+			</div>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
+		</div>
+
+		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
+			<p class="text-slate-600">More organization details will be added here soon.</p>
+		</section>
+	</div>
+}

@@ -64,26 +64,48 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	view := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
+	viewTitle := "Hops I Have Requested"
+	viewDescription := "All of the hops you've requested in this organization."
+	emptyMessage := "You haven't requested any hops yet."
+	switch view {
+	case "helped", "help":
+		view = "helped"
+		viewTitle = "Hops I Have Helped With"
+		viewDescription = "Hops you've been accepted to help with, including those still pending."
+		emptyMessage = "You haven't helped with any hops yet."
+	case "offered", "offers", "offering":
+		view = "offered"
+		viewTitle = "Pending Hops I Have Offered Help With"
+		viewDescription = "Offers you've made that are still awaiting a response."
+		emptyMessage = "You don't have any pending hop offers."
+	default:
+		view = "requested"
+	}
+
 	var myHops []types.Hop
 	if currentOrgID != 0 {
 		if _, err := service.ExpireHops(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
 			log.Printf("expire hops org=%d: %v", currentOrgID, err)
 		}
 
-		myHops, err = service.ListMemberHops(r.Context(), s.db, currentOrgID, user.ID)
+		switch view {
+		case "helped":
+			myHops, err = service.ListHelpedHops(r.Context(), s.db, currentOrgID, user.ID)
+		case "offered":
+			myHops, err = service.ListPendingOfferedHops(r.Context(), s.db, currentOrgID, user.ID)
+		default:
+			myHops, err = service.ListRequestedHops(r.Context(), s.db, currentOrgID, user.ID)
+		}
 		if err != nil {
-			log.Printf("load my hops org=%d member=%d: %v", currentOrgID, user.ID, err)
+			log.Printf("load my hops org=%d member=%d view=%s: %v", currentOrgID, user.ID, view, err)
 			http.Error(w, "could not load hops", http.StatusInternalServerError)
 			return
 		}
-		pendingOffers, err := service.PendingHopOfferIDs(r.Context(), s.db, user.ID)
-		if err != nil {
-			log.Printf("load pending hop offers member=%d: %v", user.ID, err)
-		} else if len(pendingOffers) > 0 {
+
+		if view == "offered" {
 			for i := range myHops {
-				if _, ok := pendingOffers[myHops[i].ID]; ok {
-					myHops[i].HasPendingOffer = true
-				}
+				myHops[i].HasPendingOffer = true
 			}
 		}
 	}
@@ -94,6 +116,11 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 		currentOrgID,
 		myHops,
 		hasPrimary,
+		view,
+		viewTitle,
+		viewDescription,
+		emptyMessage,
+		user.ID,
 		successMsg,
 		errorMsg,
 	))
@@ -190,10 +217,11 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	}
 
 	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
+	backView := strings.TrimSpace(r.URL.Query().Get("view"))
 	canToggle := isAssociated
 	canComment := isAssociated || !hop.IsPrivate
 	canUpload := isAssociated
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, canToggle, canComment, canUpload, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, comments, images))
 }
 
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +427,7 @@ func (s *Server) handleHopPrivacy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
 func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) {
@@ -457,7 +485,7 @@ func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
 func (s *Server) handleUploadHopImage(w http.ResponseWriter, r *http.Request) {
@@ -544,7 +572,7 @@ func (s *Server) handleUploadHopImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
 func (s *Server) handleDeleteHopImage(w http.ResponseWriter, r *http.Request) {
@@ -607,7 +635,7 @@ func (s *Server) handleDeleteHopImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from")), http.StatusSeeOther)
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
 func (s *Server) handleHopImage(w http.ResponseWriter, r *http.Request) {
@@ -661,13 +689,16 @@ func (s *Server) handleHopImage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func hopDetailsRedirect(orgID, hopID int64, from string) string {
+func hopDetailsRedirect(orgID, hopID int64, from string, view string) string {
 	base := "/hops/view?hop_id=" + strconv.FormatInt(hopID, 10)
 	if orgID > 0 {
 		base += "&org_id=" + strconv.FormatInt(orgID, 10)
 	}
 	if strings.EqualFold(strings.TrimSpace(from), "my-hops") {
 		base += "&from=my-hops"
+		if view = strings.TrimSpace(view); view != "" {
+			base += "&view=" + url.QueryEscape(view)
+		}
 	}
 	return base
 }

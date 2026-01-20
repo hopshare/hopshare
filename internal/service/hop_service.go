@@ -688,6 +688,165 @@ func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 	return out, nil
 }
 
+func ListRequestedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.title, r.details, r.estimated_hours, r.is_private,
+			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.status,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.canceled_by, r.canceled_at,
+			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
+			r.created_at, r.updated_at
+		FROM hops r
+		JOIN members mc ON mc.id = r.created_by
+		LEFT JOIN members ma ON ma.id = r.accepted_by
+		WHERE r.organization_id = $1
+			AND r.created_by = $2
+		ORDER BY r.created_at DESC
+	`, orgID, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list requested hops: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.Hop
+	for rows.Next() {
+		req, err := scanHopRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan hop: %w", err)
+		}
+		out = append(out, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list requested hops: %w", err)
+	}
+	return out, nil
+}
+
+func ListHelpedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.title, r.details, r.estimated_hours, r.is_private,
+			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.status,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.canceled_by, r.canceled_at,
+			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
+			r.created_at, r.updated_at
+		FROM hops r
+		JOIN members mc ON mc.id = r.created_by
+		LEFT JOIN members ma ON ma.id = r.accepted_by
+		WHERE r.organization_id = $1
+			AND r.accepted_by = $2
+			AND r.status IN ($3, $4)
+		ORDER BY r.created_at DESC
+	`, orgID, memberID, types.HopStatusAccepted, types.HopStatusCompleted)
+	if err != nil {
+		return nil, fmt.Errorf("list helped hops: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.Hop
+	for rows.Next() {
+		req, err := scanHopRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan hop: %w", err)
+		}
+		out = append(out, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list helped hops: %w", err)
+	}
+	return out, nil
+}
+
+func ListPendingOfferedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
+		return nil, err
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.title, r.details, r.estimated_hours, r.is_private,
+			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.status,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.canceled_by, r.canceled_at,
+			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
+			r.created_at, r.updated_at
+		FROM hops r
+		JOIN members mc ON mc.id = r.created_by
+		LEFT JOIN members ma ON ma.id = r.accepted_by
+		WHERE r.organization_id = $1
+			AND r.status = $2
+			AND EXISTS (
+				SELECT 1
+				FROM hop_help_offers hho
+				WHERE hho.hop_id = r.id AND hho.member_id = $3 AND hho.status IS NULL
+			)
+		ORDER BY r.created_at DESC
+	`, orgID, types.HopStatusOpen, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list pending offered hops: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.Hop
+	for rows.Next() {
+		req, err := scanHopRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan hop: %w", err)
+		}
+		out = append(out, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list pending offered hops: %w", err)
+	}
+	return out, nil
+}
+
 func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.Hop, error) {
 	if db == nil {
 		return nil, ErrNilDB

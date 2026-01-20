@@ -111,6 +111,59 @@ func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Organizations(&user.Email, orgs, successMsg, errorMsg))
 }
 
+func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("load organizations for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
+	}
+
+	var currentOrgID int64
+	var selectedFromQuery bool
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
+			currentOrgID = parsed
+			selectedFromQuery = true
+		}
+	}
+	if currentOrgID == 0 && user.CurrentOrganization != nil {
+		currentOrgID = *user.CurrentOrganization
+	}
+	if len(orgs) > 0 && currentOrgID == 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
+		currentOrgID = orgs[0].ID
+	}
+
+	if currentOrgID == 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Join an organization to view organization details."), http.StatusSeeOther)
+		return
+	}
+
+	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
+		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
+			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		}
+	}
+
+	org, err := service.GetOrganizationByID(r.Context(), s.db, currentOrgID)
+	if err != nil {
+		log.Printf("load organization %d: %v", currentOrgID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	render(w, r, templates.Organization(user.Email, org))
+}
+
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {
 	orgID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("org_id")), 10, 64)
 	if err != nil || orgID <= 0 {
