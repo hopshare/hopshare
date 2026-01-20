@@ -29,7 +29,7 @@
 
 * Header
     * Clicking the logo should take you to the main page, unless you are authenticated, then it should take you to the My HopShare dashboard
-    * Move the "Sign Up" menu item to be a link on the Login page instead...
+    * Need a "Help" page that walks through how to use the service
 
 * Hop Detail Page
     * Members in the Organization should be able to offer to help for Pending Hops. If they have already offered to help, show an error banner saying you've already offered to help.
