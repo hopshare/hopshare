@@ -78,7 +78,6 @@ Change the "My Organization" panel of the "My Profile" page as follows:
 
 ## Later
 
-* Add ability to add comments to a completed Request.
 * Create a 'celebration' page for the Organization?
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
 
