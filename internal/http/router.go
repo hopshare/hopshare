@@ -485,6 +485,13 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			http.Error(w, "could not load hops", http.StatusInternalServerError)
 			return
 		}
+		if len(pendingOffers) > 0 {
+			for i := range hopsToHelp {
+				if _, ok := pendingOffers[hopsToHelp[i].ID]; ok {
+					hopsToHelp[i].HasPendingOffer = true
+				}
+			}
+		}
 	}
 
 	render(w, r, templates.MyhopShare(

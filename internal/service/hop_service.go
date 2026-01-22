@@ -166,6 +166,7 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 		SELECT created_by, status, title, details
 		FROM hops
 		WHERE id = $1 AND organization_id = $2
+		FOR UPDATE
 	`, p.HopID, p.OrganizationID).Scan(&createdBy, &status, &title, &details); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrHopNotFound
@@ -177,6 +178,20 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	}
 	if createdBy == p.OffererID {
 		return ErrHopForbidden
+	}
+
+	var offerExists bool
+	if err = tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM hop_help_offers
+			WHERE hop_id = $1 AND member_id = $2 AND status IS NULL
+		)
+	`, p.HopID, p.OffererID).Scan(&offerExists); err != nil {
+		return fmt.Errorf("check existing hop offer: %w", err)
+	}
+	if offerExists {
+		return ErrHopOfferExists
 	}
 
 	if _, err = tx.ExecContext(ctx, `

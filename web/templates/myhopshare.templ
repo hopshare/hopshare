@@ -585,9 +585,15 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 				<form method="POST" action="/hops/offer">
 					<input type="hidden" name="org_id" value={ orgID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
-					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
-						Offer to help
-					</button>
+					if hop.HasPendingOffer {
+						<button class="inline-flex justify-center rounded-lg bg-slate-300 text-slate-600 font-semibold px-3 py-2 cursor-not-allowed" type="submit" disabled>
+							Offer sent
+						</button>
+					} else {
+						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
+							Offer to help
+						</button>
+					}
 				</form>
 			}
 			if hop.Status == types.HopStatusAccepted {

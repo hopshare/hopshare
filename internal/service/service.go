@@ -23,6 +23,7 @@ var (
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")
 	ErrHopInvalidState  = errors.New("hop invalid state")
+	ErrHopOfferExists   = errors.New("hop offer already exists")
 	ErrHopImageNotFound = errors.New("hop image not found")
 
 	ErrMessageNotFound = errors.New("message not found")

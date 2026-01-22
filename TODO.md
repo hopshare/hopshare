@@ -14,16 +14,13 @@
 
 ## Bugs
 
-* You can offer to help the same Hop multiple times
 * Private Hops not showing up in the "Give a Hop" list...they should be visible here
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
-* Hop Filters say "Created" instead of "Pending" in Your Hops page
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * Trying to view a private or non-Organization Hop Detail page shows the message "This page is only available to organization owners." - need to parameterize the unauthorized page message?
 * The Public/Private toggle on Hop Details page updates the whole page/gets added to history when you toggle it...can we avoid that? Shall we just use a radio button?
-* Page footer does not extend to the bottom of the browser window
 
 
 ## Now

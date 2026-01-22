@@ -308,6 +308,10 @@ func (s *Server) handleOfferHop(w http.ResponseWriter, r *http.Request) {
 		OffererName:    offererName,
 	}); err != nil {
 		log.Printf("offer hop help failed: %v", err)
+		if errors.Is(err, service.ErrHopOfferExists) {
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("You've already offered to help with this hop."), http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not send offer."), http.StatusSeeOther)
 		return
 	}
