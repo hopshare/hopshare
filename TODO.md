@@ -15,6 +15,7 @@
 ## Bugs
 
 * You can offer to help the same Hop multiple times
+* Private Hops not showing up in the "Give a Hop" list...they should be visible here
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
@@ -36,6 +37,7 @@
 
 
 * My HopShare Dashboard
+    * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization
     * Need a way to see:
         * All Hops I've offered to help with but not heard back yet
         * All Hops I've requested from others but not Canceled, or Completed
@@ -52,7 +54,7 @@
     * Organization card doesn't work well with long names
 
 
-* Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who?
+* Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who? VENMO
 
 * Find Organization Page
     * Long Organization names do not fit into the search results- should put those into larger results- with ability to drill into details on the organization before asking to join.
