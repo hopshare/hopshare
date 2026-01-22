@@ -14,7 +14,6 @@
 
 ## Bugs
 
-* Private Hops not showing up in the "Give a Hop" list...they should be visible here
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
@@ -50,6 +49,12 @@
     * At bottom of that card, have a link "Find an Organization..." that goes to Find Organization page.
     * Organization card doesn't work well with long names
 
+* Organizations
+    * Need to have a separate set of timebank parameters per organization
+        * Minimum balance (default -5)
+        * Maximum balance (default 10)
+        * Starting balance (default 5)
+    * The UI should enforce some sensible levels here to avoid crazy numbers that would make the timebank unusable.
 
 * Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who? VENMO
 

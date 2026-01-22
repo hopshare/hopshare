@@ -258,10 +258,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		neededByDate = &t
 	}
 
-	isPrivate := true
-	if strings.EqualFold(strings.TrimSpace(r.FormValue("is_public")), "true") {
-		isPrivate = false
-	}
+	isPrivate := false
 
 	_, err = service.CreateHop(r.Context(), s.db, service.CreateHopParams{
 		OrganizationID: orgID,
@@ -428,6 +425,11 @@ func (s *Server) handleHopPrivacy(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("update hop privacy failed: %v", err)
 		http.Error(w, "could not update hop", http.StatusInternalServerError)
+		return
+	}
+
+	if strings.EqualFold(r.Header.Get("HX-Request"), "true") {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
