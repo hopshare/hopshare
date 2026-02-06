@@ -22,6 +22,38 @@ Starter scaffold for the Hopshare application. The service is a single Go binary
 
 Health endpoint: `GET /healthz` returns `200 OK`.
 
+## Container / Podman
+Use the provided `Containerfile` and scripts in `deploy/scripts/` to build and run Hopshare with Postgres in a Podman pod.
+
+Requirements:
+- Podman installed and running.
+
+Build image manually:
+- `podman build -t hopshare:local -f Containerfile .`
+
+Start Hopshare + Postgres pod:
+- `deploy/scripts/start.sh`
+
+Stop Hopshare + Postgres pod:
+- `deploy/scripts/stop.sh`
+
+Default runtime values (can be overridden with env vars):
+- `POD_NAME=hopshare`
+- `APP_IMAGE=hopshare:local`
+- `APP_CONTAINER=hopshare-app`
+- `DB_CONTAINER=hopshare-db`
+- `APP_PORT=8080`
+- `DB_PORT=5432`
+- `DB_NAME=hopshare`
+- `DB_USER=hopshare`
+- `DB_PASSWORD=hopshare`
+- `DB_DATA_DIR=deploy/data/postgres`
+
+Example custom run:
+- `APP_PORT=9090 DB_PASSWORD=supersecret deploy/scripts/start.sh`
+
+The app is exposed at `http://localhost:${APP_PORT}` and Postgres data persists under `deploy/data/postgres` by default.
+
 ## Demo Web Flows
 - Landing page at `/` with calls to action for Login and Request to join.
 - Login at `/login` for demo user `demo@hopshare.org` / `password123` (sets a cookie-based session).

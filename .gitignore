@@ -12,3 +12,6 @@
 
 # Env/config
 .env
+
+# Local Postgres data (for development)
+/deploy/data/postgres
