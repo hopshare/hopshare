@@ -70,7 +70,7 @@ templ MyHopsBody(
 									alt={ org.Name + " logo" }
 									class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
 								/>
-								<p class="text-2xl font-bold text-slate-900 truncate">{ org.Name }</p>
+								<a class="text-2xl font-bold text-slate-900 truncate underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
 							</div>
 						}
 					}
