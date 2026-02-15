@@ -176,10 +176,11 @@ type Message struct {
 }
 
 type OrgHopMetrics struct {
-	MemberCount       int
-	PendingCount      int
-	CompletedCount    int
-	CompletedThisWeek int
+	MemberCount         int
+	PendingCount        int
+	CompletedCount      int
+	CompletedThisWeek   int
+	TotalHoursExchanged int
 }
 
 type MemberHopStats struct {

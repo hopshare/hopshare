@@ -160,9 +160,23 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		showJoinPanel = !hasMembership
 	}
 
+	metrics, err := service.OrgMetrics(r.Context(), s.db, org.ID)
+	if err != nil {
+		log.Printf("load organization metrics org=%d: %v", org.ID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	recentCompleted, err := service.RecentPublicCompletedHops(r.Context(), s.db, org.ID, 25)
+	if err != nil {
+		log.Printf("load organization recent completed hops org=%d: %v", org.ID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
-	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, showJoinPanel, successMsg, errorMsg))
+	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, showJoinPanel, successMsg, errorMsg))
 }
 
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {

@@ -19,13 +19,11 @@
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * Trying to view a private or non-Organization Hop Detail page shows the message "This page is only available to organization owners." - need to parameterize the unauthorized page message?
-* The Public/Private toggle on Hop Details page updates the whole page/gets added to history when you toggle it...can we avoid that? Shall we just use a radio button?
 
 
 ## Now
 
 * Header
-    * Clicking the logo should take you to the main page, unless you are authenticated, then it should take you to the My HopShare dashboard
     * Need a "Help" page that walks through how to use the service
 
 * Hop Detail Page
@@ -34,20 +32,6 @@
 
 * My HopShare Dashboard
     * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization
-    * Need a way to see:
-        * All Hops I've offered to help with but not heard back yet
-        * All Hops I've requested from others but not Canceled, or Completed
-        * All Hops I've helped someone else with
-        * All Hops for the Organization- preferably in a fun 'feed' manner
-        * My current balance of Hours
-    * Need a way to:
-        * Ask for a Hop
-        * Find Hops looking for help
-        * Get a "bank statement" of all transactions
-
-    * "Change..." for Organization should be a pulldown of all Organizations Member belongs to. 
-    * At bottom of that card, have a link "Find an Organization..." that goes to Find Organization page.
-    * Organization card doesn't work well with long names
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization
@@ -56,10 +40,16 @@
         * Starting balance (default 5)
     * The UI should enforce some sensible levels here to avoid crazy numbers that would make the timebank unusable.
 
+* Disabling Organizations
+    * Only visible to Administrators
+    * Don't show the Organization page
+    * Org should not show up in list of Organizations
+    * Users should not be able to switch to the Organization from My Hopshare
+    * Users who only have that organization are treated as if they don't have an organzation any longer
+    * Re-enabling the Organization puts everything back the way it was
+
 * Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who? VENMO
 
-* Find Organization Page
-    * Long Organization names do not fit into the search results- should put those into larger results- with ability to drill into details on the organization before asking to join.
 * Joining an Organization should use messages
     * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
     * Send yourself an information message that you requested membership in an Organization.
@@ -80,7 +70,6 @@ Change the "My Organization" panel of the "My Profile" page as follows:
 
 ## Later
 
-* Create a 'celebration' page for the Organization?
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
 
 Font Awesome- https://icon-sets.iconify.design/fa7-regular/page-2.html?keyword=font

@@ -188,6 +188,58 @@ func (s *Server) handleMemberAvatar(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(avatarPlaceholderSVG(initial))
 }
 
+func (s *Server) handlePublicMemberAvatar(w http.ResponseWriter, r *http.Request) {
+	memberID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("member_id")), 10, 64)
+	if err != nil || memberID <= 0 {
+		http.Error(w, "invalid member", http.StatusBadRequest)
+		return
+	}
+	orgID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("org_id")), 10, 64)
+	if err != nil || orgID <= 0 {
+		http.Error(w, "invalid organization", http.StatusBadRequest)
+		return
+	}
+
+	isMember, err := service.MemberHasActiveMembership(r.Context(), s.db, memberID, orgID)
+	if err != nil {
+		log.Printf("check public avatar membership member=%d org=%d: %v", memberID, orgID, err)
+		http.Error(w, "could not load avatar", http.StatusInternalServerError)
+		return
+	}
+	if !isMember {
+		http.NotFound(w, r)
+		return
+	}
+
+	target, err := service.GetMemberByID(r.Context(), s.db, memberID)
+	if err != nil {
+		log.Printf("load member for public avatar member=%d: %v", memberID, err)
+		http.NotFound(w, r)
+		return
+	}
+
+	data, contentType, ok, err := service.MemberAvatar(r.Context(), s.db, memberID)
+	if err != nil {
+		log.Printf("load public member avatar %d: %v", memberID, err)
+		http.Error(w, "could not load avatar", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	if ok {
+		w.Header().Set("Content-Type", contentType)
+		_, _ = w.Write(data)
+		return
+	}
+
+	initial := avatarInitial(memberDisplayName(&target))
+	if initial == "" {
+		initial = avatarInitial(target.Email)
+	}
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	_, _ = w.Write(avatarPlaceholderSVG(initial))
+}
+
 func readAvatarUpload(r *http.Request, field string, maxBytes int64) ([]byte, string, bool, error) {
 	f, _, err := r.FormFile(field)
 	if err != nil {
