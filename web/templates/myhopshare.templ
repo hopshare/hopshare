@@ -209,12 +209,16 @@ templ MyhopShareDashboard(
 				</div>
 
 				<div class="flex items-center justify-between gap-3 text-sm font-semibold">
-					<a
-						class="text-sky-700 underline hover:text-sky-800"
-						href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
-					>
-						Check Out What's Happening...
-					</a>
+					for _, org := range orgs {
+						if org.ID == currentOrgID {
+							<a
+								class="text-sky-700 underline hover:text-sky-800"
+								href={ "/organization/" + org.URLName }
+							>
+								Check Out What's Happening...
+							</a>
+						}
+					}
 					<button
 						type="button"
 						class="text-sky-700 underline hover:text-sky-800"

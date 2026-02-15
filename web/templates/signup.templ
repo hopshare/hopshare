@@ -1,10 +1,10 @@
 package templates
 
-templ Signup(userEmail *string, successMsg string, errorMsg string) {
-	@Base("hopShare | Request to join", userEmail, SignupBody(successMsg, errorMsg))
+templ Signup(userEmail *string, successMsg string, errorMsg string, next string) {
+	@Base("hopShare | Request to join", userEmail, SignupBody(successMsg, errorMsg, next))
 }
 
-templ SignupBody(successMsg string, errorMsg string) {
+templ SignupBody(successMsg string, errorMsg string, next string) {
 	<section class="max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Request to join hopShare</h1>
@@ -40,6 +40,9 @@ templ SignupBody(successMsg string, errorMsg string) {
 				}
 			}
 		}">
+			if next != "" {
+				<input type="hidden" name="next" value={ next } />
+			}
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="first_name">First name</label>
@@ -95,18 +98,18 @@ templ SignupBody(successMsg string, errorMsg string) {
 	</section>
 }
 
-templ SignupSuccess(userEmail *string) {
-	@Base("hopShare | Request received", userEmail, SignupSuccessBody())
+templ SignupSuccess(userEmail *string, loginHref string) {
+	@Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref))
 }
 
-templ SignupSuccessBody() {
+templ SignupSuccessBody(loginHref string) {
 	<section class="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
 		<h1 class="text-2xl font-bold text-slate-900">Thanks for reaching out!</h1>
 		<p class="text-slate-700">
 			We received your request to join hopShare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!
 		</p>
 		<div class="flex gap-3">
-			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/login">Back to login</a>
+			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href={ loginHref }>Back to login</a>
 			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/">Return home</a>
 		</div>
 	</section>

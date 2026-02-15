@@ -1,10 +1,12 @@
 package templates
 
-templ Login(userEmail *string, errorMsg string, successMsg string) {
-	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg))
+import "net/url"
+
+templ Login(userEmail *string, errorMsg string, successMsg string, next string) {
+	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next))
 }
 
-templ LoginBody(errorMsg string, successMsg string) {
+templ LoginBody(errorMsg string, successMsg string, next string) {
 	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Log in</h1>
@@ -17,6 +19,9 @@ templ LoginBody(errorMsg string, successMsg string) {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
 		<form class="space-y-4" method="POST" action="/login">
+			if next != "" {
+				<input type="hidden" name="next" value={ next } />
+			}
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="username">Username</label>
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="username" name="username" required />
@@ -31,7 +36,11 @@ templ LoginBody(errorMsg string, successMsg string) {
 		</form>
 		<div class="flex items-center justify-between text-sm">
 			<a class="text-sky-700 hover:text-sky-800 font-semibold" href="/forgot-password">Forgot your password?</a>
-			<a class="text-sky-700 hover:text-sky-800 font-semibold" href="/signup">Sign Up...</a>
+			if next != "" {
+				<a class="text-sky-700 hover:text-sky-800 font-semibold" href={ "/signup?next=" + url.QueryEscape(next) }>Sign Up...</a>
+			} else {
+				<a class="text-sky-700 hover:text-sky-800 font-semibold" href="/signup">Sign Up...</a>
+			}
 		</div>
 	</section>
 }

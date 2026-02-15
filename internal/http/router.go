@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +37,8 @@ type Middleware func(HandlerFunc) HandlerFunc
 type contextKey string
 
 const userContextKey contextKey = "currentUser"
+
+const postAuthRedirectCookieName = "hopshare_post_auth_redirect"
 
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
@@ -74,9 +77,10 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/hops/offer", srv.handleOfferHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/cancel", srv.handleCancelHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/complete", srv.handleCompleteHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
-	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
-	srv.register(mux, "/organization", srv.handleOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet))
-	srv.register(mux, "/organizations/logo", srv.handleOrganizationLogo, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organizations", srv.handleOrganizations, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organization", srv.handleOrganization, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organization/", srv.handleOrganization, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/organizations/logo", srv.handleOrganizationLogo, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/organizations/create", srv.handleCreateOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage", srv.handleManageOrganization, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/organizations/manage/request", srv.handleManageMembershipRequest, srv.requireAuth(), srv.requireMethod(http.MethodPost))
@@ -98,18 +102,37 @@ func (s *Server) handleLearnMore(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	next := sanitizePostAuthRedirect(r.URL.Query().Get("next"))
+	if next == "" {
+		next = s.postAuthRedirectFromCookie(r)
+	}
+	if next != "" {
+		s.setPostAuthRedirectCookie(w, next)
+	}
+
 	switch r.Method {
 	case http.MethodGet:
 		if s.currentUser(r) != nil {
-			http.Redirect(w, r, "/my-hopshare", http.StatusSeeOther)
+			redirectTarget := "/my-hopshare"
+			if next != "" {
+				redirectTarget = next
+			}
+			http.Redirect(w, r, redirectTarget, http.StatusSeeOther)
 			return
 		}
 		successMsg := r.URL.Query().Get("success")
-		render(w, r, templates.Login(nil, "", successMsg))
+		render(w, r, templates.Login(nil, "", successMsg, next))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
+		}
+		next = sanitizePostAuthRedirect(r.FormValue("next"))
+		if next == "" {
+			next = s.postAuthRedirectFromCookie(r)
+		}
+		if next != "" {
+			s.setPostAuthRedirectCookie(w, next)
 		}
 		username := strings.TrimSpace(r.FormValue("username"))
 		password := r.FormValue("password")
@@ -117,7 +140,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		member, err := service.AuthenticateMemberByUsername(r.Context(), s.db, username, password)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
-				render(w, r, templates.Login(nil, "Invalid username or password.", ""))
+				render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
 				return
 			}
 			log.Printf("authenticate member: %v", err)
@@ -143,20 +166,40 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			log.Printf("update last login member=%d: %v", member.ID, err)
 		}
 
-		http.Redirect(w, r, "/my-hopshare", http.StatusSeeOther)
+		s.clearPostAuthRedirectCookie(w)
+		redirectTarget := "/my-hopshare"
+		if next != "" {
+			redirectTarget = next
+		}
+		http.Redirect(w, r, redirectTarget, http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
+	next := sanitizePostAuthRedirect(r.URL.Query().Get("next"))
+	if next == "" {
+		next = s.postAuthRedirectFromCookie(r)
+	}
+	if next != "" {
+		s.setPostAuthRedirectCookie(w, next)
+	}
+
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", ""))
+		render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "", next))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
+		}
+		next = sanitizePostAuthRedirect(r.FormValue("next"))
+		if next == "" {
+			next = s.postAuthRedirectFromCookie(r)
+		}
+		if next != "" {
+			s.setPostAuthRedirectCookie(w, next)
 		}
 
 		firstName := strings.TrimSpace(r.FormValue("first_name"))
@@ -169,11 +212,11 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		interests := strings.TrimSpace(r.FormValue("interests"))
 
 		if firstName == "" || lastName == "" {
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please enter your first and last name."))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please enter your first and last name.", next))
 			return
 		}
 		if preferredContactMethod != types.ContactMethodEmail && preferredContactMethod != types.ContactMethodPhone && preferredContactMethod != types.ContactMethodOther {
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please choose a preferred contact method."))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please choose a preferred contact method.", next))
 			return
 		}
 
@@ -187,7 +230,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		passwordHash, err := service.HashPassword(password)
 		if err != nil {
 			log.Printf("hash password failed: %v", err)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
 			return
 		}
 
@@ -199,7 +242,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			username, err = service.EnsureUniqueUsername(r.Context(), s.db, baseUsername)
 			if err != nil {
 				log.Printf("generate username failed: %v", err)
-				render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
 				return
 			}
 
@@ -228,19 +271,34 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		}
 		if createErr != nil {
 			log.Printf("create member failed: %v", createErr)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again."))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
 			return
 		}
 
 		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", firstName, lastName, username, email, preferredContactMethod, city, state, interests, created.ID)
-		http.Redirect(w, r, "/signup-success", http.StatusSeeOther)
+		redirectURL := "/signup-success"
+		if next != "" {
+			redirectURL += "?next=" + url.QueryEscape(next)
+		}
+		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
-	render(w, r, templates.SignupSuccess(s.currentUserEmailPtr(r)))
+	next := sanitizePostAuthRedirect(r.URL.Query().Get("next"))
+	if next == "" {
+		next = s.postAuthRedirectFromCookie(r)
+	}
+	if next != "" {
+		s.setPostAuthRedirectCookie(w, next)
+	}
+	loginHref := "/login"
+	if next != "" {
+		loginHref += "?next=" + url.QueryEscape(next)
+	}
+	render(w, r, templates.SignupSuccess(s.currentUserEmailPtr(r), loginHref))
 }
 
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
@@ -669,4 +727,80 @@ func randomToken() string {
 		return "token"
 	}
 	return hex.EncodeToString(b)
+}
+
+func sanitizePostAuthRedirect(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > 256 {
+		return ""
+	}
+	if strings.Contains(raw, "://") || strings.Contains(raw, "\\") {
+		return ""
+	}
+	if strings.ContainsAny(raw, "\r\n") {
+		return ""
+	}
+	if !strings.HasPrefix(raw, "/organization/") {
+		return ""
+	}
+
+	urlName := strings.TrimPrefix(raw, "/organization/")
+	if urlName == "" || strings.Contains(urlName, "/") || strings.Contains(urlName, "?") || strings.Contains(urlName, "#") {
+		return ""
+	}
+
+	var b strings.Builder
+	b.Grow(len(urlName))
+	for _, r := range strings.ToLower(urlName) {
+		isAlpha := r >= 'a' && r <= 'z'
+		isDigit := r >= '0' && r <= '9'
+		if isAlpha || isDigit || r == '-' {
+			b.WriteRune(r)
+			continue
+		}
+		return ""
+	}
+	clean := strings.Trim(b.String(), "-")
+	if clean == "" {
+		return ""
+	}
+	return "/organization/" + clean
+}
+
+func (s *Server) postAuthRedirectFromCookie(r *http.Request) string {
+	c, err := r.Cookie(postAuthRedirectCookieName)
+	if err != nil || c.Value == "" {
+		return ""
+	}
+	v, err := url.QueryUnescape(c.Value)
+	if err != nil {
+		return ""
+	}
+	return sanitizePostAuthRedirect(v)
+}
+
+func (s *Server) setPostAuthRedirectCookie(w http.ResponseWriter, next string) {
+	next = sanitizePostAuthRedirect(next)
+	if next == "" {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     postAuthRedirectCookieName,
+		Value:    url.QueryEscape(next),
+		Path:     "/",
+		MaxAge:   7 * 24 * 60 * 60,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (s *Server) clearPostAuthRedirectCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     postAuthRedirectCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }

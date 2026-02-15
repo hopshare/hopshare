@@ -92,12 +92,6 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
-	user := s.currentUser(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
 	orgs, err := service.ListOrganizations(r.Context(), s.db)
 	if err != nil {
 		log.Printf("list organizations: %v", err)
@@ -108,60 +102,56 @@ func (s *Server) handleOrganizations(w http.ResponseWriter, r *http.Request) {
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 
-	render(w, r, templates.Organizations(&user.Email, orgs, successMsg, errorMsg))
+	render(w, r, templates.Organizations(s.currentUserEmailPtr(r), orgs, successMsg, errorMsg))
 }
 
 func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
-	user := s.currentUser(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-
-	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
-	if err != nil {
-		log.Printf("load organizations for member %d: %v", user.ID, err)
-		http.Error(w, "could not load organizations", http.StatusInternalServerError)
-		return
-	}
-
-	var currentOrgID int64
-	var selectedFromQuery bool
-	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
-		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
-			currentOrgID = parsed
-			selectedFromQuery = true
+	if r.URL.Path == "/organization" {
+		orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id"))
+		if orgIDStr == "" {
+			http.NotFound(w, r)
+			return
 		}
-	}
-	if currentOrgID == 0 && user.CurrentOrganization != nil {
-		currentOrgID = *user.CurrentOrganization
-	}
-	if len(orgs) > 0 && currentOrgID == 0 {
-		currentOrgID = orgs[0].ID
-	}
-	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
-		currentOrgID = orgs[0].ID
-	}
+		orgID, err := strconv.ParseInt(orgIDStr, 10, 64)
+		if err != nil || orgID <= 0 {
+			http.NotFound(w, r)
+			return
+		}
 
-	if currentOrgID == 0 {
-		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Join an organization to view organization details."), http.StatusSeeOther)
+		org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.NotFound(w, r)
+				return
+			}
+			log.Printf("load organization %d for redirect: %v", orgID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/organization/"+org.URLName, http.StatusMovedPermanently)
 		return
 	}
 
-	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
-		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
-			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
-		}
+	orgURLName, ok := organizationURLNameFromPath(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
 	}
 
-	org, err := service.GetOrganizationByID(r.Context(), s.db, currentOrgID)
+	org, err := service.GetOrganizationByURLName(r.Context(), s.db, orgURLName)
 	if err != nil {
-		log.Printf("load organization %d: %v", currentOrgID, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load organization by url name %q: %v", orgURLName, err)
 		http.Error(w, "could not load organization", http.StatusInternalServerError)
 		return
 	}
 
-	render(w, r, templates.Organization(user.Email, org))
+	successMsg := r.URL.Query().Get("success")
+	errorMsg := r.URL.Query().Get("error")
+	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, successMsg, errorMsg))
 }
 
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {
@@ -214,9 +204,20 @@ func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	redirectBase := "/organizations"
 	var orgName string
 	if org, err := service.GetOrganizationByID(r.Context(), s.db, orgID); err == nil {
 		orgName = org.Name
+		redirectBase = "/organization/" + org.URLName
+	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("load organization %d before membership request redirect: %v", orgID, err)
+	}
+	redirectWith := func(key, msg string) string {
+		sep := "?"
+		if strings.Contains(redirectBase, "?") {
+			sep = "&"
+		}
+		return redirectBase + sep + key + "=" + url.QueryEscape(msg)
 	}
 
 	if err := service.RequestMembership(r.Context(), s.db, user.ID, orgID, nil); err != nil {
@@ -230,7 +231,7 @@ func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request)
 		case errors.Is(err, service.ErrRequestAlreadyExists):
 			msg = "You already have a pending request for this organization."
 		}
-		http.Redirect(w, r, "/organizations?error="+url.QueryEscape(msg), http.StatusSeeOther)
+		http.Redirect(w, r, redirectWith("error", msg), http.StatusSeeOther)
 		return
 	}
 
@@ -238,7 +239,7 @@ func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request)
 	if orgName != "" {
 		success = fmt.Sprintf("Requested membership in %s.", orgName)
 	}
-	http.Redirect(w, r, "/organizations?success="+url.QueryEscape(success), http.StatusSeeOther)
+	http.Redirect(w, r, redirectWith("success", success), http.StatusSeeOther)
 }
 
 func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request) {
@@ -692,4 +693,16 @@ func humanOrgAge(createdAt time.Time) string {
 		return "1 yr"
 	}
 	return fmt.Sprintf("%d yrs", years)
+}
+
+func organizationURLNameFromPath(path string) (string, bool) {
+	const prefix = "/organization/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", false
+	}
+	urlName := strings.TrimSpace(strings.TrimPrefix(path, prefix))
+	if urlName == "" || strings.Contains(urlName, "/") {
+		return "", false
+	}
+	return strings.ToLower(urlName), true
 }

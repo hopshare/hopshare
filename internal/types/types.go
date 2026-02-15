@@ -66,6 +66,7 @@ type Member struct {
 type Organization struct {
 	ID              int64
 	Name            string
+	URLName         string
 	City            string
 	State           string
 	Description     string

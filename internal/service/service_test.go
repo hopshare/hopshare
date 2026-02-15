@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -130,6 +131,12 @@ func TestCreateOrganization(t *testing.T) {
 	}
 	if org.Name == "" {
 		t.Fatalf("expected organization name to be set")
+	}
+	if org.URLName == "" {
+		t.Fatalf("expected organization URL name to be set")
+	}
+	if !regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`).MatchString(org.URLName) {
+		t.Fatalf("expected organization URL name to be DNS-compatible, got %q", org.URLName)
 	}
 
 	var membershipCount int

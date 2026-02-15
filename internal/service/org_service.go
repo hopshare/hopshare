@@ -7,7 +7,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lib/pq"
+
 	"hopshare/internal/types"
+)
+
+const (
+	organizationURLNameMaxLen           = 63
+	organizationURLNameDefault          = "organization"
+	organizationURLNameUniqueConstraint = "organizations_url_name_key"
+	organizationURLNameMaxAttempts      = 1000
 )
 
 // PrimaryOwnedOrganization returns the organization where the member is the primary owner.
@@ -20,14 +29,14 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL
 	`, memberID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -43,7 +52,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.left_at IS NULL
@@ -57,7 +66,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -79,7 +88,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
 		       om.role, om.is_primary_owner
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
@@ -94,7 +103,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	var orgs []types.MemberOrganization
 	for rows.Next() {
 		var o types.MemberOrganization
-		if err := rows.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
 			return nil, fmt.Errorf("scan member organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -119,14 +128,14 @@ func OrganizationForOwner(ctx context.Context, db *sql.DB, memberID, orgID int64
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL
 	`, memberID, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -221,14 +230,37 @@ func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Or
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE id = $1
 	`, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by id: %w", err)
+	}
+	return o, nil
+}
+
+// GetOrganizationByURLName returns an organization by permanent URL name.
+func GetOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (types.Organization, error) {
+	if db == nil {
+		return types.Organization{}, ErrNilDB
+	}
+	urlName = strings.TrimSpace(strings.ToLower(urlName))
+	if urlName == "" {
+		return types.Organization{}, ErrMissingField
+	}
+
+	row := db.QueryRowContext(ctx, `
+		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		FROM organizations
+		WHERE url_name = $1
+	`, urlName)
+
+	var o types.Organization
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		return types.Organization{}, fmt.Errorf("get organization by url name: %w", err)
 	}
 	return o, nil
 }
@@ -240,7 +272,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		ORDER BY name
 	`)
@@ -252,7 +284,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -660,13 +692,27 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 	}()
 
 	var org types.Organization
-	row := tx.QueryRowContext(ctx, `
-		INSERT INTO organizations (name, city, state, description, created_by)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
-	`, name, city, state, description, primaryOwnerMemberID)
-	if err = row.Scan(&org.ID, &org.Name, &org.City, &org.State, &org.Description, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
-		return types.Organization{}, fmt.Errorf("insert organization: %w", err)
+	for i := 0; i < organizationURLNameMaxAttempts; i++ {
+		urlName, urlErr := ensureUniqueOrganizationURLName(ctx, tx, name)
+		if urlErr != nil {
+			return types.Organization{}, urlErr
+		}
+
+		row := tx.QueryRowContext(ctx, `
+			INSERT INTO organizations (name, url_name, city, state, description, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			RETURNING id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		`, name, urlName, city, state, description, primaryOwnerMemberID)
+		if err = row.Scan(&org.ID, &org.Name, &org.URLName, &org.City, &org.State, &org.Description, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
+			if isUniqueConstraintViolation(err, organizationURLNameUniqueConstraint) {
+				continue
+			}
+			return types.Organization{}, fmt.Errorf("insert organization: %w", err)
+		}
+		break
+	}
+	if org.ID == 0 {
+		return types.Organization{}, fmt.Errorf("insert organization: could not generate unique url name")
 	}
 
 	if _, err = tx.ExecContext(ctx, `
@@ -681,4 +727,97 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 	}
 
 	return org, nil
+}
+
+func ensureUniqueOrganizationURLName(ctx context.Context, tx *sql.Tx, name string) (string, error) {
+	base := normalizeOrganizationURLName(name)
+	for ordinal := 1; ordinal <= organizationURLNameMaxAttempts; ordinal++ {
+		candidate := organizationURLNameWithOrdinal(base, ordinal)
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM organizations WHERE url_name = $1
+			)
+		`, candidate).Scan(&exists); err != nil {
+			return "", fmt.Errorf("check organization url name: %w", err)
+		}
+		if !exists {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("check organization url name: exhausted attempts")
+}
+
+func normalizeOrganizationURLName(name string) string {
+	name = strings.TrimSpace(strings.ToLower(name))
+	if name == "" {
+		return organizationURLNameDefault
+	}
+
+	var b strings.Builder
+	b.Grow(len(name))
+	lastWasDash := false
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastWasDash = false
+			continue
+		}
+		if b.Len() == 0 || lastWasDash {
+			continue
+		}
+		b.WriteByte('-')
+		lastWasDash = true
+	}
+
+	normalized := strings.Trim(b.String(), "-")
+	if normalized == "" {
+		normalized = organizationURLNameDefault
+	}
+	if len(normalized) > organizationURLNameMaxLen {
+		normalized = strings.TrimRight(normalized[:organizationURLNameMaxLen], "-")
+	}
+	if normalized == "" {
+		normalized = organizationURLNameDefault
+	}
+	return normalized
+}
+
+func organizationURLNameWithOrdinal(base string, ordinal int) string {
+	if ordinal <= 1 {
+		return base
+	}
+
+	suffix := fmt.Sprintf("-%d", ordinal)
+	maxBaseLen := organizationURLNameMaxLen - len(suffix)
+	if maxBaseLen < 1 {
+		return suffix[1:]
+	}
+
+	candidateBase := strings.Trim(base, "-")
+	if len(candidateBase) > maxBaseLen {
+		candidateBase = strings.TrimRight(candidateBase[:maxBaseLen], "-")
+	}
+	if candidateBase == "" {
+		candidateBase = organizationURLNameDefault
+		if len(candidateBase) > maxBaseLen {
+			candidateBase = candidateBase[:maxBaseLen]
+		}
+		candidateBase = strings.TrimRight(candidateBase, "-")
+		if candidateBase == "" {
+			candidateBase = "o"
+		}
+	}
+	return candidateBase + suffix
+}
+
+func isUniqueConstraintViolation(err error, constraint string) bool {
+	var pqErr *pq.Error
+	if !errors.As(err, &pqErr) {
+		return false
+	}
+	if pqErr.Code != "23505" {
+		return false
+	}
+	return constraint == "" || pqErr.Constraint == constraint
 }

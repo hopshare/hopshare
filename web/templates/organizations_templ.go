@@ -8,7 +8,11 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "hopshare/internal/types"
+import (
+	"strconv"
+
+	"hopshare/internal/types"
+)
 
 func Organizations(userEmail *string, orgs []types.Organization, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -60,7 +64,7 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\" x-data=\"{\n\t\tquery: '',\n\t\tselected: null,\n\t\tselect(el) {\n\t\t\tconst d = el.dataset;\n\t\t\tthis.selected = {\n\t\t\t\tid: Number(d.orgId),\n\t\t\t\tname: d.orgName,\n\t\t\t\tupdated: Number(d.orgUpdated),\n\t\t\t\tenabled: d.orgEnabled === 'true',\n\t\t\t\tcreated: d.orgCreated,\n\t\t\t};\n\t\t},\n\t\tmatches(name) {\n\t\t\tif (!this.query) return true;\n\t\t\treturn name.toLowerCase().startsWith(this.query.toLowerCase());\n\t\t},\n\t}\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Find an organization</h1><p class=\"text-slate-600\">Search for hopShare organizations and request membership.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\" x-data=\"{\n\t\tquery: '',\n\t\tmatches(name) {\n\t\t\tif (!this.query) return true;\n\t\t\treturn name.toLowerCase().startsWith(this.query.toLowerCase());\n\t\t},\n\t}\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Find an organization</h1><p class=\"text-slate-600\">Search for hopShare organizations and open each organization's permanent page.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -72,7 +76,7 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 33, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 26, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -91,7 +95,7 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 36, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 29, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -102,90 +106,90 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"grid md:grid-cols-3 gap-6 items-start\"><div class=\"space-y-3 md:col-span-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_search\">Search organizations</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"search\" id=\"org_search\" placeholder=\"Start typing a name...\" x-model=\"query\"><div class=\"border border-slate-200 rounded-lg divide-y divide-slate-100\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"space-y-3\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_search\">Search organizations</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"search\" id=\"org_search\" placeholder=\"Start typing a name...\" x-model=\"query\"><div class=\"border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, org := range orgs {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<button type=\"button\" class=\"w-full text-left px-3 py-2 hover:bg-slate-50 focus:outline-none focus:bg-slate-100\" x-show=\"matches($el.dataset.orgName)\" x-on:click=\"select($el)\" data-org-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<a class=\"flex items-center justify-between gap-4 px-4 py-3 hover:bg-slate-50\" x-show=\"matches($el.dataset.orgName)\" data-org-name=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 48, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 39, Col: 30}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" data-org-name=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+			var templ_7745c5c3_Var6 templ.SafeURL
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs("/organization/" + org.URLName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 49, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 40, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" data-org-enabled=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\"><div class=\"flex items-center gap-3 min-w-0\"><img class=\"h-10 w-10 rounded bg-white object-contain ring-1 ring-slate-200\" src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.Enabled)
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 50, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 45, Col: 129}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" data-org-updated=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" alt=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.UpdatedAt.Unix())
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 51, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 46, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" data-org-created=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"><div class=\"min-w-0\"><p class=\"font-semibold text-slate-900 truncate\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.CreatedAt.Format("Jan 2, 2006"))
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 52, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 49, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</p><p class=\"text-sm text-slate-600 truncate\">/organization/")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(org.URLName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 53, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organizations.templ`, Line: 50, Col: 78}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</button> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</p></div></div><span class=\"text-sm font-semibold text-sky-700\">Open</span></a> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -196,7 +200,7 @@ func OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg st
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div><div class=\"md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-5 min-h-[220px]\"><template x-if=\"selected\"><div class=\"space-y-3\"><div class=\"flex items-center gap-3\"><img class=\"h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200\" x-bind:src=\"'/organizations/logo?org_id=' + selected.id + '&v=' + selected.updated\" x-bind:alt=\"selected.name + ' logo'\"><div class=\"flex-1\"><h2 class=\"text-xl font-bold text-slate-900\" x-text=\"selected.name\"></h2><p class=\"text-sm text-slate-600\"><span x-text=\"selected.enabled ? 'Enabled' : 'Disabled'\"></span> <span class=\"mx-2\">•</span> Created <span x-text=\"selected.created\"></span></p></div></div><form class=\"space-y-2\" method=\"POST\" action=\"/organizations/request\"><input type=\"hidden\" name=\"org_id\" x-bind:value=\"selected ? selected.id : ''\"> <button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition disabled:opacity-60 disabled:cursor-not-allowed\" type=\"submit\" :disabled=\"!selected\">Request Membership</button></form></div></template><div class=\"text-slate-600\" x-show=\"!selected\">Select an organization to view details.</div></div></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</div></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

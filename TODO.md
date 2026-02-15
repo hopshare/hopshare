@@ -64,7 +64,6 @@
     * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
     * Send yourself an information message that you requested membership in an Organization.
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
-* Organizations need to have a readable URL for new joiners. A way for users and non-users to sign up quickly.
 * Manage Skills on the Member profile page. We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
 * Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
 * Add in basic monitoring (cron job calling script saving in sqlite):
