@@ -24,7 +24,6 @@
 ## Now
 
 * Header
-    * Need a "Help" page that walks through how to use the service
 
 * Hop Detail Page
 

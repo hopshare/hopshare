@@ -30,6 +30,7 @@ templ Base(title string, userEmail *string, body templ.Component) {
 					<nav class="flex items-center gap-3 text-sm text-slate-700">
 						if userEmail != nil {
 							<a class="hover:text-slate-900" href="/my-hopshare">My hopShare</a>
+							<a class="hover:text-slate-900" href="/help">Help</a>
 							<a class="relative inline-flex items-center justify-center text-slate-700 hover:text-slate-900" href="/messages" aria-label="Messages">
 								<svg class="h-5 w-5" viewBox="0 0 512 512" aria-hidden="true">
 									<path

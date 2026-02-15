@@ -56,6 +56,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/signup-success", srv.handleSignupSuccess, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/learn-more", srv.handleLearnMore, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/help", srv.handleHelp, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -100,6 +101,10 @@ func (s *Server) handleLanding(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLearnMore(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.LearnMore(s.currentUserEmailPtr(r)))
+}
+
+func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
+	render(w, r, templates.Help(s.currentUserEmailPtr(r)))
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
