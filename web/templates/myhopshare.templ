@@ -22,7 +22,6 @@ templ MyhopShare(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -38,7 +37,6 @@ templ MyhopShare(
 		metrics,
 		memberStats,
 		myHops,
-		hopsToHelp,
 		activityCount,
 		hasPrimary,
 		successMsg,
@@ -56,7 +54,6 @@ templ MyhopShareBody(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -82,7 +79,6 @@ templ MyhopShareBody(
 				metrics,
 				memberStats,
 				myHops,
-				hopsToHelp,
 				activityCount,
 				hasPrimary,
 			)
@@ -124,7 +120,6 @@ templ MyhopShareDashboard(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 ) {
@@ -133,7 +128,6 @@ templ MyhopShareDashboard(
 		x-data="{
 			orgModalOpen: false,
 			hopModalOpen: false,
-			giveHelpModalOpen: false,
 			completeModalOpen: false,
 			completeHopID: null,
 			completeHopTitle: '',
@@ -145,7 +139,7 @@ templ MyhopShareDashboard(
 				this.completeModalOpen = true;
 			},
 		}"
-		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; giveHelpModalOpen = false; completeModalOpen = false"
+		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; completeModalOpen = false"
 	>
 		<section class="space-y-6">
 			<section class="rounded-2xl bg-sky-100 p-8">
@@ -228,13 +222,12 @@ templ MyhopShareDashboard(
 					>
 						Request a Hop
 					</button>
-					<button
-						type="button"
-						class="w-full rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-						x-on:click="giveHelpModalOpen = true"
+					<a
+						class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
+						href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 					>
 						Give a Hop
-					</button>
+					</a>
 				</div>
 			</section>
 
@@ -288,24 +281,6 @@ templ MyhopShareDashboard(
 						</button>
 					</div>
 					@OrganizationSwitcher(orgs, currentOrgID, isPrimaryOwnerCurrent, hasPrimary)
-				</div>
-			</div>
-		</div>
-		<div class="fixed inset-0 z-50" x-show="giveHelpModalOpen" x-transition.opacity style="display: none;">
-			<div class="absolute inset-0 bg-slate-900/50" x-on:click="giveHelpModalOpen = false"></div>
-			<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
-				<div class="w-full max-w-4xl" role="dialog" aria-modal="true" aria-label="Give some help" x-on:click.stop>
-					<div class="flex justify-end pb-2">
-						<button
-							type="button"
-							class="rounded-lg px-2 py-1 text-slate-200 hover:text-white"
-							aria-label="Close"
-							x-on:click="giveHelpModalOpen = false"
-						>
-							&times;
-						</button>
-					</div>
-					@HopListHelpOthers(currentOrgID, hopsToHelp)
 				</div>
 			</div>
 		</div>

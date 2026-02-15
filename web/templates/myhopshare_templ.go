@@ -30,7 +30,6 @@ func MyhopShare(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -66,7 +65,6 @@ func MyhopShare(
 			metrics,
 			memberStats,
 			myHops,
-			hopsToHelp,
 			activityCount,
 			hasPrimary,
 			successMsg,
@@ -89,7 +87,6 @@ func MyhopShareBody(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -127,7 +124,7 @@ func MyhopShareBody(
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 67, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 64, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -146,7 +143,7 @@ func MyhopShareBody(
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 70, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 67, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -172,7 +169,6 @@ func MyhopShareBody(
 				metrics,
 				memberStats,
 				myHops,
-				hopsToHelp,
 				activityCount,
 				hasPrimary,
 			).Render(ctx, templ_7745c5c3_Buffer)
@@ -241,7 +237,6 @@ func MyhopShareDashboard(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
-	hopsToHelp []types.Hop,
 	activityCount int,
 	hasPrimary bool,
 ) templ.Component {
@@ -265,14 +260,14 @@ func MyhopShareDashboard(
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"space-y-6\" x-data=\"{\n\t\t\torgModalOpen: false,\n\t\t\thopModalOpen: false,\n\t\t\tgiveHelpModalOpen: false,\n\t\t\tcompleteModalOpen: false,\n\t\t\tcompleteHopID: null,\n\t\t\tcompleteHopTitle: '',\n\t\t\tcompleteHours: '',\n\t\t\topenComplete(id, title, hours) {\n\t\t\t\tthis.completeHopID = id;\n\t\t\t\tthis.completeHopTitle = title;\n\t\t\t\tthis.completeHours = hours ? String(hours) : '';\n\t\t\t\tthis.completeModalOpen = true;\n\t\t\t},\n\t\t}\" x-on:keydown.escape.window=\"orgModalOpen = false; hopModalOpen = false; giveHelpModalOpen = false; completeModalOpen = false\"><section class=\"space-y-6\"><section class=\"rounded-2xl bg-sky-100 p-8\"><div class=\"flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between\"><div><h1 class=\"text-3xl font-bold text-slate-900\">Welcome, ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"space-y-6\" x-data=\"{\n\t\t\torgModalOpen: false,\n\t\t\thopModalOpen: false,\n\t\t\tcompleteModalOpen: false,\n\t\t\tcompleteHopID: null,\n\t\t\tcompleteHopTitle: '',\n\t\t\tcompleteHours: '',\n\t\t\topenComplete(id, title, hours) {\n\t\t\t\tthis.completeHopID = id;\n\t\t\t\tthis.completeHopTitle = title;\n\t\t\t\tthis.completeHours = hours ? String(hours) : '';\n\t\t\t\tthis.completeModalOpen = true;\n\t\t\t},\n\t\t}\" x-on:keydown.escape.window=\"orgModalOpen = false; hopModalOpen = false; completeModalOpen = false\"><section class=\"space-y-6\"><section class=\"rounded-2xl bg-sky-100 p-8\"><div class=\"flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between\"><div><h1 class=\"text-3xl font-bold text-slate-900\">Welcome, ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(displayName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 154, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 148, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -285,7 +280,7 @@ func MyhopShareDashboard(
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(lastLoginLabel)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 156, Col: 35}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 150, Col: 35}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -299,7 +294,7 @@ func MyhopShareDashboard(
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(memberStats.BalanceHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 162, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 156, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -309,7 +304,7 @@ func MyhopShareDashboard(
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(memberStats.BalanceHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 164, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 158, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -353,7 +348,7 @@ func MyhopShareDashboard(
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(timebankMinBalance)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 181, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 175, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -382,7 +377,7 @@ func MyhopShareDashboard(
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 196, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 190, Col: 131}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -395,7 +390,7 @@ func MyhopShareDashboard(
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 197, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 191, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -408,7 +403,7 @@ func MyhopShareDashboard(
 				var templ_7745c5c3_Var14 templ.SafeURL
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs("/organization/" + org.URLName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 200, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 194, Col: 129}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -421,7 +416,7 @@ func MyhopShareDashboard(
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 200, Col: 142}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 194, Col: 142}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -440,52 +435,65 @@ func MyhopShareDashboard(
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(metrics.CompletedCount)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 208, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 202, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " Hops Completed!</p></div><div class=\"flex items-center justify-end gap-3 text-sm font-semibold\"><button type=\"button\" class=\"text-sky-700 underline hover:text-sky-800\" x-on:click=\"orgModalOpen = true\">Change Organization...</button></div></section><section class=\"rounded-2xl bg-sky-100 p-8\"><div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\"><button type=\"button\" class=\"w-full rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm\" x-on:click=\"hopModalOpen = true\">Request a Hop</button> <button type=\"button\" class=\"w-full rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm\" x-on:click=\"giveHelpModalOpen = true\">Give a Hop</button></div></section><section class=\"rounded-2xl bg-sky-100 p-8\"><h2 class=\"text-xl font-bold text-slate-900\">Your Hops</h2><div class=\"mt-4 space-y-4 text-lg font-semibold text-sky-700\"><a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " Hops Completed!</p></div><div class=\"flex items-center justify-end gap-3 text-sm font-semibold\"><button type=\"button\" class=\"text-sky-700 underline hover:text-sky-800\" x-on:click=\"orgModalOpen = true\">Change Organization...</button></div></section><section class=\"rounded-2xl bg-sky-100 p-8\"><div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\"><button type=\"button\" class=\"w-full rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm\" x-on:click=\"hopModalOpen = true\">Request a Hop</button> <a class=\"inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 templ.SafeURL
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested")
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinURLErrs("/organization?org_id=" + strconv.FormatInt(currentOrgID, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 246, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 227, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208s93.1-208 208-208s208 93.1 208 208M320 64C178.6 64 64 178.6 64 320s114.6 256 256 256s256-114.6 256-256S461.4 64 320 64m-96 248c13.3 0 24-10.7 24-24s-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24m216-24c0-13.3-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24s24-10.7 24-24M256 416c-13.3 0-24 10.7-24 24s10.7 24 24 24h128c13.3 0 24-10.7 24-24s-10.7-24-24-24zm-32-176c26.5 0 48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48s21.5-48 48-48m0 128c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80m144-80c0-26.5 21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48m128 0c0-44.2-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80\"></path></svg> Hops I Have Requested...</a> <a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\">Give a Hop</a></div></section><section class=\"rounded-2xl bg-sky-100 p-8\"><h2 class=\"text-xl font-bold text-slate-900\">Your Hops</h2><div class=\"mt-4 space-y-4 text-lg font-semibold text-sky-700\"><a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 templ.SafeURL
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped")
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 255, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 239, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0-114.9-93.1-208-208-208s-208 93.1-208 208s93.1 208 208 208s208-93.1 208-208m-464 0C64 178.6 178.6 64 320 64s256 114.6 256 256s-114.6 256-256 256S64 461.4 64 320m118.3 58.2c-4.2-13.7 7.1-26.2 21.4-26.2h232.6c14.3 0 25.6 12.5 21.4 26.2C439.7 437.1 384.8 480 320 480s-119.7-42.9-137.7-101.8M208 256c0-17.7 14.3-32 32-32s32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32m192-32c17.7 0 32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32\"></path></svg> Hops I Have Helped With...</a> <a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208s93.1-208 208-208s208 93.1 208 208M320 64C178.6 64 64 178.6 64 320s114.6 256 256 256s256-114.6 256-256S461.4 64 320 64m-96 248c13.3 0 24-10.7 24-24s-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24m216-24c0-13.3-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24s24-10.7 24-24M256 416c-13.3 0-24 10.7-24 24s10.7 24 24 24h128c13.3 0 24-10.7 24-24s-10.7-24-24-24zm-32-176c26.5 0 48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48s21.5-48 48-48m0 128c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80m144-80c0-26.5 21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48m128 0c0-44.2-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80\"></path></svg> Hops I Have Requested...</a> <a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 templ.SafeURL
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=offered")
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 264, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 248, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208c0-3.5.1-7.1.3-10.6c-14-13.9-29.7-33.1-39.3-56.7c-5.8 21.4-8.9 44-8.9 67.3c0 141.4 114.6 256 256 256S576 461.4 576 320c0-23.3-3.1-45.9-8.9-67.3c-9.6 23.7-25.4 42.8-39.3 56.7c.2 3.5.3 7 .3 10.6zm-96-197.1c11.7-6 24.5-9.6 37.7-10.6C427.6 81.9 375.9 64 320 64s-107.6 17.9-149.7 48.3c13.2 1 26 4.6 37.7 10.6c13.8-7.1 29.3-10.9 45.1-10.9h2.9c8.9 0 17.6 1.2 25.8 3.5c12.4-2.3 25.2-3.5 38.2-3.5s25.8 1.2 38.2 3.5c8.2-2.3 16.9-3.5 25.8-3.5h2.9c15.8 0 31.3 3.8 45.1 10.9m4.2 243.4c-34.8 10.6-74.3 16.6-116.3 16.6c-41.9 0-81.4-6-116.1-16.5c-11.8-3.6-23.7 6.1-19.6 17.8c19.8 55.9 73.1 95.9 135.8 95.9s116-40.1 135.8-96c4.1-11.6-7.8-21.4-19.6-17.8M386.9 160H384c-26.5 0-48 21.5-48 48c0 53.4 66.9 95.7 89 108.2c4.4 2.5 9.6 2.5 14 0c22.1-12.5 89-54.8 89-108.2c0-26.5-21.5-48-48-48h-2.9c-13.5 0-26.5 5.4-36 14.9L432 184l-9.1-9.1c-9.5-9.5-22.5-14.9-36-14.9m-188 14.9c-9.5-9.5-22.5-14.9-36-14.9H160c-26.5 0-48 21.5-48 48c0 53.4 66.9 95.7 89 108.2c4.4 2.5 9.6 2.5 14 0c22.1-12.5 89-54.8 89-108.2c0-26.5-21.5-48-48-48h-2.9c-13.5 0-26.5 5.4-36 14.9L208 184z\"></path></svg> My Offers To Help...</a></div></section></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0-114.9-93.1-208-208-208s-208 93.1-208 208s93.1 208 208 208s208-93.1 208-208m-464 0C64 178.6 178.6 64 320 64s256 114.6 256 256s-114.6 256-256 256S64 461.4 64 320m118.3 58.2c-4.2-13.7 7.1-26.2 21.4-26.2h232.6c14.3 0 25.6 12.5 21.4 26.2C439.7 437.1 384.8 480 320 480s-119.7-42.9-137.7-101.8M208 256c0-17.7 14.3-32 32-32s32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32m192-32c17.7 0 32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32\"></path></svg> Hops I Have Helped With...</a> <a class=\"flex items-center gap-3 underline hover:text-sky-800\" href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 templ.SafeURL
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=offered")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 257, Col: 87}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"h-12 w-12 shrink-0 text-slate-600\" viewBox=\"0 0 640 640\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208c0-3.5.1-7.1.3-10.6c-14-13.9-29.7-33.1-39.3-56.7c-5.8 21.4-8.9 44-8.9 67.3c0 141.4 114.6 256 256 256S576 461.4 576 320c0-23.3-3.1-45.9-8.9-67.3c-9.6 23.7-25.4 42.8-39.3 56.7c.2 3.5.3 7 .3 10.6zm-96-197.1c11.7-6 24.5-9.6 37.7-10.6C427.6 81.9 375.9 64 320 64s-107.6 17.9-149.7 48.3c13.2 1 26 4.6 37.7 10.6c13.8-7.1 29.3-10.9 45.1-10.9h2.9c8.9 0 17.6 1.2 25.8 3.5c12.4-2.3 25.2-3.5 38.2-3.5s25.8 1.2 38.2 3.5c8.2-2.3 16.9-3.5 25.8-3.5h2.9c15.8 0 31.3 3.8 45.1 10.9m4.2 243.4c-34.8 10.6-74.3 16.6-116.3 16.6c-41.9 0-81.4-6-116.1-16.5c-11.8-3.6-23.7 6.1-19.6 17.8c19.8 55.9 73.1 95.9 135.8 95.9s116-40.1 135.8-96c4.1-11.6-7.8-21.4-19.6-17.8M386.9 160H384c-26.5 0-48 21.5-48 48c0 53.4 66.9 95.7 89 108.2c4.4 2.5 9.6 2.5 14 0c22.1-12.5 89-54.8 89-108.2c0-26.5-21.5-48-48-48h-2.9c-13.5 0-26.5 5.4-36 14.9L432 184l-9.1-9.1c-9.5-9.5-22.5-14.9-36-14.9m-188 14.9c-9.5-9.5-22.5-14.9-36-14.9H160c-26.5 0-48 21.5-48 48c0 53.4 66.9 95.7 89 108.2c4.4 2.5 9.6 2.5 14 0c22.1-12.5 89-54.8 89-108.2c0-26.5-21.5-48-48-48h-2.9c-13.5 0-26.5 5.4-36 14.9L208 184z\"></path></svg> My Offers To Help...</a></div></section></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -493,19 +501,11 @@ func MyhopShareDashboard(
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<div class=\"fixed inset-0 z-50\" x-show=\"orgModalOpen\" x-transition.opacity style=\"display: none;\"><div class=\"absolute inset-0 bg-slate-900/50\" x-on:click=\"orgModalOpen = false\"></div><div class=\"absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center\"><div class=\"w-full max-w-2xl\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Switch organization\" x-on:click.stop><div class=\"flex justify-end pb-2\"><button type=\"button\" class=\"rounded-lg px-2 py-1 text-slate-200 hover:text-white\" aria-label=\"Close\" x-on:click=\"orgModalOpen = false\">&times;</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<div class=\"fixed inset-0 z-50\" x-show=\"orgModalOpen\" x-transition.opacity style=\"display: none;\"><div class=\"absolute inset-0 bg-slate-900/50\" x-on:click=\"orgModalOpen = false\"></div><div class=\"absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center\"><div class=\"w-full max-w-2xl\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Switch organization\" x-on:click.stop><div class=\"flex justify-end pb-2\"><button type=\"button\" class=\"rounded-lg px-2 py-1 text-slate-200 hover:text-white\" aria-label=\"Close\" x-on:click=\"orgModalOpen = false\">&times;</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = OrganizationSwitcher(orgs, currentOrgID, isPrimaryOwnerCurrent, hasPrimary).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div></div></div><div class=\"fixed inset-0 z-50\" x-show=\"giveHelpModalOpen\" x-transition.opacity style=\"display: none;\"><div class=\"absolute inset-0 bg-slate-900/50\" x-on:click=\"giveHelpModalOpen = false\"></div><div class=\"absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center\"><div class=\"w-full max-w-4xl\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Give some help\" x-on:click.stop><div class=\"flex justify-end pb-2\"><button type=\"button\" class=\"rounded-lg px-2 py-1 text-slate-200 hover:text-white\" aria-label=\"Close\" x-on:click=\"giveHelpModalOpen = false\">&times;</button></div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = HopListHelpOthers(currentOrgID, hopsToHelp).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -541,9 +541,9 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var20 == nil {
-			templ_7745c5c3_Var20 = templ.NopComponent
+		templ_7745c5c3_Var21 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var21 == nil {
+			templ_7745c5c3_Var21 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4\"><div class=\"flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4\"><div class=\"min-w-0\">")
@@ -556,12 +556,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+				var templ_7745c5c3_Var22 string
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 324, Col: 74}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 299, Col: 74}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -569,12 +569,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+				var templ_7745c5c3_Var23 string
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 326, Col: 129}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 301, Col: 129}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -582,12 +582,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 327, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 302, Col: 32}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -612,12 +612,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var24 string
-					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					var templ_7745c5c3_Var25 string
+					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 342, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 317, Col: 31}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -625,12 +625,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var25 string
-					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					var templ_7745c5c3_Var26 string
+					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 342, Col: 53}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 317, Col: 53}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -643,12 +643,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var26 string
-					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					var templ_7745c5c3_Var27 string
+					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 344, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 319, Col: 31}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -656,12 +656,12 @@ func OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrima
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var27 string
-					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					var templ_7745c5c3_Var28 string
+					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 344, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 319, Col: 44}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -715,21 +715,21 @@ func OrgCelebration(foundedLabel string, metrics types.OrgHopMetrics, recentComp
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var28 == nil {
-			templ_7745c5c3_Var28 = templ.NopComponent
+		templ_7745c5c3_Var29 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var29 == nil {
+			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5\"><div class=\"flex flex-col sm:flex-row sm:items-center justify-between gap-3\"><div class=\"space-y-1\"><h2 class=\"text-xl font-bold text-slate-900\">Recent wins</h2><p class=\"text-slate-600\">Quick highlights from your organization to keep momentum going.</p></div><div class=\"inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-sm text-emerald-800\"><span class=\"font-semibold\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var29 string
-		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(metrics.CompletedThisWeek)
+		var templ_7745c5c3_Var30 string
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(metrics.CompletedThisWeek)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 383, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 358, Col: 59}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -793,21 +793,21 @@ func MetricCardText(label string, value string, hint string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var30 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var30 == nil {
-			templ_7745c5c3_Var30 = templ.NopComponent
+		templ_7745c5c3_Var31 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var31 == nil {
+			templ_7745c5c3_Var31 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<div class=\"rounded-lg border border-slate-200 bg-white p-4\"><p class=\"text-xs uppercase tracking-wide text-slate-500\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 424, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 399, Col: 67}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -815,12 +815,12 @@ func MetricCardText(label string, value string, hint string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var32 string
-		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(value)
+		var templ_7745c5c3_Var33 string
+		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 425, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 400, Col: 70}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -828,12 +828,12 @@ func MetricCardText(label string, value string, hint string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var33 string
-		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
+		var templ_7745c5c3_Var34 string
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 426, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 401, Col: 47}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -861,21 +861,21 @@ func MetricCardNumber(label string, value int, hint string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var34 == nil {
-			templ_7745c5c3_Var34 = templ.NopComponent
+		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var35 == nil {
+			templ_7745c5c3_Var35 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<div class=\"rounded-lg border border-slate-200 bg-white p-4\"><p class=\"text-xs uppercase tracking-wide text-slate-500\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var35 string
-		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+		var templ_7745c5c3_Var36 string
+		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 432, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 407, Col: 67}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -883,12 +883,12 @@ func MetricCardNumber(label string, value int, hint string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var36 string
-		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(value)
+		var templ_7745c5c3_Var37 string
+		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 433, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 408, Col: 70}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -896,12 +896,12 @@ func MetricCardNumber(label string, value int, hint string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var37 string
-		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
+		var templ_7745c5c3_Var38 string
+		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 434, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 409, Col: 47}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -929,21 +929,21 @@ func CompletedHopRow(hop types.Hop) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var38 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var38 == nil {
-			templ_7745c5c3_Var38 = templ.NopComponent
+		templ_7745c5c3_Var39 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var39 == nil {
+			templ_7745c5c3_Var39 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<li class=\"px-4 py-3 flex items-start justify-between gap-4\"><div class=\"min-w-0\"><div class=\"flex items-center gap-2\"><span class=\"inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold\">Completed</span><p class=\"font-semibold text-slate-900 truncate\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var39 string
-		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
+		var templ_7745c5c3_Var40 string
+		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 443, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 418, Col: 64}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -956,12 +956,12 @@ func CompletedHopRow(hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var40 string
-			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(*hop.CompletionComment)
+			var templ_7745c5c3_Var41 string
+			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(*hop.CompletionComment)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 446, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 421, Col: 67}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -975,12 +975,12 @@ func CompletedHopRow(hop types.Hop) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if hop.CompletedAt != nil {
-			var templ_7745c5c3_Var41 string
-			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CompletedAt.Format("Jan 2"))
+			var templ_7745c5c3_Var42 string
+			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CompletedAt.Format("Jan 2"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 451, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 426, Col: 37}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1009,9 +1009,9 @@ func MemberStats(stats types.MemberHopStats) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var42 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var42 == nil {
-			templ_7745c5c3_Var42 = templ.NopComponent
+		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var43 == nil {
+			templ_7745c5c3_Var43 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<section class=\"space-y-4\"><div class=\"flex flex-col sm:flex-row sm:items-end justify-between gap-3\"><div class=\"space-y-1\"><h2 class=\"text-xl font-bold text-slate-900\">Your stats</h2><p class=\"text-slate-600\">A quick snapshot of your activity.</p></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"button\" x-on:click=\"hopModalOpen = true\">Request a hop</button></div><div class=\"grid grid-cols-1 sm:grid-cols-3 gap-4\">")
@@ -1054,9 +1054,9 @@ func StatCardBalance(balanceHours int) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var43 == nil {
-			templ_7745c5c3_Var43 = templ.NopComponent
+		templ_7745c5c3_Var44 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var44 == nil {
+			templ_7745c5c3_Var44 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<section class=\"rounded-2xl bg-sky-100 p-8 text-center\"><p class=\"text-6xl font-extrabold text-slate-900\">")
@@ -1064,22 +1064,22 @@ func StatCardBalance(balanceHours int) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if balanceHours > 0 {
-			var templ_7745c5c3_Var44 string
-			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(balanceHours)
+			var templ_7745c5c3_Var45 string
+			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(balanceHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 484, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 459, Col: 18}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if balanceHours < 0 {
-			var templ_7745c5c3_Var45 string
-			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(balanceHours)
+			var templ_7745c5c3_Var46 string
+			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(balanceHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 486, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 461, Col: 18}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1118,12 +1118,12 @@ func StatCardBalance(balanceHours int) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var46 string
-			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(timebankMinBalance)
+			var templ_7745c5c3_Var47 string
+			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(timebankMinBalance)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 502, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 477, Col: 79}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1156,21 +1156,21 @@ func StatCardCount(title string, count int, lastAt *time.Time) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var47 == nil {
-			templ_7745c5c3_Var47 = templ.NopComponent
+		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var48 == nil {
+			templ_7745c5c3_Var48 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<div class=\"bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center\"><p class=\"text-sm font-semibold text-slate-900\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var48 string
-		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+		var templ_7745c5c3_Var49 string
+		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 510, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 485, Col: 57}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1178,12 +1178,12 @@ func StatCardCount(title string, count int, lastAt *time.Time) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var49 string
-		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(count)
+		var templ_7745c5c3_Var50 string
+		templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(count)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 511, Col: 59}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 486, Col: 59}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1196,12 +1196,12 @@ func StatCardCount(title string, count int, lastAt *time.Time) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(lastAt.Format("Jan 2, 2006"))
+			var templ_7745c5c3_Var51 string
+			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(lastAt.Format("Jan 2, 2006"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 514, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 489, Col: 40}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1235,9 +1235,9 @@ func HopListHelpOthers(orgID int64, hops []types.Hop) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var51 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var51 == nil {
-			templ_7745c5c3_Var51 = templ.NopComponent
+		templ_7745c5c3_Var52 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var52 == nil {
+			templ_7745c5c3_Var52 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<section class=\"bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden\"><div class=\"px-6 py-4 bg-slate-50 space-y-1\"><h2 class=\"text-lg font-bold text-slate-900\">Hops you can help with</h2><p class=\"text-sm text-slate-600\">Open hops from your organization, plus any hop you've accepted.</p></div><div class=\"px-6 py-4 border-t border-slate-200 space-y-3\"><div class=\"grid grid-cols-1 sm:grid-cols-3 gap-3\"><input class=\"sm:col-span-2 w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"search\" placeholder=\"Search hops...\" disabled> <select class=\"w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" disabled><option>Filter by member</option></select></div><label class=\"inline-flex items-center gap-2 text-sm text-slate-700 select-none\"><input class=\"h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500\" type=\"checkbox\" disabled> Match Me (coming soon)</label></div><ul class=\"divide-y divide-slate-200\">")
@@ -1280,9 +1280,9 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var52 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var52 == nil {
-			templ_7745c5c3_Var52 = templ.NopComponent
+		templ_7745c5c3_Var53 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var53 == nil {
+			templ_7745c5c3_Var53 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "<li class=\"px-6 py-4\" x-data=\"{ open: false }\"><div class=\"flex items-start justify-between gap-4\"><div class=\"min-w-0\"><div class=\"flex items-center gap-2\">")
@@ -1297,12 +1297,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var53 string
-		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
+		var templ_7745c5c3_Var54 string
+		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 561, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 536, Col: 64}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1310,12 +1310,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var54 string
-		templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName)
+		var templ_7745c5c3_Var55 string
+		templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 564, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 539, Col: 67}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1336,12 +1336,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var55 string
-			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
+			var templ_7745c5c3_Var56 string
+			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 580, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 555, Col: 53}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1349,12 +1349,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var56 string
-			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
+			var templ_7745c5c3_Var57 string
+			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 581, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 556, Col: 54}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1383,12 +1383,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var57 string
-			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
+			var templ_7745c5c3_Var58 string
+			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 597, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 572, Col: 25}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1396,12 +1396,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var58 string
-			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 598, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 573, Col: 31}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1409,12 +1409,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var59 string
-			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
+			var templ_7745c5c3_Var60 string
+			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 599, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 574, Col: 40}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1427,12 +1427,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var60 string
-		templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedAt.Format("Jan 2, 2006 3:04 PM"))
+		var templ_7745c5c3_Var61 string
+		templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedAt.Format("Jan 2, 2006 3:04 PM"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 612, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 587, Col: 50}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1445,12 +1445,12 @@ func HelpHopRow(orgID int64, hop types.Hop) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var61 string
-			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(*hop.Details)
+			var templ_7745c5c3_Var62 string
+			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(*hop.Details)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 615, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 590, Col: 73}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1488,9 +1488,9 @@ func StatusPill(status string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var62 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var62 == nil {
-			templ_7745c5c3_Var62 = templ.NopComponent
+		templ_7745c5c3_Var63 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var63 == nil {
+			templ_7745c5c3_Var63 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		switch status {
@@ -1524,12 +1524,12 @@ func StatusPill(status string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var63 string
-			templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(status)
+			var templ_7745c5c3_Var64 string
+			templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 638, Col: 124}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 613, Col: 124}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1558,21 +1558,21 @@ func HopTimingLine(hop types.Hop) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var64 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var64 == nil {
-			templ_7745c5c3_Var64 = templ.NopComponent
+		templ_7745c5c3_Var65 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var65 == nil {
+			templ_7745c5c3_Var65 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<span>Estimated: ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var65 string
-		templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
+		var templ_7745c5c3_Var66 string
+		templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 644, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 619, Col: 33}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1581,12 +1581,12 @@ func HopTimingLine(hop types.Hop) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if hop.EstimatedHours == 1 {
-			var templ_7745c5c3_Var66 string
-			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
+			var templ_7745c5c3_Var67 string
+			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 646, Col: 8}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 621, Col: 8}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1595,12 +1595,12 @@ func HopTimingLine(hop types.Hop) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			var templ_7745c5c3_Var67 string
-			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
+			var templ_7745c5c3_Var68 string
+			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(" ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 648, Col: 8}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 623, Col: 8}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1624,12 +1624,12 @@ func HopTimingLine(hop types.Hop) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var68 string
-				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
+				var templ_7745c5c3_Var69 string
+				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 655, Col: 54}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 630, Col: 54}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1638,12 +1638,12 @@ func HopTimingLine(hop types.Hop) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var69 string
-				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
+				var templ_7745c5c3_Var70 string
+				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 657, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 632, Col: 58}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1652,12 +1652,12 @@ func HopTimingLine(hop types.Hop) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var70 string
-				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
+				var templ_7745c5c3_Var71 string
+				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(hop.NeededByDate.Format("Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 659, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 634, Col: 65}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1687,21 +1687,21 @@ func HopModal(orgID int64) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var71 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var71 == nil {
-			templ_7745c5c3_Var71 = templ.NopComponent
+		templ_7745c5c3_Var72 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var72 == nil {
+			templ_7745c5c3_Var72 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<div class=\"fixed inset-0 z-50\" x-show=\"hopModalOpen\" x-transition.opacity style=\"display: none;\"><div class=\"absolute inset-0 bg-slate-900/50\" x-on:click=\"hopModalOpen = false\"></div><div class=\"absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center\"><div class=\"w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Request a hop\" x-on:click.stop><div class=\"p-6 sm:p-7 space-y-2 border-b border-slate-200\"><div class=\"flex items-start justify-between gap-4\"><div><h2 class=\"text-xl font-bold text-slate-900\">Request a hop</h2><p class=\"text-slate-600 leading-relaxed\">Tell your organization what you need. Be specific so others can say yes quickly.</p></div><button type=\"button\" class=\"rounded-lg px-2 py-1 text-slate-500 hover:text-slate-700\" aria-label=\"Close\" x-on:click=\"hopModalOpen = false\">&times;</button></div></div><form method=\"POST\" action=\"/hops/create\"><input type=\"hidden\" name=\"org_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var72 string
-		templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
+		var templ_7745c5c3_Var73 string
+		templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 696, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 671, Col: 53}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1709,12 +1709,12 @@ func HopModal(orgID int64) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var73 string
-		templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByOn)
+		var templ_7745c5c3_Var74 string
+		templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByOn)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 708, Col: 45}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 683, Col: 45}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1722,12 +1722,12 @@ func HopModal(orgID int64) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var74 string
-		templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAround)
+		var templ_7745c5c3_Var75 string
+		templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAround)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 709, Col: 49}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 684, Col: 49}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1735,12 +1735,12 @@ func HopModal(orgID int64) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var75 string
-		templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByNoLaterThan)
+		var templ_7745c5c3_Var76 string
+		templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByNoLaterThan)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 710, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 685, Col: 54}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1768,21 +1768,21 @@ func CompleteModal(orgID int64, redirectTo string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var76 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var76 == nil {
-			templ_7745c5c3_Var76 = templ.NopComponent
+		templ_7745c5c3_Var77 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var77 == nil {
+			templ_7745c5c3_Var77 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "<div class=\"fixed inset-0 z-50\" x-show=\"completeModalOpen\" x-transition.opacity style=\"display: none;\"><div class=\"absolute inset-0 bg-slate-900/50\" x-on:click=\"completeModalOpen = false\"></div><div class=\"absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center\"><div class=\"w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Complete hop\" x-on:click.stop><div class=\"p-6 sm:p-7 space-y-2 border-b border-slate-200\"><div class=\"flex items-start justify-between gap-4\"><div><h2 class=\"text-xl font-bold text-slate-900\">Mark complete</h2><p class=\"text-slate-600 leading-relaxed\">Add a short comment so others can celebrate the help that happened.</p><p class=\"text-sm text-slate-700 mt-2\" x-text=\"completeHopTitle\"></p></div><button type=\"button\" class=\"rounded-lg px-2 py-1 text-slate-500 hover:text-slate-700\" aria-label=\"Close\" x-on:click=\"completeModalOpen = false\">&times;</button></div></div><form method=\"POST\" action=\"/hops/complete\"><input type=\"hidden\" name=\"org_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var77 string
-		templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
+		var templ_7745c5c3_Var78 string
+		templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 782, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 757, Col: 53}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1790,12 +1790,12 @@ func CompleteModal(orgID int64, redirectTo string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var78 string
-		templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(redirectTo)
+		var templ_7745c5c3_Var79 string
+		templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(redirectTo)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 783, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 758, Col: 63}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

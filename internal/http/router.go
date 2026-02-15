@@ -500,7 +500,6 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	var metrics types.OrgHopMetrics
 	var memberStats types.MemberHopStats
 	var myHops []types.Hop
-	var hopsToHelp []types.Hop
 	var activityCount int
 
 	if currentOrgID != 0 {
@@ -538,19 +537,6 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 				}
 			}
 		}
-		hopsToHelp, err = service.ListHopsToHelp(r.Context(), s.db, currentOrgID, user.ID)
-		if err != nil {
-			log.Printf("load hops to help org=%d member=%d: %v", currentOrgID, user.ID, err)
-			http.Error(w, "could not load hops", http.StatusInternalServerError)
-			return
-		}
-		if len(pendingOffers) > 0 {
-			for i := range hopsToHelp {
-				if _, ok := pendingOffers[hopsToHelp[i].ID]; ok {
-					hopsToHelp[i].HasPendingOffer = true
-				}
-			}
-		}
 	}
 
 	render(w, r, templates.MyhopShare(
@@ -563,7 +549,6 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		metrics,
 		memberStats,
 		myHops,
-		hopsToHelp,
 		activityCount,
 		hasPrimary,
 		successMsg,
