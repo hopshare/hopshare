@@ -190,10 +190,6 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
 		isAssociated = true
 	}
-	if hop.IsPrivate && !isAssociated {
-		s.renderUnauthorized(w, r)
-		return
-	}
 
 	org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
 	if err != nil {
@@ -685,15 +681,6 @@ func (s *Server) handleHopImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !memberOK {
-		http.NotFound(w, r)
-		return
-	}
-
-	isAssociated := img.CreatedBy == user.ID
-	if !isAssociated && img.AcceptedBy != nil && *img.AcceptedBy == user.ID {
-		isAssociated = true
-	}
-	if img.IsPrivate && !isAssociated {
 		http.NotFound(w, r)
 		return
 	}

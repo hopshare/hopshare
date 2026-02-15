@@ -394,12 +394,12 @@ func OrganizationBody(userEmail *string, org types.Organization, metrics types.O
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<section class=\"rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4\"><div><h2 class=\"text-xl font-bold text-slate-900\">What's Been Hopping Lately?</h2><p class=\"text-sm text-slate-600\">Recent completed public hops in this organization.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<section class=\"rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4\"><div><h2 class=\"text-xl font-bold text-slate-900\">What's Been Hopping Lately?</h2><p class=\"text-sm text-slate-600\">Recent completed hops in this organization.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(recentCompleted) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<p class=\"text-sm text-slate-600\">No completed public hops yet.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<p class=\"text-sm text-slate-600\">No completed hops yet.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -422,7 +422,7 @@ func OrganizationBody(userEmail *string, org types.Organization, metrics types.O
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"><div class=\"grid grid-cols-[1fr_auto_1fr] gap-4 items-start\"><div class=\"text-center space-y-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"><div class=\"grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3\"><div class=\"text-center space-y-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -476,85 +476,85 @@ func OrganizationBody(userEmail *string, org types.Organization, metrics types.O
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</p></div><div class=\"text-center space-y-2 pt-3\"><div class=\"text-2xl text-slate-500\" aria-hidden=\"true\">→</div><p class=\"text-xs italic text-slate-700\">\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</p></div><div class=\"flex h-14 items-center justify-center px-1\"><p class=\"text-lg font-semibold text-slate-500 leading-none\">helped</p></div><div class=\"text-center space-y-2\"><img class=\"mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white\" src=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(organizationCompletionComment(hop.CompletionComment))
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 206, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 210, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"</p></div><div class=\"text-center space-y-2\"><img class=\"mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white\" src=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\" alt=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10))
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(organizationFirstName(hop.CreatedByName) + " avatar")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 211, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 211, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" alt=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"><p class=\"text-xs text-slate-700\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(organizationFirstName(hop.CreatedByName) + " avatar")
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(organizationFirstName(hop.CreatedByName))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 212, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 213, Col: 87}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><p class=\"text-xs text-slate-700\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</p></div></div><p class=\"mt-3 text-xs text-slate-500 text-center\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(organizationFirstName(hop.CreatedByName))
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(hopHoursLabel(organizationHoursForCompletedHop(hop)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 214, Col: 87}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 216, Col: 114}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p></div></div><p class=\"mt-3 text-xs text-slate-500 text-center\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, " exchanged ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var24 string
-				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(hopHoursLabel(organizationHoursForCompletedHop(hop)))
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(organizationCompletedWhen(hop.CompletedAt))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 217, Col: 114}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 216, Col: 171}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, " exchanged ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</p><p class=\"mt-1 text-xs italic text-slate-700 text-center\">\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var25 string
-				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(organizationCompletedWhen(hop.CompletedAt))
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(organizationCompletionComment(hop.CompletionComment))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 217, Col: 171}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 217, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</p></a></li>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"</p></a></li>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -574,7 +574,7 @@ func OrganizationBody(userEmail *string, org types.Organization, metrics types.O
 				return templ_7745c5c3_Err
 			}
 			if len(pendingHops) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"text-sm text-slate-600\">No pending public hops right now.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"text-sm text-slate-600\">No pending hops right now.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

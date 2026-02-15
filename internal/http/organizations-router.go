@@ -151,6 +151,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 
 	showJoinPanel := true
 	showPendingPanel := false
+	showAllHops := false
 	var pendingHops []types.Hop
 	if user := s.currentUser(r); user != nil {
 		hasMembership, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, org.ID)
@@ -161,6 +162,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		}
 		showJoinPanel = !hasMembership
 		showPendingPanel = hasMembership
+		showAllHops = hasMembership
 	}
 
 	metrics, err := service.OrgMetrics(r.Context(), s.db, org.ID)
@@ -170,14 +172,19 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recentCompleted, err := service.RecentPublicCompletedHops(r.Context(), s.db, org.ID, 25)
+	var recentCompleted []types.Hop
+	if showAllHops {
+		recentCompleted, err = service.RecentCompletedHops(r.Context(), s.db, org.ID, 25)
+	} else {
+		recentCompleted, err = service.RecentPublicCompletedHops(r.Context(), s.db, org.ID, 25)
+	}
 	if err != nil {
 		log.Printf("load organization recent completed hops org=%d: %v", org.ID, err)
 		http.Error(w, "could not load organization", http.StatusInternalServerError)
 		return
 	}
 	if showPendingPanel {
-		pendingHops, err = service.RecentPublicPendingHops(r.Context(), s.db, org.ID, 100)
+		pendingHops, err = service.RecentPendingHops(r.Context(), s.db, org.ID, 100)
 		if err != nil {
 			log.Printf("load organization pending hops org=%d: %v", org.ID, err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
