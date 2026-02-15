@@ -150,6 +150,8 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	showJoinPanel := true
+	showPendingPanel := false
+	var pendingHops []types.Hop
 	if user := s.currentUser(r); user != nil {
 		hasMembership, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, org.ID)
 		if err != nil {
@@ -158,6 +160,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		showJoinPanel = !hasMembership
+		showPendingPanel = hasMembership
 	}
 
 	metrics, err := service.OrgMetrics(r.Context(), s.db, org.ID)
@@ -173,10 +176,18 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not load organization", http.StatusInternalServerError)
 		return
 	}
+	if showPendingPanel {
+		pendingHops, err = service.RecentPublicPendingHops(r.Context(), s.db, org.ID, 100)
+		if err != nil {
+			log.Printf("load organization pending hops org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
+		}
+	}
 
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
-	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, showJoinPanel, successMsg, errorMsg))
+	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
 }
 
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {

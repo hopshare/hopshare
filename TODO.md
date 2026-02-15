@@ -48,8 +48,6 @@
     * Users who only have that organization are treated as if they don't have an organzation any longer
     * Re-enabling the Organization puts everything back the way it was
 
-* Organization "Wall"- closest thing to 'social media' feature- inspire others. A scrolling list of who's helped who recently. Or a "Tag Cloud" of who's helping who? VENMO
-
 * Joining an Organization should use messages
     * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
     * Send yourself an information message that you requested membership in an Organization.

@@ -110,11 +110,11 @@ func organizationCompletedWhen(completedAt *time.Time) string {
 	return fmt.Sprintf("%d years ago", years)
 }
 
-templ Organization(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, showJoinPanel bool, successMsg string, errorMsg string) {
-	@Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, metrics, recentCompleted, showJoinPanel, successMsg, errorMsg))
+templ Organization(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {
+	@Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
 }
 
-templ OrganizationBody(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, showJoinPanel bool, successMsg string, errorMsg string) {
+templ OrganizationBody(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {
 	<div class="space-y-6">
 		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -175,49 +175,87 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
 			<div>
 				<h2 class="text-xl font-bold text-slate-900">What's Been Hopping Lately?</h2>
+				<p class="text-sm text-slate-600">Recent completed public hops in this organization.</p>
 			</div>
 			if len(recentCompleted) == 0 {
 				<p class="text-sm text-slate-600">No completed public hops yet.</p>
 			} else {
-				<ul class="space-y-3">
-					for _, hop := range recentCompleted {
-						<li>
-							<a
-								class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:bg-white hover:border-slate-300 transition"
-								href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-							>
-								<div class="grid grid-cols-[1fr_auto_1fr] gap-4 items-start">
-									<div class="text-center space-y-2">
-										if hop.AcceptedBy != nil {
+				<div class="max-h-[40rem] overflow-y-auto pr-1">
+					<ul class="space-y-3">
+						for _, hop := range recentCompleted {
+							<li>
+								<a
+									class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:bg-white hover:border-slate-300 transition"
+									href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+								>
+									<div class="grid grid-cols-[1fr_auto_1fr] gap-4 items-start">
+										<div class="text-center space-y-2">
+											if hop.AcceptedBy != nil {
+												<img
+													class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+													src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+													alt={ organizationFirstName(organizationHelperName(hop)) + " avatar" }
+												/>
+											} else {
+												<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
+											}
+											<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
+										</div>
+										<div class="text-center space-y-2 pt-3">
+											<div class="text-2xl text-slate-500" aria-hidden="true">→</div>
+											<p class="text-xs italic text-slate-700">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
+										</div>
+										<div class="text-center space-y-2">
 											<img
 												class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-												src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
-												alt={ organizationFirstName(organizationHelperName(hop)) + " avatar" }
+												src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+												alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
 											/>
-										} else {
-											<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
-										}
-										<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
-									</div>
-									<div class="text-center space-y-2 pt-3">
-										<div class="text-2xl text-slate-500" aria-hidden="true">→</div>
-										<p class="text-xs italic text-slate-700">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
-									</div>
-									<div class="text-center space-y-2">
-										<img
-											class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-											src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-											alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
-										/>
-										<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
-									</div>
+											<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
+										</div>
 									</div>
 									<p class="mt-3 text-xs text-slate-500 text-center">{ hopHoursLabel(organizationHoursForCompletedHop(hop)) } exchanged { organizationCompletedWhen(hop.CompletedAt) }</p>
 								</a>
 							</li>
 						}
-				</ul>
+					</ul>
+				</div>
 			}
 		</section>
+
+		if showPendingPanel {
+			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
+					<p class="text-sm text-slate-600">Check out some of these requests- where could you help?</p>
+				</div>
+				if len(pendingHops) == 0 {
+					<p class="text-sm text-slate-600">No pending public hops right now.</p>
+				} else {
+					<div class="max-h-[28rem] overflow-y-auto pr-1">
+						<ul class="space-y-2">
+							for _, hop := range pendingHops {
+								<li>
+									<a
+										class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:bg-white hover:border-slate-300 transition"
+										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+									>
+										<img
+											class="h-10 w-10 rounded-full object-cover ring-1 ring-slate-200 bg-white shrink-0"
+											src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+											alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
+										/>
+										<div class="min-w-0">
+											<p class="text-sm font-semibold text-slate-900 truncate">{ hop.Title }</p>
+											<p class="text-xs text-slate-600 truncate">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
+										</div>
+									</a>
+								</li>
+							}
+						</ul>
+					</div>
+				}
+			</section>
+		}
 	</div>
 }

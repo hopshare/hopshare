@@ -59,11 +59,11 @@ func hopDetailsBackLink(orgID int64, view string) string {
 	return link
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
-	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, comments, images))
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, comments []types.HopComment, images []types.HopImage) {
+	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, comments, images))
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
@@ -194,6 +194,18 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				</div>
 			</div>
 		</section>
+
+		if canOfferHelp {
+			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
+				<form method="POST" action="/hops/offer">
+					<input type="hidden" name="org_id" value={ org.ID } />
+					<input type="hidden" name="hop_id" value={ hop.ID } />
+					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+					<input type="hidden" name="view" value={ backView } />
+					<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-6 py-4 text-xl font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help...</button>
+				</form>
+			</section>
+		}
 
 		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-5" x-data={ "{" +
 			"open: false," +
