@@ -15,7 +15,7 @@ import (
 	"hopshare/internal/types"
 )
 
-func Organization(userEmail *string, org types.Organization, successMsg string, errorMsg string) templ.Component {
+func Organization(userEmail *string, org types.Organization, showJoinPanel bool, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -36,7 +36,7 @@ func Organization(userEmail *string, org types.Organization, successMsg string, 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, showJoinPanel, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -44,7 +44,7 @@ func Organization(userEmail *string, org types.Organization, successMsg string, 
 	})
 }
 
-func OrganizationBody(userEmail *string, org types.Organization, successMsg string, errorMsg string) templ.Component {
+func OrganizationBody(userEmail *string, org types.Organization, showJoinPanel bool, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -156,48 +156,58 @@ func OrganizationBody(userEmail *string, org types.Organization, successMsg stri
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<section class=\"rounded-2xl bg-white border border-slate-200 shadow-sm p-6\"><p class=\"text-slate-600\">More organization details will be added here soon.</p></section><section class=\"rounded-2xl bg-slate-50 border border-slate-200 shadow-sm p-6 space-y-3\"><h2 class=\"text-xl font-bold text-slate-900\">Join this organization</h2><p class=\"text-slate-600\">Request membership and an owner can approve your request.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<section class=\"rounded-2xl bg-white border border-slate-200 shadow-sm p-6\"><p class=\"text-slate-600\">More organization details will be added here soon.</p></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if userEmail != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<form class=\"space-y-2\" method=\"POST\" action=\"/organizations/request\"><input type=\"hidden\" name=\"org_id\" value=\"")
+		if showJoinPanel {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<section class=\"rounded-2xl bg-slate-50 border border-slate-200 shadow-sm p-6 space-y-3\"><h2 class=\"text-xl font-bold text-slate-900\">Join this organization</h2><p class=\"text-slate-600\">Request membership and an owner can approve your request.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 44, Col: 54}
+			if userEmail != nil {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<form class=\"space-y-2\" method=\"POST\" action=\"/organizations/request\"><input type=\"hidden\" name=\"org_id\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 45, Col: 55}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"> <button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Request Membership</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var9 templ.SafeURL
+				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs("/signup?next=" + url.QueryEscape("/organization/"+org.URLName))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 53, Col: 78}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\">Join hopShare</a>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\"> <button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Request Membership</button></form>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 templ.SafeURL
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs("/signup?next=" + url.QueryEscape("/organization/"+org.URLName))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 52, Col: 77}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\">Join hopShare</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</section>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</section></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

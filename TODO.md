@@ -75,9 +75,7 @@
 
 
 Change the "My Organization" panel of the "My Profile" page as follows:
-* retitle it to "My Organizations"
-* Show a list of all Organizations (logo and full name) the Member is associated with.
-    * If the Member is an Owner of the Organization, make the name a clickable link that takes them to the Manage Organization page for that Organization.
+* In the list of Organizations the Member is associated with.
     * If the Member is not an Owner of the Organization, follow each Organization row with a placeholder link that says "Leave..." which we will eventually use to let a Member leave that Organization.
 
 ## Later

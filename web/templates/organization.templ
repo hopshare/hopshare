@@ -7,11 +7,11 @@ import (
 	"hopshare/internal/types"
 )
 
-templ Organization(userEmail *string, org types.Organization, successMsg string, errorMsg string) {
-	@Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, successMsg, errorMsg))
+templ Organization(userEmail *string, org types.Organization, showJoinPanel bool, successMsg string, errorMsg string) {
+	@Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, showJoinPanel, successMsg, errorMsg))
 }
 
-templ OrganizationBody(userEmail *string, org types.Organization, successMsg string, errorMsg string) {
+templ OrganizationBody(userEmail *string, org types.Organization, showJoinPanel bool, successMsg string, errorMsg string) {
 	<div class="space-y-6">
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
@@ -36,24 +36,26 @@ templ OrganizationBody(userEmail *string, org types.Organization, successMsg str
 		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
 			<p class="text-slate-600">More organization details will be added here soon.</p>
 		</section>
-		<section class="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm p-6 space-y-3">
-			<h2 class="text-xl font-bold text-slate-900">Join this organization</h2>
-			<p class="text-slate-600">Request membership and an owner can approve your request.</p>
-			if userEmail != nil {
-				<form class="space-y-2" method="POST" action="/organizations/request">
-					<input type="hidden" name="org_id" value={ org.ID } />
-					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-						Request Membership
-					</button>
-				</form>
-			} else {
-				<a
-					class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
-					href={ "/signup?next=" + url.QueryEscape("/organization/" + org.URLName) }
-				>
-					Join hopShare
-				</a>
-			}
-		</section>
+		if showJoinPanel {
+			<section class="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm p-6 space-y-3">
+				<h2 class="text-xl font-bold text-slate-900">Join this organization</h2>
+				<p class="text-slate-600">Request membership and an owner can approve your request.</p>
+				if userEmail != nil {
+					<form class="space-y-2" method="POST" action="/organizations/request">
+						<input type="hidden" name="org_id" value={ org.ID } />
+						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+							Request Membership
+						</button>
+					</form>
+				} else {
+					<a
+						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
+						href={ "/signup?next=" + url.QueryEscape("/organization/" + org.URLName) }
+					>
+						Join hopShare
+					</a>
+				}
+			</section>
+		}
 	</div>
 }

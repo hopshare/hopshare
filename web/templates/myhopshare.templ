@@ -197,7 +197,7 @@ templ MyhopShareDashboard(
 										alt={ org.Name + " logo" }
 										class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
 									/>
-									<p class="text-2xl font-bold text-slate-900 truncate">{ org.Name }</p>
+									<a class="text-2xl font-bold text-slate-900 truncate underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
 								</div>
 							}
 						}
@@ -208,17 +208,7 @@ templ MyhopShareDashboard(
 					<p class="text-2xl font-bold text-slate-900">{ metrics.CompletedCount } Hops Completed!</p>
 				</div>
 
-				<div class="flex items-center justify-between gap-3 text-sm font-semibold">
-					for _, org := range orgs {
-						if org.ID == currentOrgID {
-							<a
-								class="text-sky-700 underline hover:text-sky-800"
-								href={ "/organization/" + org.URLName }
-							>
-								Check Out What's Happening...
-							</a>
-						}
-					}
+				<div class="flex items-center justify-end gap-3 text-sm font-semibold">
 					<button
 						type="button"
 						class="text-sky-700 underline hover:text-sky-800"

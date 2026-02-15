@@ -149,9 +149,20 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	showJoinPanel := true
+	if user := s.currentUser(r); user != nil {
+		hasMembership, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, org.ID)
+		if err != nil {
+			log.Printf("check member organization membership member=%d org=%d: %v", user.ID, org.ID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
+		}
+		showJoinPanel = !hasMembership
+	}
+
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
-	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, successMsg, errorMsg))
+	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, showJoinPanel, successMsg, errorMsg))
 }
 
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {
