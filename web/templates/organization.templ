@@ -172,6 +172,41 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 			</section>
 		}
 
+		if showPendingPanel {
+			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
+				<div>
+					<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
+					<p class="text-sm text-slate-600">Check out some of these requests- where could you help?</p>
+				</div>
+				if len(pendingHops) == 0 {
+					<p class="text-sm text-slate-600">Nothing yet- check back soon!</p>
+				} else {
+					<div class="max-h-[28rem] overflow-y-auto pr-1">
+						<ul class="space-y-2">
+							for _, hop := range pendingHops {
+								<li>
+									<a
+										class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:bg-white hover:border-slate-300 transition"
+										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+									>
+										<img
+											class="h-10 w-10 rounded-full object-cover ring-1 ring-slate-200 bg-white shrink-0"
+											src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+											alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
+										/>
+										<div class="min-w-0">
+											<p class="text-sm font-semibold text-slate-900 truncate">{ hop.Title }</p>
+											<p class="text-xs text-slate-600 truncate">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
+										</div>
+									</a>
+								</li>
+							}
+						</ul>
+					</div>
+				}
+			</section>
+		}
+
 		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
 			<div>
 				<h2 class="text-xl font-bold text-slate-900">What's Been Hopping Lately?</h2>
@@ -221,40 +256,5 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 				</div>
 			}
 		</section>
-
-		if showPendingPanel {
-			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
-				<div>
-					<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
-					<p class="text-sm text-slate-600">Check out some of these requests- where could you help?</p>
-				</div>
-				if len(pendingHops) == 0 {
-					<p class="text-sm text-slate-600">Nothing yet- check back soon!</p>
-				} else {
-					<div class="max-h-[28rem] overflow-y-auto pr-1">
-						<ul class="space-y-2">
-							for _, hop := range pendingHops {
-								<li>
-									<a
-										class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:bg-white hover:border-slate-300 transition"
-										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-									>
-										<img
-											class="h-10 w-10 rounded-full object-cover ring-1 ring-slate-200 bg-white shrink-0"
-											src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-											alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
-										/>
-										<div class="min-w-0">
-											<p class="text-sm font-semibold text-slate-900 truncate">{ hop.Title }</p>
-											<p class="text-xs text-slate-600 truncate">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
-										</div>
-									</a>
-								</li>
-							}
-						</ul>
-					</div>
-				}
-			</section>
-		}
 	</div>
 }

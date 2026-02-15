@@ -27,7 +27,6 @@
     * Need a "Help" page that walks through how to use the service
 
 * Hop Detail Page
-    * Members in the Organization should be able to offer to help for Pending Hops. If they have already offered to help, show an error banner saying you've already offered to help.
 
 
 * My HopShare Dashboard
@@ -51,9 +50,15 @@
 * Joining an Organization should use messages
     * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
     * Send yourself an information message that you requested membership in an Organization.
+
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
+
+* Need an Organization-public Member page with more details about each member. Maybe have a way to send them a message?
+
 * Manage Skills on the Member profile page. We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
+
 * Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
+
 * Add in basic monitoring (cron job calling script saving in sqlite):
     * net/http/pprof package (visualize performance)
     * runtime.MemStats / runtime.ReadMemStats() thru a /health endpoint on each golang process

@@ -225,7 +225,9 @@ func (s *Server) handlePublicMemberAvatar(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=86400")
+	// Public avatar URLs are stable and don't include a version token, so keep
+	// caching short to balance freshness and browser/network efficiency.
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	if ok {
 		w.Header().Set("Content-Type", contentType)
 		_, _ = w.Write(data)
