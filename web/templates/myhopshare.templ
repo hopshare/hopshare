@@ -142,6 +142,40 @@ templ MyhopShareDashboard(
 		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; completeModalOpen = false"
 	>
 		<section class="space-y-6">
+			<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+				<div class="flex items-center justify-between gap-3">
+					<div class="min-w-0">
+						for _, org := range orgs {
+							if org.ID == currentOrgID {
+								<div class="flex items-center gap-3 min-w-0">
+									<img
+										src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+										alt={ org.Name + " logo" }
+										class="h-9 w-9 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+									/>
+									<div class="min-w-0">
+										<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
+										<a class="block truncate text-lg font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
+									</div>
+								</div>
+							}
+						}
+					</div>
+					<button
+						type="button"
+						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:text-sky-800"
+						x-on:click="orgModalOpen = true"
+						aria-label="Switch organization"
+						title="Switch organization"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+							<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+					</button>
+				</div>
+			</section>
+
 			<section class="rounded-2xl bg-sky-100 p-8">
 				<div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
 					<div>
@@ -177,39 +211,6 @@ templ MyhopShareDashboard(
 							Pay some forward to another user!
 						}
 					</div>
-				</div>
-			</section>
-
-			<section class="rounded-2xl bg-sky-100 p-8 space-y-6">
-				<div class="flex items-start justify-between gap-4">
-					<div class="min-w-0">
-						for _, org := range orgs {
-							if org.ID == currentOrgID {
-								<div class="flex items-center gap-3 min-w-0">
-									<img
-										src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-										alt={ org.Name + " logo" }
-										class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
-									/>
-									<a class="text-2xl font-bold text-slate-900 truncate underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
-								</div>
-							}
-						}
-					</div>
-				</div>
-
-				<div class="text-center space-y-1">
-					<p class="text-2xl font-bold text-slate-900">{ metrics.CompletedCount } Hops Completed!</p>
-				</div>
-
-				<div class="flex items-center justify-end gap-3 text-sm font-semibold">
-					<button
-						type="button"
-						class="text-sky-700 underline hover:text-sky-800"
-						x-on:click="orgModalOpen = true"
-					>
-						Change Organization...
-					</button>
 				</div>
 			</section>
 
