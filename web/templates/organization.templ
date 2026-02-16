@@ -212,14 +212,48 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 				<h2 class="text-xl font-bold text-slate-900">What's Been Hopping Lately?</h2>
 			</div>
 			if len(recentCompleted) == 0 {
-				<p class="text-sm text-slate-600">No completed hops yet.</p>
+				<p class="text-sm text-slate-600">No accepted or completed hops yet.</p>
 			} else {
 				<div class="max-h-[40rem] overflow-y-auto pr-1">
 					<ul class="space-y-3">
 						for _, hop := range recentCompleted {
 							<li>
+								if hop.Status == types.HopStatusCompleted {
+									<a
+										class="block rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 hover:bg-emerald-100 hover:border-emerald-200 transition"
+										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+									>
+										<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
+											<div class="text-center space-y-2">
+												if hop.AcceptedBy != nil {
+													<img
+														class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+														src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+														alt={ organizationFirstName(organizationHelperName(hop)) + " avatar" }
+													/>
+												} else {
+													<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
+												}
+												<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
+											</div>
+											<div class="flex h-14 items-center justify-center px-1">
+												<p class="text-lg font-semibold text-slate-500 leading-none">helped</p>
+											</div>
+											<div class="text-center space-y-2">
+												<img
+													class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+													src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+													alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
+												/>
+												<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
+											</div>
+										</div>
+										<p class="mt-3 text-xs text-slate-500 text-center">{ hopHoursLabel(organizationHoursForCompletedHop(hop)) } exchanged { organizationCompletedWhen(hop.CompletedAt) }</p>
+										<p class="mt-1 text-xs italic text-slate-700 text-center">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
+									</a>
+								} else {
 								<a
-									class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:bg-white hover:border-slate-300 transition"
+									class="block rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 hover:bg-sky-100 hover:border-sky-300 transition"
 									href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
 								>
 									<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
@@ -236,7 +270,7 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 											<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
 										</div>
 										<div class="flex h-14 items-center justify-center px-1">
-											<p class="text-lg font-semibold text-slate-500 leading-none">helped</p>
+											<p class="text-lg font-semibold text-slate-500 leading-none">is helping</p>
 										</div>
 										<div class="text-center space-y-2">
 											<img
@@ -247,9 +281,9 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 											<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
 										</div>
 									</div>
-									<p class="mt-3 text-xs text-slate-500 text-center">{ hopHoursLabel(organizationHoursForCompletedHop(hop)) } exchanged { organizationCompletedWhen(hop.CompletedAt) }</p>
-									<p class="mt-1 text-xs italic text-slate-700 text-center">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
+									<p class="mt-3 text-xs text-slate-500 text-center">Needed by { hopNeededByLabel(hop) }</p>
 								</a>
+								}
 							</li>
 						}
 					</ul>

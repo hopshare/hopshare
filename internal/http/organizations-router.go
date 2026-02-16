@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -174,16 +175,24 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var recentCompleted []types.Hop
+	var recentAccepted []types.Hop
 	if showAllHops {
 		recentCompleted, err = service.RecentCompletedHops(r.Context(), s.db, org.ID, 25)
+		if err == nil {
+			recentAccepted, err = service.RecentAcceptedHops(r.Context(), s.db, org.ID, 25)
+		}
 	} else {
 		recentCompleted, err = service.RecentPublicCompletedHops(r.Context(), s.db, org.ID, 25)
+		if err == nil {
+			recentAccepted, err = service.RecentPublicAcceptedHops(r.Context(), s.db, org.ID, 25)
+		}
 	}
 	if err != nil {
-		log.Printf("load organization recent completed hops org=%d: %v", org.ID, err)
+		log.Printf("load organization recent activity hops org=%d: %v", org.ID, err)
 		http.Error(w, "could not load organization", http.StatusInternalServerError)
 		return
 	}
+	recentCompleted = mergeRecentOrganizationHops(recentCompleted, recentAccepted, 25)
 	if showPendingPanel {
 		pendingHops, err = service.RecentPendingHops(r.Context(), s.db, org.ID, 100)
 		if err != nil {
@@ -204,6 +213,29 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
+}
+
+func mergeRecentOrganizationHops(completed []types.Hop, accepted []types.Hop, limit int) []types.Hop {
+	out := make([]types.Hop, 0, len(completed)+len(accepted))
+	out = append(out, completed...)
+	out = append(out, accepted...)
+	sort.Slice(out, func(i, j int) bool {
+		return organizationHopActivityAt(out[i]).After(organizationHopActivityAt(out[j]))
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+func organizationHopActivityAt(hop types.Hop) time.Time {
+	if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
+		return hop.CompletedAt.UTC()
+	}
+	if hop.Status == types.HopStatusAccepted && hop.AcceptedAt != nil {
+		return hop.AcceptedAt.UTC()
+	}
+	return hop.UpdatedAt.UTC()
 }
 
 func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) {
