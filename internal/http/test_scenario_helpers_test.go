@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"hopshare/internal/auth"
 	apphttp "hopshare/internal/http"
 	"hopshare/internal/service"
 	"hopshare/internal/types"
@@ -20,6 +21,13 @@ func newTestContext(t *testing.T) (context.Context, context.CancelFunc) {
 func newHTTPServer(t *testing.T, db *sql.DB) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(apphttp.NewRouter(db))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func newHTTPServerWithSessions(t *testing.T, db *sql.DB, sessions *auth.SessionManager) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(apphttp.NewRouterWithSessions(db, sessions))
 	t.Cleanup(server.Close)
 	return server
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"hopshare/internal/auth"
 	"hopshare/internal/service"
 )
 
@@ -307,6 +308,24 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"confirm_password", "AnotherPassword123!",
 		)), 200)
 		requireBodyContains(t, reuseBody, "Invalid or expired token.")
+	})
+
+	t.Run("AUTH-17 revoke-all sessions invalidates active member sessions", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_revoke_all", suffix)
+
+		sessions := auth.NewSessionManager()
+		server := newHTTPServerWithSessions(t, db, sessions)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
+		if revoked := sessions.RevokeAllForMember(member.Member.ID); revoked < 1 {
+			t.Fatalf("expected at least one revoked session, got %d", revoked)
+		}
+		requireRedirectPath(t, actor.Get("/my-hopshare"), "/login")
 	})
 }
 

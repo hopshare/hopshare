@@ -47,9 +47,18 @@ const csrfMaxRequestBodyBytes = 21 << 20
 
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
+	return NewRouterWithSessions(db, nil)
+}
+
+// NewRouterWithSessions wires routes with an optional injected session manager.
+// Passing nil uses the default in-memory session manager.
+func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handler {
+	if sessions == nil {
+		sessions = auth.NewSessionManager()
+	}
 	srv := &Server{
 		db:          db,
-		sessions:    auth.NewSessionManager(),
+		sessions:    sessions,
 		resetTokens: make(map[string]int64),
 	}
 
