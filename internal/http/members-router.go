@@ -41,7 +41,19 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		render(w, r, templates.MyProfile(user.Email, member, orgs, successMsg, errorMsg))
+		availableSkills, err := service.ListAvailableSkillsForMember(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("load member available skills %d: %v", user.ID, err)
+			http.Error(w, "could not load profile", http.StatusInternalServerError)
+			return
+		}
+		selectedSkillIDs, err := service.ListSelectedSkillIDsForMember(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("load member selected skills %d: %v", user.ID, err)
+			http.Error(w, "could not load profile", http.StatusInternalServerError)
+			return
+		}
+		render(w, r, templates.MyProfile(user.Email, member, orgs, availableSkills, selectedSkillIDs, successMsg, errorMsg))
 	case http.MethodPost:
 		const maxAvatarUploadBytes = 20 << 20
 		const maxBodyBytes = maxAvatarUploadBytes + (1 << 20)
@@ -121,6 +133,22 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			}
 
 			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Password updated."), http.StatusSeeOther)
+		case "skills":
+			skillIDs, err := parseSkillIDs(r.Form["skill_ids"])
+			if err != nil {
+				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Invalid skill selection."), http.StatusSeeOther)
+				return
+			}
+			if err := service.ReplaceMemberSkills(r.Context(), s.db, user.ID, skillIDs); err != nil {
+				msg := "Could not update skills."
+				if errors.Is(err, service.ErrSkillForbidden) {
+					msg = "One or more selected skills are not available to your account."
+				}
+				log.Printf("replace member skills %d: %v", user.ID, err)
+				http.Redirect(w, r, "/profile?error="+url.QueryEscape(msg), http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Skills updated."), http.StatusSeeOther)
 		default:
 			http.Error(w, "invalid form", http.StatusBadRequest)
 		}
@@ -291,4 +319,20 @@ func avatarPlaceholderSVG(initial string) []byte {
 		safe,
 	)
 	return []byte(svg)
+}
+
+func parseSkillIDs(values []string) ([]int64, error) {
+	out := make([]int64, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || id <= 0 {
+			return nil, fmt.Errorf("invalid skill id %q", v)
+		}
+		out = append(out, id)
+	}
+	return out, nil
 }

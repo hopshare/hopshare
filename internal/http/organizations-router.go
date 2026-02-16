@@ -343,12 +343,19 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, successMsg, errorMsg))
+		orgSkills, err := service.ListOrganizationSkills(r.Context(), s.db, org.ID)
+		if err != nil {
+			log.Printf("load organization skills org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization skills", http.StatusInternalServerError)
+			return
+		}
+
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, successMsg, errorMsg))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-		if err := r.ParseMultipartForm(maxBodyBytes); err != nil {
+		if err := r.ParseMultipartForm(maxBodyBytes); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return
 		}
@@ -399,42 +406,72 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		name := strings.TrimSpace(r.FormValue("name"))
-		city := strings.TrimSpace(r.FormValue("city"))
-		state := strings.TrimSpace(r.FormValue("state"))
-		description := strings.TrimSpace(r.FormValue("description"))
-		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+		orgSkills, err := service.ListOrganizationSkills(r.Context(), s.db, org.ID)
 		if err != nil {
-			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, "", err.Error()))
+			log.Printf("load organization skills org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization skills", http.StatusInternalServerError)
 			return
 		}
 
-		updateOrg := types.Organization{
-			ID:          org.ID,
-			Name:        name,
-			City:        city,
-			State:       state,
-			Description: description,
-			Enabled:     org.Enabled,
-		}
-		if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
-			log.Printf("update organization %d: %v", org.ID, err)
-			render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, "", "Could not update organization."))
-			return
+		action := strings.TrimSpace(r.FormValue("action"))
+		if action == "" {
+			action = "details"
 		}
 
-		if hasLogo {
-			if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
-				log.Printf("set org logo org=%d: %v", org.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, "", "Could not upload logo."))
+		switch action {
+		case "details":
+			name := strings.TrimSpace(r.FormValue("name"))
+			city := strings.TrimSpace(r.FormValue("city"))
+			state := strings.TrimSpace(r.FormValue("state"))
+			description := strings.TrimSpace(r.FormValue("description"))
+			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+			if err != nil {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", err.Error()))
 				return
 			}
+
+			updateOrg := types.Organization{
+				ID:          org.ID,
+				Name:        name,
+				City:        city,
+				State:       state,
+				Description: description,
+				Enabled:     org.Enabled,
+			}
+			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
+				log.Printf("update organization %d: %v", org.ID, err)
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not update organization."))
+				return
+			}
+
+			if hasLogo {
+				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
+					log.Printf("set org logo org=%d: %v", org.ID, err)
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not upload logo."))
+					return
+				}
+			}
+
+			redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization updated.")
+			if org.ID != 0 {
+				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Organization updated.")
+			}
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		case "skills":
+			skillNames := parseSkillLines(r.FormValue("skills_text"))
+			if err := service.ReplaceOrganizationSkills(r.Context(), s.db, org.ID, user.ID, skillNames); err != nil {
+				log.Printf("replace organization skills org=%d actor=%d: %v", org.ID, user.ID, err)
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not update skills."))
+				return
+			}
+			redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization skills updated.")
+			if org.ID != 0 {
+				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Organization skills updated.")
+			}
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		default:
+			http.Error(w, "invalid form", http.StatusBadRequest)
 		}
-		redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization updated.")
-		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Organization updated.")
-		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -468,6 +505,19 @@ func readLogoUpload(r *http.Request, field string, maxBytes int64) ([]byte, stri
 	default:
 		return nil, "", false, fmt.Errorf("logo must be a PNG or JPEG")
 	}
+}
+
+func parseSkillLines(raw string) []string {
+	lines := strings.Split(raw, "\n")
+	skills := make([]string, 0, len(lines))
+	for _, line := range lines {
+		v := strings.TrimSpace(line)
+		if v == "" {
+			continue
+		}
+		skills = append(skills, v)
+	}
+	return skills
 }
 
 func (s *Server) handleManageMembershipRequest(w http.ResponseWriter, r *http.Request) {

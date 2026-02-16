@@ -106,6 +106,14 @@ type MemberOrganization struct {
 	IsPrimaryOwner bool
 }
 
+// Skill represents a selectable skill, either system default or organization-specific.
+type Skill struct {
+	ID             int64
+	OrganizationID *int64
+	Name           string
+	SourceLabel    string
+}
+
 // Hop represents a help hop within an organization.
 type Hop struct {
 	ID             int64

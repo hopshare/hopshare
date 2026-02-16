@@ -19,6 +19,7 @@ var (
 	ErrRequestNotFound      = errors.New("membership request not found")
 	ErrMembershipNotFound   = errors.New("membership not found")
 	ErrInvalidRoleChange    = errors.New("invalid role change")
+	ErrSkillForbidden       = errors.New("skill forbidden")
 
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")

@@ -56,6 +56,28 @@
 
 * Manage Skills on the Member profile page. We will need something for automatic matching...give it some thought. Skills should reside in the database- we can seed some starter ones, but it should grow over time- and be scoped within the organization. We can have these configured for new joiners via a wizard interface.
 
+I want to add the concept of "Skills" to the application. Skills will be a way for us to let Users indicate their interests, and abilities so that we can intelligently match them to timebank requests. It's also a way for other Users to learn more about their fellow organization members.
+Skills will be managed in the database. There is a default set of Skills that are available to all Organizations that are loaded when the database is migrated, and Organization owners can add their own dynamically. Each Skill is a string of text. Users are presented with the combined set of Default and Skills for all of their Organizations on their My Profile page on the "Skills" tab. Each string is a radio button. Users can select all that apply to them and change this list at any time.
+On the "Manage Organization" page, create two tabs; "Details" and "Skills". Put the "Manage your organization" panel into the "Details" tab and on the "Skills" tab add a text area where Owners can add/remove organization specific skills. If an Owner removes the Skill from the Organization, it should be removed from all Users that have checked that Skill in their profile.
+The set of default Skills are:
+* Cooking
+* Driving
+* Yard Work
+* Tutoring
+* Pet Care
+* Reading
+* Shopping
+* Moving
+* Finances
+* Taxes
+* Computers
+* Child Care
+* Keeping Company
+* Handyman Jobs
+
+Plan out how you would implement this feature, including what database changes you would propose. Do not make any changes.
+
+
 * Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
 
 * Add in basic monitoring (cron job calling script saving in sqlite):
