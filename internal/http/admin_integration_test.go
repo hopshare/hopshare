@@ -3,6 +3,7 @@ package http_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -168,10 +169,42 @@ func TestAdminOverviewHTTP(t *testing.T) {
 		actor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
 		actor.Login()
 
+		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionAppOverviewViewed)
 		body := requireStatus(t, actor.Get("/admin"), http.StatusOK)
 		requireBodyContains(t, body, "App-Wide Metrics")
 		requireBodyContains(t, body, "Leaderboards")
 		requireBodyContains(t, body, `href="/admin?tab=app"`)
+		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionAppOverviewViewed)
+		if afterAuditCount != beforeAuditCount+1 {
+			t.Fatalf("expected one new admin audit row, before=%d after=%d", beforeAuditCount, afterAuditCount)
+		}
+
+		var target string
+		var reason sql.NullString
+		var metadata []byte
+		if err := db.QueryRowContext(ctx, `
+			SELECT target, reason, metadata
+			FROM admin_audit_events
+			WHERE actor_member_id = $1
+			  AND action = $2
+			ORDER BY created_at DESC, id DESC
+			LIMIT 1
+		`, admin.Member.ID, service.AdminAuditActionAppOverviewViewed).Scan(&target, &reason, &metadata); err != nil {
+			t.Fatalf("query admin audit event: %v", err)
+		}
+		if target != service.AdminAuditTargetApplication {
+			t.Fatalf("unexpected audit target: got=%q want=%q", target, service.AdminAuditTargetApplication)
+		}
+		if reason.Valid {
+			t.Fatalf("expected nil reason for admin overview view audit action")
+		}
+		var metadataMap map[string]string
+		if err := json.Unmarshal(metadata, &metadataMap); err != nil {
+			t.Fatalf("unmarshal audit metadata: %v", err)
+		}
+		if metadataMap["tab"] != "app" {
+			t.Fatalf("expected audit metadata tab=app, got %#v", metadataMap)
+		}
 
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-enabled-count">%d</span>`, expected.OrganizationEnabledCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-disabled-count">%d</span>`, expected.OrganizationDisabledCount))
@@ -381,4 +414,19 @@ func boolString(v bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func countAdminAuditEventsForActorAction(t *testing.T, ctx context.Context, db *sql.DB, actorMemberID int64, action string) int {
+	t.Helper()
+
+	var count int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM admin_audit_events
+		WHERE actor_member_id = $1
+		  AND action = $2
+	`, actorMemberID, action).Scan(&count); err != nil {
+		t.Fatalf("count admin audit events actor=%d action=%q: %v", actorMemberID, action, err)
+	}
+	return count
 }

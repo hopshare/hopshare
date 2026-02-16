@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 const (
 	ContactMethodEmail = "email"
@@ -236,4 +239,14 @@ type AdminAppOverview struct {
 	TopOrgsByHoursExchanged []AdminOrganizationLeaderboardEntry
 	TopOrgsByUsers          []AdminOrganizationLeaderboardEntry
 	LeaderboardLimit        int
+}
+
+type AdminAuditEvent struct {
+	ID            int64
+	ActorMemberID int64
+	Action        string
+	Target        string
+	Reason        *string
+	Metadata      json.RawMessage
+	CreatedAt     time.Time
 }

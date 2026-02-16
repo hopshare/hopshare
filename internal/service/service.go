@@ -20,6 +20,8 @@ var (
 	ErrMembershipNotFound   = errors.New("membership not found")
 	ErrInvalidRoleChange    = errors.New("invalid role change")
 	ErrSkillForbidden       = errors.New("skill forbidden")
+	ErrAuditReasonRequired  = errors.New("audit reason is required")
+	ErrInvalidAuditMetadata = errors.New("invalid audit metadata")
 
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")
