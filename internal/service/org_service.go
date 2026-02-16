@@ -569,7 +569,7 @@ func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID i
 	res, err := db.ExecContext(ctx, `
 		UPDATE organization_memberships
 		SET left_at = NOW()
-		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = FALSE
 	`, orgID, memberID)
 	if err != nil {
 		return fmt.Errorf("remove organization member: %w", err)
@@ -579,6 +579,29 @@ func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID i
 		return fmt.Errorf("remove organization member rows affected: %w", err)
 	}
 	if affected == 0 {
+		var isPrimaryOwner bool
+		var exists bool
+		if err := db.QueryRowContext(ctx, `
+			SELECT
+				EXISTS (
+					SELECT 1
+					FROM organization_memberships
+					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+				),
+				EXISTS (
+					SELECT 1
+					FROM organization_memberships
+					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = TRUE
+				)
+		`, orgID, memberID).Scan(&exists, &isPrimaryOwner); err != nil {
+			return fmt.Errorf("check organization membership before remove: %w", err)
+		}
+		if isPrimaryOwner {
+			return ErrInvalidRoleChange
+		}
+		if !exists {
+			return ErrMembershipNotFound
+		}
 		return ErrMembershipNotFound
 	}
 

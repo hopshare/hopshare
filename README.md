@@ -22,6 +22,40 @@ Starter scaffold for the Hopshare application. The service is a single Go binary
 
 Health endpoint: `GET /healthz` returns `200 OK`.
 
+## Testing
+
+### Quick test run
+- `go test ./...`
+
+### Database-backed integration tests
+The HTTP and service integration tests use a real Postgres connection:
+- `internal/http/*_integration_test.go`
+- `internal/service/service_test.go`
+
+These tests read `HOPSHARE_DB_URL` first, then `DATABASE_URL`. If neither is set, they are skipped.
+
+Recommended: use a dedicated disposable database for tests.
+
+Example setup:
+1. Create a test database (example name: `hopshare_test`).
+2. Export URL:
+   - `export HOPSHARE_DB_URL='postgres://user:pass@localhost:5432/hopshare_test?sslmode=disable'`
+3. Apply migrations:
+   - `go run ./cmd/migrate`
+
+Run test suites:
+- HTTP integration tests:
+  - `go test ./internal/http -count=1 -v`
+- Service integration tests:
+  - `go test ./internal/service -count=1 -v`
+- Full repo (with DB enabled):
+  - `go test ./... -count=1`
+
+Notes:
+- Integration tests create and update real rows. Reusing the same DB is supported, but data will accumulate.
+- If you want a clean run each time, recreate the test database before running tests.
+- Handler logs may include expected error messages during negative test cases; this does not necessarily indicate a failing test.
+
 ## Container / Podman
 Use the provided `Containerfile` and scripts in `deploy/scripts/` to build and run Hopshare with Postgres in a Podman pod.
 

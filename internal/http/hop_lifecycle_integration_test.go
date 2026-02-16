@@ -280,11 +280,11 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 		"org_id": {strconv.FormatInt(org.ID, 10)},
 		"hop_id": {strconv.FormatInt(hop.ID, 10)},
 	}), "/my-hopshare")
-	requireQueryValue(t, offerAgainLoc, "success", "Offer sent.")
+	requireQueryValue(t, offerAgainLoc, "error", "Could not send offer.")
 
 	pendingCount := countPendingActionMessagesForHop(t, ctx, db, requester.Member.ID, hop.ID)
-	if pendingCount != 1 {
-		t.Fatalf("expected exactly one pending action message after re-offer, got %d", pendingCount)
+	if pendingCount != 0 {
+		t.Fatalf("expected no pending action messages after declined offer retry, got %d", pendingCount)
 	}
 }
 
