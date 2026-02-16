@@ -217,6 +217,8 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	canToggle := isAssociated
 	canComment := isAssociated || !hop.IsPrivate
 	canUpload := isAssociated
+	canComplete := hop.Status == types.HopStatusAccepted && isAssociated
+	canSetCompletionHours := hop.CreatedBy == user.ID
 	canOfferHelp := hop.Status == types.HopStatusOpen && hop.CreatedBy != user.ID
 	hasOfferedToHelp := false
 	if canOfferHelp {
@@ -229,7 +231,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		hasOfferedToHelp = hasPendingOffer
 		canOfferHelp = !hasPendingOffer
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, comments, images))
 }
 
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {

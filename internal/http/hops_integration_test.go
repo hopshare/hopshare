@@ -126,6 +126,34 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireStatus(t, actor.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 403)
 	})
 
+	t.Run("HOP-06 accepted hop details show complete action only for requester/helper", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper", "member")
+		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Detail completion visibility "+suffix)
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		owner.Login()
+		helper.Login()
+		member.Login()
+
+		ownerBody := requireStatus(t, owner.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, ownerBody, "Mark complete")
+		requireBodyContains(t, ownerBody, "data-hop-requester=\"true\"")
+
+		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, helperBody, "Mark complete")
+		requireBodyContains(t, helperBody, "data-hop-requester=\"false\"")
+
+		memberBody := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, memberBody, "data-hop-requester=\"true\"")
+		requireBodyNotContains(t, memberBody, "data-hop-requester=\"false\"")
+	})
+
 	t.Run("HOP-07 duplicate offer is rejected and HOP-08 offering own hop is rejected", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -386,6 +414,29 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		if updated.CompletedHours == nil || *updated.CompletedHours != 4 {
 			t.Fatalf("expected completed_hours=4 for requester completion, got %v", updated.CompletedHours)
 		}
+	})
+
+	t.Run("HOP-12d complete from hop details redirects back to hop details", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
+		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Complete from details "+suffix)
+
+		server := newHTTPServer(t, db)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper.Login()
+
+		redirectTo := "/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)
+		loc := requireRedirectPath(t, helper.PostForm("/hops/complete", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"redirect_to", redirectTo,
+			"completion_comment", "Completed from details.",
+		)), "/hops/view")
+		requireQueryValue(t, loc, "org_id", strconv.FormatInt(org.ID, 10))
+		requireQueryValue(t, loc, "hop_id", strconv.FormatInt(hop.ID, 10))
+		requireQueryValue(t, loc, "success", "Hop completed.")
 	})
 
 	t.Run("HOP-13 complete hop missing comment is rejected", func(t *testing.T) {

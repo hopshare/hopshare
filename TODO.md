@@ -27,10 +27,10 @@
 * Header
 
 * Hop Detail Page
+    * If Hop is Accepted, add the "Mark Complete" button just like on My Hops summary page
 
 * My HopShare Dashboard
     * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization
-    * Visualization is much better now- but still not entirely clear on dashboard when I have a Hop 'in flight' with another user...
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization
