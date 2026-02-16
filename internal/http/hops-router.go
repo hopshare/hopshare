@@ -218,6 +218,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	canComment := isAssociated || !hop.IsPrivate
 	canUpload := isAssociated
 	canOfferHelp := hop.Status == types.HopStatusOpen && hop.CreatedBy != user.ID
+	hasOfferedToHelp := false
 	if canOfferHelp {
 		hasPendingOffer, err := service.HasPendingHopOffer(r.Context(), s.db, hop.ID, user.ID)
 		if err != nil {
@@ -225,9 +226,10 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load hop", http.StatusInternalServerError)
 			return
 		}
+		hasOfferedToHelp = hasPendingOffer
 		canOfferHelp = !hasPendingOffer
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, comments, images))
 }
 
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {

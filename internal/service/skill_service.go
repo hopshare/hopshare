@@ -276,6 +276,9 @@ func ReplaceOrganizationSkills(ctx context.Context, db *sql.DB, orgID, actorMemb
 					return fmt.Errorf("update organization skill name: %w", err)
 				}
 			}
+			if err = upsertSkillAlias(ctx, tx, existing.id, name, actorMemberID); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -286,6 +289,9 @@ func ReplaceOrganizationSkills(ctx context.Context, db *sql.DB, orgID, actorMemb
 			RETURNING id
 		`, orgID, name, actorMemberID).Scan(&insertedID); err != nil {
 			return fmt.Errorf("insert organization skill: %w", err)
+		}
+		if err = upsertSkillAlias(ctx, tx, insertedID, name, actorMemberID); err != nil {
+			return err
 		}
 		keepIDs[insertedID] = struct{}{}
 	}

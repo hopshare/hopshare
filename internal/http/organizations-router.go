@@ -153,10 +153,11 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 	showPendingPanel := false
 	showAllHops := false
 	var pendingHops []types.Hop
-	if user := s.currentUser(r); user != nil {
-		hasMembership, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, org.ID)
+	currentUser := s.currentUser(r)
+	if currentUser != nil {
+		hasMembership, err := service.MemberHasActiveMembership(r.Context(), s.db, currentUser.ID, org.ID)
 		if err != nil {
-			log.Printf("check member organization membership member=%d org=%d: %v", user.ID, org.ID, err)
+			log.Printf("check member organization membership member=%d org=%d: %v", currentUser.ID, org.ID, err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
 			return
 		}
@@ -189,6 +190,14 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 			log.Printf("load organization pending hops org=%d: %v", org.ID, err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
 			return
+		}
+		if currentUser != nil && len(pendingHops) > 1 {
+			sortedHops, sortErr := service.SortHopsByMemberSkillMatch(r.Context(), s.db, org.ID, currentUser.ID, pendingHops)
+			if sortErr != nil {
+				log.Printf("sort organization pending hops by skill match org=%d member=%d: %v", org.ID, currentUser.ID, sortErr)
+			} else {
+				pendingHops = sortedHops
+			}
 		}
 	}
 

@@ -106,6 +106,48 @@ func TestReplaceMemberSkillsRejectsUnauthorizedSkill(t *testing.T) {
 	}
 }
 
+func TestReplaceOrganizationSkillsSeedsNameAlias(t *testing.T) {
+	db := require_db(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	owner := mustCreateMemberForSkillsTest(t, ctx, db, "owner")
+	org, err := CreateOrganization(ctx, db, fmt.Sprintf("Alias Org %d", time.Now().UnixNano()), "Test City", "TS", "Alias test org", owner.ID)
+	if err != nil {
+		t.Fatalf("CreateOrganization returned error: %v", err)
+	}
+
+	if err := ReplaceOrganizationSkills(ctx, db, org.ID, owner.ID, []string{"Fishing"}); err != nil {
+		t.Fatalf("ReplaceOrganizationSkills returned error: %v", err)
+	}
+	orgSkills, err := ListOrganizationSkills(ctx, db, org.ID)
+	if err != nil {
+		t.Fatalf("ListOrganizationSkills returned error: %v", err)
+	}
+	if len(orgSkills) != 1 {
+		t.Fatalf("expected one organization skill, got %d", len(orgSkills))
+	}
+
+	aliases, err := ListSkillAliases(ctx, db, orgSkills[0].ID)
+	if err != nil {
+		t.Fatalf("ListSkillAliases returned error: %v", err)
+	}
+	if len(aliases) == 0 {
+		t.Fatalf("expected at least one alias for inserted org skill")
+	}
+	found := false
+	for _, alias := range aliases {
+		if alias == "Fishing" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected skill name alias Fishing, got %v", aliases)
+	}
+}
+
 func mustCreateMemberForSkillsTest(t *testing.T, ctx context.Context, db *sql.DB, prefix string) types.Member {
 	t.Helper()
 
