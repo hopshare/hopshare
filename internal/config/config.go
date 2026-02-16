@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 // Config holds server configuration loaded from environment variables.
@@ -9,6 +10,7 @@ type Config struct {
 	Addr        string
 	DatabaseURL string
 	Env         string
+	Admins      []string
 }
 
 // Load returns configuration populated from HOPSHARE_* environment variables.
@@ -17,6 +19,7 @@ func Load() Config {
 		Addr:        getenv("HOPSHARE_ADDR", ":8080"),
 		DatabaseURL: getenv("HOPSHARE_DB_URL", ""),
 		Env:         getenv("HOPSHARE_ENV", "development"),
+		Admins:      parseAdmins(getenv("HOPSHARE_ADMINS", "")),
 	}
 }
 
@@ -25,4 +28,27 @@ func getenv(key, fallback string) string {
 		return val
 	}
 	return fallback
+}
+
+func parseAdmins(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	admins := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		username := strings.ToLower(strings.TrimSpace(part))
+		if username == "" {
+			continue
+		}
+		if _, ok := seen[username]; ok {
+			continue
+		}
+		seen[username] = struct{}{}
+		admins = append(admins, username)
+	}
+	return admins
 }

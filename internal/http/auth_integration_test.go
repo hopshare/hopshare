@@ -327,6 +327,35 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 		requireRedirectPath(t, actor.Get("/my-hopshare"), "/login")
 	})
+
+	t.Run("AUTH-18 GET /admin non-admin is forbidden and nav omits Admin link", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_non_admin", suffix)
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		requireStatus(t, actor.Get("/admin"), http.StatusForbidden)
+		body := requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
+		requireBodyNotContains(t, body, `href="/admin"`)
+	})
+
+	t.Run("AUTH-19 GET /admin admin succeeds and nav includes Admin link", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_admin", suffix)
+		server := newHTTPServerWithAdmins(t, db, []string{"  " + strings.ToUpper(member.Member.Username) + "  "})
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		adminBody := requireStatus(t, actor.Get("/admin"), http.StatusOK)
+		requireBodyContains(t, adminBody, "Admin tools are not enabled yet.")
+		homeBody := requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
+		requireBodyContains(t, homeBody, `href="/admin"`)
+	})
 }
 
 func TestAuthRateLimitingHTTP(t *testing.T) {

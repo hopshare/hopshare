@@ -32,6 +32,13 @@ func newHTTPServerWithSessions(t *testing.T, db *sql.DB, sessions *auth.SessionM
 	return server
 }
 
+func newHTTPServerWithAdmins(t *testing.T, db *sql.DB, adminUsernames []string) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(apphttp.NewRouterWithSessionsAndAdmins(db, nil, adminUsernames))
+	t.Cleanup(server.Close)
+	return server
+}
+
 func createOrganizationWithMembers(t *testing.T, ctx context.Context, db *sql.DB, suffix string, roleNames ...string) (types.Organization, map[string]seededMember) {
 	t.Helper()
 

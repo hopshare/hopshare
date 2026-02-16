@@ -29,6 +29,7 @@ import (
 type Server struct {
 	db              *sql.DB
 	sessions        *auth.SessionManager
+	admins          *adminSet
 	resetTokens     map[string]int64
 	resetMu         sync.RWMutex
 	authRateLimiter *fixedWindowLimiter
@@ -40,6 +41,7 @@ type Middleware func(HandlerFunc) HandlerFunc
 type contextKey string
 
 const userContextKey contextKey = "currentUser"
+const adminContextKey contextKey = "isAdmin"
 const csrfContextKey contextKey = "csrfToken"
 
 const postAuthRedirectCookieName = "hopshare_post_auth_redirect"
@@ -53,18 +55,25 @@ const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://c
 
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
-	return NewRouterWithSessions(db, nil)
+	return NewRouterWithSessionsAndAdmins(db, nil, nil)
 }
 
 // NewRouterWithSessions wires routes with an optional injected session manager.
 // Passing nil uses the default in-memory session manager.
 func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handler {
+	return NewRouterWithSessionsAndAdmins(db, sessions, nil)
+}
+
+// NewRouterWithSessionsAndAdmins wires routes with optional injected session manager
+// and admin usernames. Admin usernames are normalized to lowercase and deduplicated.
+func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions *auth.SessionManager, adminUsernames []string) http.Handler {
 	if sessions == nil {
 		sessions = auth.NewSessionManager()
 	}
 	srv := &Server{
 		db:              db,
 		sessions:        sessions,
+		admins:          newAdminSet(adminUsernames),
 		resetTokens:     make(map[string]int64),
 		authRateLimiter: newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 	}
@@ -80,6 +89,7 @@ func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handl
 	srv.register(mux, "/terms", srv.handleTerms, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/privacy", srv.handlePrivacy, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/help", srv.handleHelp, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/admin", srv.handleAdmin, srv.requireAuth(), srv.requireMethod(http.MethodGet), srv.requireAdmin())
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("forgot-password"))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -128,6 +138,10 @@ func (s *Server) handleLearnMore(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Help(s.currentUserEmailPtr(r)))
+}
+
+func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
+	render(w, r, templates.Admin(s.currentUserEmailPtr(r)))
 }
 
 func (s *Server) handleTerms(w http.ResponseWriter, r *http.Request) {
@@ -642,6 +656,7 @@ func (s *Server) currentUserEmailPtr(r *http.Request) *string {
 func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	ctx := templates.WithCSRFToken(r.Context(), csrfTokenFromContext(r.Context()))
+	ctx = templates.WithAdmin(ctx, isAdminFromContext(r.Context()))
 	if err := component.Render(ctx, w); err != nil {
 		log.Printf("templ render error: %v", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
@@ -676,6 +691,7 @@ func (s *Server) withUser() Middleware {
 				if memberID, ok := s.sessions.Get(c.Value); ok {
 					if member, err := service.GetMemberByID(r.Context(), s.db, memberID); err == nil {
 						ctx := context.WithValue(r.Context(), userContextKey, &member)
+						ctx = context.WithValue(ctx, adminContextKey, s.admins.IsAdmin(member.Username))
 						r = r.WithContext(ctx)
 					}
 				}
@@ -703,6 +719,18 @@ func (s *Server) requireAuth() Middleware {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if currentUserFromContext(r.Context()) == nil {
 				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+func (s *Server) requireAdmin() Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if !isAdminFromContext(r.Context()) {
+				s.renderUnauthorized(w, r)
 				return
 			}
 			next(w, r)
@@ -801,6 +829,36 @@ func clientIPKey(r *http.Request) string {
 	return "unknown"
 }
 
+type adminSet struct {
+	usernames map[string]struct{}
+}
+
+func newAdminSet(adminUsernames []string) *adminSet {
+	set := &adminSet{
+		usernames: make(map[string]struct{}, len(adminUsernames)),
+	}
+	for _, username := range adminUsernames {
+		normalized := strings.ToLower(strings.TrimSpace(username))
+		if normalized == "" {
+			continue
+		}
+		set.usernames[normalized] = struct{}{}
+	}
+	return set
+}
+
+func (a *adminSet) IsAdmin(username string) bool {
+	if a == nil {
+		return false
+	}
+	normalized := strings.ToLower(strings.TrimSpace(username))
+	if normalized == "" {
+		return false
+	}
+	_, ok := a.usernames[normalized]
+	return ok
+}
+
 func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookieName); err == nil {
 		token := strings.TrimSpace(c.Value)
@@ -848,6 +906,14 @@ func csrfTokensEqual(expected, submitted string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(submitted)) == 1
+}
+
+func isAdminFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	isAdmin, _ := ctx.Value(adminContextKey).(bool)
+	return isAdmin
 }
 
 type fixedWindowLimiter struct {
