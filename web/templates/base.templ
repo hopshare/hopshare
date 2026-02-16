@@ -56,6 +56,7 @@ templ Base(title string, userEmail *string, body templ.Component) {
 								>
 									<a class="block px-3 py-2 hover:bg-slate-50" href="/profile">Profile</a>
 									<form method="POST" action="/logout">
+										@CSRFField()
 										<button class="block w-full px-3 py-2 text-left hover:bg-slate-50">Logout</button>
 									</form>
 								</div>

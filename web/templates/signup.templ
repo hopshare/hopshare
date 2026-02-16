@@ -40,6 +40,7 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 				}
 			}
 		}">
+			@CSRFField()
 			if next != "" {
 				<input type="hidden" name="next" value={ next } />
 			}

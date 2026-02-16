@@ -1,6 +1,7 @@
 package http_test
 
 import (
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -89,16 +90,20 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		requireRedirectPath(t, anon.Get("/my-hopshare"), "/login")
 	})
 
-	t.Run("AUTH-08 GET /logout clears session", func(t *testing.T) {
+	t.Run("AUTH-08 GET /logout is not allowed", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
-		member := createSeededMember(t, ctx, db, "auth_logout_get", suffix)
+		member := createSeededMember(t, ctx, db, "auth_logout_method_guard", suffix)
 		server := newHTTPServer(t, db)
 		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
 		actor.Login()
-		requireRedirectPath(t, actor.Get("/logout"), "/")
-		requireRedirectPath(t, actor.Get("/my-hopshare"), "/login")
+		resp := actor.Get("/logout")
+		requireStatus(t, resp, http.StatusMethodNotAllowed)
+		if got := resp.Header.Get("Allow"); got != "POST" {
+			t.Fatalf("expected Allow header POST for GET /logout, got %q", got)
+		}
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
 	})
 
 	t.Run("AUTH-09 POST /logout clears session", func(t *testing.T) {
@@ -111,6 +116,38 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		actor.Login()
 		requireRedirectPath(t, actor.PostForm("/logout", formKV()), "/")
 		requireRedirectPath(t, actor.Get("/my-hopshare"), "/login")
+	})
+
+	t.Run("AUTH-CSRF-01 POST /logout missing csrf token returns forbidden", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_logout_missing_csrf", suffix)
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		resp := actor.Request(http.MethodPost, "/logout", strings.NewReader(""), map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		})
+		requireStatus(t, resp, http.StatusForbidden)
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
+	})
+
+	t.Run("AUTH-CSRF-02 POST /logout invalid csrf token returns forbidden", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_logout_invalid_csrf", suffix)
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		resp := actor.Request(http.MethodPost, "/logout", strings.NewReader("csrf_token=invalid"), map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		})
+		requireStatus(t, resp, http.StatusForbidden)
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
 	})
 
 	t.Run("AUTH-10 POST /signup success creates member and redirects /signup-success", func(t *testing.T) {

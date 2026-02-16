@@ -26,11 +26,13 @@
 
 * Header
 
+* My Profile
+    * Need a way to leave hopShare- "Remove my account" that requires you type in something intentional.
+    * Need a way to remove an owned Organization- need to think a bit about this one- to ensure it doesn't get abused.
+
 * Hop Detail Page
-    * If Hop is Accepted, add the "Mark Complete" button just like on My Hops summary page
 
 * My HopShare Dashboard
-    * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization
@@ -38,14 +40,6 @@
         * Maximum balance (default 10)
         * Starting balance (default 5)
     * The UI should enforce some sensible levels here to avoid crazy numbers that would make the timebank unusable.
-
-* Disabling Organizations
-    * Only visible to Administrators
-    * Don't show the Organization page
-    * Org should not show up in list of Organizations
-    * Users should not be able to switch to the Organization from My Hopshare
-    * Users who only have that organization are treated as if they don't have an organzation any longer
-    * Re-enabling the Organization puts everything back the way it was
 
 * Joining an Organization should use messages
     * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
@@ -55,14 +49,47 @@
 
 * Need an Organization-public Member page with more details about each member. Maybe have a way to send them a message?
 
-* Administrator page- see everything, do dangerous stuff. Link conditionally off header menu for Admin users.
+* Need to create the concept of an Administrator for the application.
+    * Admin page is accessed from a special "Admin" menu option in header (only if user is an Administrator). Administrators are set through hopShare's environment via the HOPSHARE_ADMINS variable holding a comma delimited list of usernames (see .env.example). Each hopShare runtime maintains an in-memory service that holds the list of usernames who are Administrators. This keeps things fairly secure- to change the list of Administrators requires privileges to deploy hopShare itself.
+    * App overview Tab
+        * Answers the question, "What sort of use is the application getting? How are folks using it?"
+        * Overall application metrics (number of Organizations, Users, Hops by status, Hours exchanged)
+        * Leaderboard- top Organizations by:
+            * Total Hops created
+            * Total Hours exchanged
+            * Total Users
+    * Organization "overview" Tab
+        * Select an Organization from a searchable list of Organization names.
+        * All stats (number of Hops, members, status of each, etc)
+        * Actions
+            * Delete or Expire Hops
+            * Delete specific Hop comments
+            * Delete specific Hop images
+            * Disable an Organizations
+                * We don't delete the Organization as it's possible to re-enable it, so all logic involving Organizations will need to make the check to ensure they aren't disabled
+                * When disabled:
+                    * Don't show the Organization page anymore
+                    * Org should not show up in list of Organizations
+                    * Users should not be able to switch to the Organization from My Hopshare
+                    * All Users of Organization are logically "removed"
+                    * Users who only had that organization are treated as if they don't have an organzation any longer
+                * Re-enabling the Organization puts everything back the way it was
+    * User overview Tab
+        * Select a user from a searchable list of usernames or First/Last names
+        * Show what Organizations they belong to, along with all their information, date when they signed up or left, etc.
+        * Actions
+            * Disable User
+            * Delete User completely (GDPR)- produce a page that can be screenshot showing the removal of the user and date/time stamp.
+            * Change User's hour balance
+    * Message Tab
+        * Acts like a "global" messaging system to any User on the application
+        * Select a User from a searchable list of usernames or First/Last names
+        * Re-use the same 'inbox' that regular Users have
+        * Just send 'information' type messages. The message title should be prepended with "ADMIN Message:"
+        * Users should be able to reply back to your messages.
+Create a plan for how you would add this capability. Assess if there are any security or logical issues with these use cases. Do not write any code just yet.
 
-* Add in basic monitoring (cron job calling script saving in sqlite):
-    * net/http/pprof package (visualize performance)
-    * runtime.MemStats / runtime.ReadMemStats() thru a /health endpoint on each golang process
-    * select count(*) from pg_stat_activity; (database connections)
-    * iostat to see iops levels
-    * jq against Caddy logs for traffic levels
+
 
 
 Change the "My Organization" panel of the "My Profile" page as follows:
@@ -74,6 +101,14 @@ Change the "My Organization" panel of the "My Profile" page as follows:
 * New User sign ups- need to have them confirm their emails. So we need an email service after signing up.
 
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
+
+* Add in basic monitoring (cron job calling script saving in sqlite):
+    * net/http/pprof package (visualize performance)
+    * runtime.MemStats / runtime.ReadMemStats() thru a /health endpoint on each golang process
+    * select count(*) from pg_stat_activity; (database connections)
+    * iostat to see iops levels
+    * jq against Caddy logs for traffic levels
+
 
 Font Awesome- https://icon-sets.iconify.design/fa7-regular/page-2.html?keyword=font
 

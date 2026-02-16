@@ -31,6 +31,11 @@ var (
 	httpErrMissingURL = errors.New("HOPSHARE_DB_URL or DATABASE_URL not set")
 )
 
+const (
+	testCSRFCookieName = "hopshare_csrf"
+	testCSRFFieldName  = "csrf_token"
+)
+
 func requireHTTPTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -149,7 +154,17 @@ func (a *testActor) Do(req *http.Request) *http.Response {
 func (a *testActor) PostForm(path string, form url.Values) *http.Response {
 	a.t.Helper()
 
-	resp, err := a.client.PostForm(a.baseURL+path, form)
+	submission := make(url.Values, len(form)+1)
+	for k, values := range form {
+		copied := make([]string, len(values))
+		copy(copied, values)
+		submission[k] = copied
+	}
+	if submission.Get(testCSRFFieldName) == "" {
+		submission.Set(testCSRFFieldName, a.ensureCSRFToken())
+	}
+
+	resp, err := a.client.PostForm(a.baseURL+path, submission)
 	if err != nil {
 		a.t.Fatalf("%s POST %s failed: %v", a.name, path, err)
 	}
@@ -164,9 +179,17 @@ func (a *testActor) PostMultipart(path string, fields map[string]string) *http.R
 func (a *testActor) PostMultipartWithFiles(path string, fields map[string]string, files []multipartFile) *http.Response {
 	a.t.Helper()
 
+	submissionFields := make(map[string]string, len(fields)+1)
+	for k, v := range fields {
+		submissionFields[k] = v
+	}
+	if strings.TrimSpace(submissionFields[testCSRFFieldName]) == "" {
+		submissionFields[testCSRFFieldName] = a.ensureCSRFToken()
+	}
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	for k, v := range fields {
+	for k, v := range submissionFields {
 		if err := writer.WriteField(k, v); err != nil {
 			a.t.Fatalf("%s write multipart field %q failed: %v", a.name, k, err)
 		}
@@ -200,6 +223,45 @@ func (a *testActor) PostMultipartWithFiles(path string, fields map[string]string
 		a.t.Fatalf("%s POST multipart %s failed: %v", a.name, path, err)
 	}
 	return resp
+}
+
+func (a *testActor) ensureCSRFToken() string {
+	a.t.Helper()
+
+	if token := a.csrfToken(); token != "" {
+		return token
+	}
+
+	req, err := http.NewRequest(http.MethodGet, a.baseURL+"/", nil)
+	if err != nil {
+		a.t.Fatalf("%s create GET / for csrf token failed: %v", a.name, err)
+	}
+	resp, err := a.client.Do(req)
+	if err != nil {
+		a.t.Fatalf("%s GET / for csrf token failed: %v", a.name, err)
+	}
+	_ = resp.Body.Close()
+
+	token := a.csrfToken()
+	if token == "" {
+		a.t.Fatalf("%s csrf cookie %q not set after bootstrap request", a.name, testCSRFCookieName)
+	}
+	return token
+}
+
+func (a *testActor) csrfToken() string {
+	a.t.Helper()
+
+	base, err := url.Parse(a.baseURL)
+	if err != nil {
+		a.t.Fatalf("%s parse base url %q failed: %v", a.name, a.baseURL, err)
+	}
+	for _, c := range a.client.Jar.Cookies(base) {
+		if c.Name == testCSRFCookieName && strings.TrimSpace(c.Value) != "" {
+			return c.Value
+		}
+	}
+	return ""
 }
 
 func requireRedirectPath(t *testing.T, resp *http.Response, wantPath string) *url.URL {

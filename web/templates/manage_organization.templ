@@ -66,10 +66,10 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 		<div x-show="activeTab === 'details'" class="space-y-6">
 			<div class="space-y-4">
 				<h2 class="text-lg font-semibold text-slate-900">Organization details</h2>
-				<form
-					class="space-y-4"
-					method="POST"
-					action="/organizations/manage"
+		<form
+			class="space-y-4"
+			method="POST"
+			action="/organizations/manage"
 					enctype="multipart/form-data"
 					x-data="{
 						logoChanged: false,
@@ -88,11 +88,12 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 							const reader = new FileReader();
 							reader.onload = () => { this.logoPreview = reader.result; };
 							reader.readAsDataURL(f);
-						},
-					}"
-				>
-					<input type="hidden" name="action" value="details" />
-					<input type="hidden" name="org_id" value={ org.ID } />
+				},
+			}"
+		>
+			@CSRFField()
+			<input type="hidden" name="action" value="details" />
+			<input type="hidden" name="org_id" value={ org.ID } />
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
 						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required value={ org.Name } />
@@ -174,6 +175,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								</div>
 								<div class="flex flex-wrap gap-2">
 									<form method="POST" action="/organizations/manage/request" class="inline-flex">
+										@CSRFField()
 										<input type="hidden" name="request_id" value={ req.ID } />
 										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="action" value="accept" />
@@ -182,6 +184,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 										</button>
 									</form>
 									<form method="POST" action="/organizations/manage/request" class="inline-flex">
+										@CSRFField()
 										<input type="hidden" name="request_id" value={ req.ID } />
 										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="action" value="deny" />
@@ -211,6 +214,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 								<div class="flex flex-wrap gap-2">
 									if m.Role == "member" {
 										<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
+											@CSRFField()
 											<input type="hidden" name="member_id" value={ m.MemberID } />
 											<input type="hidden" name="org_id" value={ org.ID } />
 											<input type="hidden" name="action" value="make_owner" />
@@ -220,6 +224,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 										</form>
 									} else if m.Role == "owner" && !m.IsPrimaryOwner {
 										<form method="POST" action="/organizations/manage/member/role" class="inline-flex">
+											@CSRFField()
 											<input type="hidden" name="member_id" value={ m.MemberID } />
 											<input type="hidden" name="org_id" value={ org.ID } />
 											<input type="hidden" name="action" value="revoke_owner" />
@@ -229,6 +234,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 										</form>
 									}
 									<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
+										@CSRFField()
 										<input type="hidden" name="member_id" value={ m.MemberID } />
 										<input type="hidden" name="org_id" value={ org.ID } />
 										<button class="inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition" type="submit">
@@ -247,6 +253,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 			<h2 class="text-lg font-semibold text-slate-900">Organization skills</h2>
 			<p class="text-sm text-slate-600">Add one skill per line. Removing a skill here removes it from all member profiles for this organization.</p>
 			<form class="space-y-4" method="POST" action="/organizations/manage">
+				@CSRFField()
 				<input type="hidden" name="action" value="skills" />
 				<input type="hidden" name="org_id" value={ org.ID } />
 				<div class="space-y-1">

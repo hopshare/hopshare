@@ -523,6 +523,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 			"is_private", "false",
+			"csrf_token", owner.ensureCSRFToken(),
 		).Encode()), map[string]string{
 			"Content-Type": "application/x-www-form-urlencoded",
 			"HX-Request":   "true",

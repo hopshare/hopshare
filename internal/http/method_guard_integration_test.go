@@ -58,7 +58,7 @@ func TestHTTPMethodGuards(t *testing.T) {
 		{"organizations-manage-member-remove", "/organizations/manage/member/remove", "GET", "POST"},
 		{"organizations-manage-member-role", "/organizations/manage/member/role", "GET", "POST"},
 		{"organizations-request", "/organizations/request", "GET", "POST"},
-		{"logout", "/logout", "PUT", "POST, GET"},
+		{"logout", "/logout", "PUT", "POST"},
 	}
 
 	for _, tc := range cases {

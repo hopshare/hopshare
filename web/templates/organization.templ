@@ -156,6 +156,7 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 				<p class="text-slate-600">Request membership and an owner can approve your request.</p>
 				if userEmail != nil {
 					<form class="space-y-2" method="POST" action="/organizations/request">
+						@CSRFField()
 						<input type="hidden" name="org_id" value={ org.ID } />
 						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
 							Request Membership

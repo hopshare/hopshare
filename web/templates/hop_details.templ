@@ -123,6 +123,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 							hx-swap="none"
 							class="space-y-2"
 						>
+							@CSRFField()
 							<input type="hidden" name="org_id" value={ org.ID } />
 							<input type="hidden" name="hop_id" value={ hop.ID } />
 							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
@@ -235,6 +236,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 		if canOfferHelp {
 			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
 				<form method="POST" action="/hops/offer">
+					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
@@ -285,6 +287,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				</div>
 				if canUpload {
 					<form method="POST" action="/hops/images/upload" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+						@CSRFField()
 						<input type="hidden" name="org_id" value={ org.ID } />
 						<input type="hidden" name="hop_id" value={ hop.ID } />
 						<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
@@ -310,6 +313,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 							</button>
 							if canUpload {
 								<form method="POST" action="/hops/images/delete">
+									@CSRFField()
 									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="hop_id" value={ hop.ID } />
 									<input type="hidden" name="image_id" value={ img.ID } />
@@ -376,6 +380,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 
 			if canComment {
 				<form method="POST" action="/hops/comments/create" class="space-y-3">
+					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />

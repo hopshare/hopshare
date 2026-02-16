@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -37,8 +38,12 @@ type Middleware func(HandlerFunc) HandlerFunc
 type contextKey string
 
 const userContextKey contextKey = "currentUser"
+const csrfContextKey contextKey = "csrfToken"
 
 const postAuthRedirectCookieName = "hopshare_post_auth_redirect"
+const csrfCookieName = "hopshare_csrf"
+const csrfHeaderName = "X-CSRF-Token"
+const csrfMaxRequestBodyBytes = 21 << 20
 
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
@@ -91,7 +96,7 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/organizations/manage/member/remove", srv.handleRemoveMember, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations/manage/member/role", srv.handleChangeMemberRole, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/organizations/request", srv.handleRequestMembership, srv.requireAuth(), srv.requireMethod(http.MethodPost))
-	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost, http.MethodGet))
+	srv.register(mux, "/logout", srv.handleLogout, srv.requireMethod(http.MethodPost))
 	mux.HandleFunc("/healthz", handleHealthz)
 
 	return mux
@@ -620,7 +625,8 @@ func (s *Server) currentUserEmailPtr(r *http.Request) *string {
 
 func render(w http.ResponseWriter, r *http.Request, component templ.Component) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := component.Render(r.Context(), w); err != nil {
+	ctx := templates.WithCSRFToken(r.Context(), csrfTokenFromContext(r.Context()))
+	if err := component.Render(ctx, w); err != nil {
 		log.Printf("templ render error: %v", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
@@ -632,8 +638,9 @@ func (s *Server) renderUnauthorized(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) register(mux *http.ServeMux, path string, h HandlerFunc, middlewares ...Middleware) {
-	// withUser runs first so downstream middleware/handlers can rely on context user.
+	// withUser runs first. withCSRF runs after route guards (e.g. method/auth).
 	all := append([]Middleware{s.withUser()}, middlewares...)
+	all = append(all, s.withCSRF())
 	mux.HandleFunc(path, chain(h, all...))
 }
 
@@ -691,6 +698,94 @@ func (s *Server) requireMethod(methods ...string) Middleware {
 			next(w, r)
 		}
 	}
+}
+
+func (s *Server) withCSRF() Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			token := ensureCSRFCookie(w, r)
+			r = r.WithContext(context.WithValue(r.Context(), csrfContextKey, token))
+
+			if r.Method == http.MethodPost {
+				r.Body = http.MaxBytesReader(w, r.Body, csrfMaxRequestBodyBytes)
+				if isMultipartRequest(r) {
+					if err := r.ParseMultipartForm(csrfMaxRequestBodyBytes); err != nil {
+						http.Error(w, "invalid form", http.StatusBadRequest)
+						return
+					}
+				} else {
+					if err := r.ParseForm(); err != nil {
+						http.Error(w, "invalid form", http.StatusBadRequest)
+						return
+					}
+				}
+
+				submitted := strings.TrimSpace(r.FormValue(templates.CSRFFieldName))
+				if submitted == "" {
+					submitted = strings.TrimSpace(r.Header.Get(csrfHeaderName))
+				}
+				if !csrfTokensEqual(token, submitted) {
+					http.Error(w, "forbidden", http.StatusForbidden)
+					return
+				}
+			}
+
+			next(w, r)
+		}
+	}
+}
+
+func isMultipartRequest(r *http.Request) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type"))), "multipart/form-data")
+}
+
+func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
+	if c, err := r.Cookie(csrfCookieName); err == nil {
+		token := strings.TrimSpace(c.Value)
+		if isValidCSRFToken(token) {
+			return token
+		}
+	}
+
+	token := randomToken()
+	http.SetCookie(w, &http.Cookie{
+		Name:     csrfCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return token
+}
+
+func csrfTokenFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	token, _ := ctx.Value(csrfContextKey).(string)
+	return token
+}
+
+func isValidCSRFToken(token string) bool {
+	if len(token) != 64 {
+		return false
+	}
+	for i := 0; i < len(token); i++ {
+		b := token[i]
+		isDigit := b >= '0' && b <= '9'
+		isLowerHex := b >= 'a' && b <= 'f'
+		if !isDigit && !isLowerHex {
+			return false
+		}
+	}
+	return true
+}
+
+func csrfTokensEqual(expected, submitted string) bool {
+	if !isValidCSRFToken(expected) || !isValidCSRFToken(submitted) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(submitted)) == 1
 }
 
 func currentUserFromContext(ctx context.Context) *types.Member {

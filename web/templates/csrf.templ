@@ -1,0 +1,5 @@
+package templates
+
+templ CSRFField() {
+	<input type="hidden" name={ CSRFFieldName } value={ CSRFToken(ctx) } />
+}

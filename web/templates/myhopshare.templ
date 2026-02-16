@@ -573,6 +573,7 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 			</button>
 			if hop.Status == types.HopStatusOpen {
 				<form method="POST" action="/hops/offer">
+					@CSRFField()
 					<input type="hidden" name="org_id" value={ orgID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					if hop.HasPendingOffer {
@@ -690,6 +691,7 @@ templ HopModal(orgID int64) {
 				</div>
 
 				<form method="POST" action="/hops/create">
+					@CSRFField()
 					<input type="hidden" name="org_id" value={ orgID } />
 					<div class="p-6 sm:p-7 space-y-4">
 						<div class="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3">
@@ -776,6 +778,7 @@ templ CompleteModal(orgID int64, redirectTo string) {
 				</div>
 
 				<form method="POST" action="/hops/complete">
+					@CSRFField()
 					<input type="hidden" name="org_id" value={ orgID } />
 					<input type="hidden" name="redirect_to" value={ redirectTo } />
 					<input type="hidden" name="hop_id" x-bind:value="completeHopID" />

@@ -17,6 +17,7 @@ templ ResetPasswordBody(token string, errorMsg string, successMsg string) {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
 		<form class="space-y-4" method="POST" action="/reset-password">
+			@CSRFField()
 			<input type="hidden" name="token" value={ token } />
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="new_password">New password</label>

@@ -19,6 +19,7 @@ templ LoginBody(errorMsg string, successMsg string, next string) {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
 		<form class="space-y-4" method="POST" action="/login">
+			@CSRFField()
 			if next != "" {
 				<input type="hidden" name="next" value={ next } />
 			}

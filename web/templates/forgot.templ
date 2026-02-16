@@ -19,6 +19,7 @@ templ ForgotPasswordBody(sent bool, demoLink string) {
 			</div>
 		}
 		<form class="space-y-4" method="POST" action="/forgot-password">
+			@CSRFField()
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="email">Email</label>
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" required />
