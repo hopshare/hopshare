@@ -1,0 +1,384 @@
+package http_test
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
+	"hopshare/internal/service"
+	"hopshare/internal/types"
+)
+
+const adminOverviewLeaderboardLimit = 5
+
+type adminLeaderboardExpectation struct {
+	OrganizationID      int64
+	OrganizationEnabled bool
+	Value               int
+	EnabledUsers        int
+	DisabledUsers       int
+}
+
+type adminOverviewExpectation struct {
+	OrganizationEnabledCount  int
+	OrganizationDisabledCount int
+	UserEnabledCount          int
+	UserDisabledCount         int
+	HopStatusCounts           map[string]int
+	TotalHoursExchanged       int
+	TopByHopsCreated          []adminLeaderboardExpectation
+	TopByHoursExchanged       []adminLeaderboardExpectation
+	TopByUsers                []adminLeaderboardExpectation
+}
+
+func TestAdminOverviewHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-01 GET /admin app overview renders global metrics and leaderboards", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_overview_admin", suffix)
+		ownerEnabled := createSeededMember(t, ctx, db, "admin_overview_owner_enabled", suffix)
+		ownerDisabled := createSeededMember(t, ctx, db, "admin_overview_owner_disabled", suffix)
+		helperEnabled := createSeededMember(t, ctx, db, "admin_overview_helper_enabled", suffix)
+		helperDisabled := createSeededMember(t, ctx, db, "admin_overview_helper_disabled", suffix)
+
+		orgEnabled, err := service.CreateOrganization(ctx, db, "Admin Overview Enabled Org "+suffix, "City", "ST", "Enabled org for admin integration coverage.", ownerEnabled.Member.ID)
+		if err != nil {
+			t.Fatalf("create enabled org: %v", err)
+		}
+		orgDisabled, err := service.CreateOrganization(ctx, db, "Admin Overview Disabled Org "+suffix, "City", "ST", "Disabled org for admin integration coverage.", ownerDisabled.Member.ID)
+		if err != nil {
+			t.Fatalf("create disabled org: %v", err)
+		}
+
+		approveMemberForOrganization(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, helperEnabled.Member.ID)
+		approveMemberForOrganization(t, ctx, db, orgDisabled.ID, ownerDisabled.Member.ID, helperEnabled.Member.ID)
+		approveMemberForOrganization(t, ctx, db, orgDisabled.ID, ownerDisabled.Member.ID, helperDisabled.Member.ID)
+
+		for i := 0; i < 5; i++ {
+			role := fmt.Sprintf("admin_overview_extra_%d", i)
+			extra := createSeededMember(t, ctx, db, role, suffix)
+			approveMemberForOrganization(t, ctx, db, orgDisabled.ID, ownerDisabled.Member.ID, extra.Member.ID)
+			if i%2 == 0 {
+				if _, err := db.ExecContext(ctx, `UPDATE members SET enabled = FALSE WHERE id = $1`, extra.Member.ID); err != nil {
+					t.Fatalf("disable extra member %d: %v", extra.Member.ID, err)
+				}
+			}
+		}
+
+		if _, err := db.ExecContext(ctx, `UPDATE organizations SET enabled = FALSE WHERE id = $1`, orgDisabled.ID); err != nil {
+			t.Fatalf("disable org %d: %v", orgDisabled.ID, err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE members SET enabled = FALSE WHERE id = $1`, ownerDisabled.Member.ID); err != nil {
+			t.Fatalf("disable owner member %d: %v", ownerDisabled.Member.ID, err)
+		}
+		if _, err := db.ExecContext(ctx, `UPDATE members SET enabled = FALSE WHERE id = $1`, helperDisabled.Member.ID); err != nil {
+			t.Fatalf("disable helper member %d: %v", helperDisabled.Member.ID, err)
+		}
+
+		openHop := createAdminOverviewHop(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, "Admin Overview Open Hop "+suffix, types.HopNeededByAnytime, nil)
+		_ = openHop
+
+		acceptedHop := createAdminOverviewHop(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, "Admin Overview Accepted Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, orgEnabled.ID, acceptedHop.ID, helperEnabled.Member.ID); err != nil {
+			t.Fatalf("accept hop %d: %v", acceptedHop.ID, err)
+		}
+
+		canceledHop := createAdminOverviewHop(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, "Admin Overview Canceled Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.CancelHop(ctx, db, orgEnabled.ID, canceledHop.ID, ownerEnabled.Member.ID); err != nil {
+			t.Fatalf("cancel hop %d: %v", canceledHop.ID, err)
+		}
+
+		expiredDate := time.Now().UTC().AddDate(0, 0, -3)
+		_ = createAdminOverviewHop(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, "Admin Overview Expired Hop "+suffix, types.HopNeededByOn, &expiredDate)
+		if _, err := service.ExpireHops(ctx, db, orgEnabled.ID, time.Now().UTC()); err != nil {
+			t.Fatalf("expire hops for org %d: %v", orgEnabled.ID, err)
+		}
+
+		completedHop := createAdminOverviewHop(t, ctx, db, orgEnabled.ID, ownerEnabled.Member.ID, "Admin Overview Completed Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, orgEnabled.ID, completedHop.ID, helperEnabled.Member.ID); err != nil {
+			t.Fatalf("accept hop %d before completion: %v", completedHop.ID, err)
+		}
+		if err := service.CompleteHop(ctx, db, service.CompleteHopParams{
+			OrganizationID: orgEnabled.ID,
+			HopID:          completedHop.ID,
+			CompletedBy:    ownerEnabled.Member.ID,
+			Comment:        "completed for admin overview integration test",
+			CompletedHours: 6,
+		}); err != nil {
+			t.Fatalf("complete hop %d: %v", completedHop.ID, err)
+		}
+
+		if _, err := db.ExecContext(ctx, `
+			WITH inserted AS (
+				INSERT INTO hops (
+					organization_id,
+					created_by,
+					title,
+					details,
+					estimated_hours,
+					is_private,
+					needed_by_kind,
+					needed_by_date,
+					expires_at,
+					status,
+					accepted_by,
+					accepted_at,
+					completed_by,
+					completed_at,
+					completed_hours,
+					completion_comment
+				)
+				SELECT
+					$1,
+					$2,
+					'Admin Overview Bulk Completed Hop ' || seq,
+					NULL,
+					2,
+					FALSE,
+					$3,
+					NULL,
+					NULL,
+					$4,
+					$5,
+					NOW(),
+					$2,
+					NOW(),
+					8,
+					'bulk completed hop for admin overview integration test'
+				FROM generate_series(1, 20) AS seq
+				RETURNING id
+			)
+			INSERT INTO hop_transactions (organization_id, hop_id, from_member_id, to_member_id, hours)
+			SELECT $1, id, $2, $5, 8
+			FROM inserted
+		`, orgDisabled.ID, ownerDisabled.Member.ID, types.HopNeededByAnytime, types.HopStatusCompleted, helperEnabled.Member.ID); err != nil {
+			t.Fatalf("seed bulk completed hops for disabled org: %v", err)
+		}
+
+		expected := queryAdminOverviewExpectation(t, ctx, db)
+
+		server := newHTTPServerWithAdmins(t, db, []string{" " + admin.Member.Username + " "})
+		actor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		actor.Login()
+
+		body := requireStatus(t, actor.Get("/admin"), http.StatusOK)
+		requireBodyContains(t, body, "App-Wide Metrics")
+		requireBodyContains(t, body, "Leaderboards")
+		requireBodyContains(t, body, `href="/admin?tab=app"`)
+
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-enabled-count">%d</span>`, expected.OrganizationEnabledCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-disabled-count">%d</span>`, expected.OrganizationDisabledCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-enabled-count">%d</span>`, expected.UserEnabledCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-disabled-count">%d</span>`, expected.UserDisabledCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-total-hours">%d</p>`, expected.TotalHoursExchanged))
+
+		hopStatuses := []string{
+			types.HopStatusOpen,
+			types.HopStatusAccepted,
+			types.HopStatusCompleted,
+			types.HopStatusCanceled,
+			types.HopStatusExpired,
+		}
+		for _, status := range hopStatuses {
+			requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-hop-status-count-%s">%d</span>`, status, expected.HopStatusCounts[status]))
+		}
+
+		assertAdminLeaderboardByValue(t, body, "hops", expected.TopByHopsCreated)
+		assertAdminLeaderboardByValue(t, body, "hours", expected.TopByHoursExchanged)
+		assertAdminLeaderboardByUsers(t, body, expected.TopByUsers)
+	})
+}
+
+func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
+	t.Helper()
+
+	hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+		OrganizationID: orgID,
+		MemberID:       memberID,
+		Title:          title,
+		Details:        "admin overview integration test hop",
+		EstimatedHours: 2,
+		NeededByKind:   neededByKind,
+		NeededByDate:   neededByDate,
+		IsPrivate:      false,
+	})
+	if err != nil {
+		t.Fatalf("create hop %q: %v", title, err)
+	}
+	return hop
+}
+
+func queryAdminOverviewExpectation(t *testing.T, ctx context.Context, db *sql.DB) adminOverviewExpectation {
+	t.Helper()
+
+	var expected adminOverviewExpectation
+	expected.HopStatusCounts = make(map[string]int)
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN enabled THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN enabled THEN 0 ELSE 1 END), 0)
+		FROM organizations
+	`).Scan(&expected.OrganizationEnabledCount, &expected.OrganizationDisabledCount); err != nil {
+		t.Fatalf("query organization enabled/disabled counts: %v", err)
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN enabled THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN enabled THEN 0 ELSE 1 END), 0)
+		FROM members
+	`).Scan(&expected.UserEnabledCount, &expected.UserDisabledCount); err != nil {
+		t.Fatalf("query user enabled/disabled counts: %v", err)
+	}
+
+	hopRows, err := db.QueryContext(ctx, `
+		SELECT status, COUNT(*)
+		FROM hops
+		GROUP BY status
+	`)
+	if err != nil {
+		t.Fatalf("query hop counts by status: %v", err)
+	}
+	for hopRows.Next() {
+		var status string
+		var count int
+		if err := hopRows.Scan(&status, &count); err != nil {
+			hopRows.Close()
+			t.Fatalf("scan hop counts by status: %v", err)
+		}
+		expected.HopStatusCounts[status] = count
+	}
+	if err := hopRows.Err(); err != nil {
+		hopRows.Close()
+		t.Fatalf("iterate hop counts by status: %v", err)
+	}
+	if err := hopRows.Close(); err != nil {
+		t.Fatalf("close hop counts rows: %v", err)
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(hours), 0)
+		FROM hop_transactions
+	`).Scan(&expected.TotalHoursExchanged); err != nil {
+		t.Fatalf("query total exchanged hours: %v", err)
+	}
+
+	expected.TopByHopsCreated = queryAdminLeaderboardByValueExpectation(t, ctx, db, `
+		SELECT
+			o.id,
+			o.enabled,
+			COUNT(h.id) AS metric_value
+		FROM organizations o
+		LEFT JOIN hops h ON h.organization_id = o.id
+		GROUP BY o.id, o.name, o.enabled
+		ORDER BY metric_value DESC, o.name ASC
+		LIMIT $1
+	`)
+
+	expected.TopByHoursExchanged = queryAdminLeaderboardByValueExpectation(t, ctx, db, `
+		SELECT
+			o.id,
+			o.enabled,
+			COALESCE(SUM(ht.hours), 0) AS metric_value
+		FROM organizations o
+		LEFT JOIN hop_transactions ht ON ht.organization_id = o.id
+		GROUP BY o.id, o.name, o.enabled
+		ORDER BY metric_value DESC, o.name ASC
+		LIMIT $1
+	`)
+
+	userRows, err := db.QueryContext(ctx, `
+		SELECT
+			o.id,
+			o.enabled,
+			COALESCE(COUNT(CASE WHEN om.member_id IS NOT NULL AND om.left_at IS NULL THEN 1 END), 0) AS total_users,
+			COALESCE(COUNT(CASE WHEN om.member_id IS NOT NULL AND om.left_at IS NULL AND m.enabled THEN 1 END), 0) AS enabled_users,
+			COALESCE(COUNT(CASE WHEN om.member_id IS NOT NULL AND om.left_at IS NULL AND NOT m.enabled THEN 1 END), 0) AS disabled_users
+		FROM organizations o
+		LEFT JOIN organization_memberships om ON om.organization_id = o.id
+		LEFT JOIN members m ON m.id = om.member_id
+		GROUP BY o.id, o.name, o.enabled
+		ORDER BY total_users DESC, o.name ASC
+		LIMIT $1
+	`, adminOverviewLeaderboardLimit)
+	if err != nil {
+		t.Fatalf("query leaderboard by users: %v", err)
+	}
+	for userRows.Next() {
+		var row adminLeaderboardExpectation
+		if err := userRows.Scan(&row.OrganizationID, &row.OrganizationEnabled, &row.Value, &row.EnabledUsers, &row.DisabledUsers); err != nil {
+			userRows.Close()
+			t.Fatalf("scan leaderboard by users: %v", err)
+		}
+		expected.TopByUsers = append(expected.TopByUsers, row)
+	}
+	if err := userRows.Err(); err != nil {
+		userRows.Close()
+		t.Fatalf("iterate leaderboard by users: %v", err)
+	}
+	if err := userRows.Close(); err != nil {
+		t.Fatalf("close leaderboard by users rows: %v", err)
+	}
+
+	return expected
+}
+
+func queryAdminLeaderboardByValueExpectation(t *testing.T, ctx context.Context, db *sql.DB, query string) []adminLeaderboardExpectation {
+	t.Helper()
+
+	rows, err := db.QueryContext(ctx, query, adminOverviewLeaderboardLimit)
+	if err != nil {
+		t.Fatalf("query admin leaderboard by value: %v", err)
+	}
+	defer rows.Close()
+
+	var out []adminLeaderboardExpectation
+	for rows.Next() {
+		var row adminLeaderboardExpectation
+		if err := rows.Scan(&row.OrganizationID, &row.OrganizationEnabled, &row.Value); err != nil {
+			t.Fatalf("scan admin leaderboard by value: %v", err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate admin leaderboard by value: %v", err)
+	}
+	return out
+}
+
+func assertAdminLeaderboardByValue(t *testing.T, body string, keyPrefix string, rows []adminLeaderboardExpectation) {
+	t.Helper()
+
+	for _, row := range rows {
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-%s-org-%d"`, keyPrefix, row.OrganizationID))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-%s-value-%d">%d</span>`, keyPrefix, row.OrganizationID, row.Value))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-%s-org-%d" data-org-enabled="%s"`, keyPrefix, row.OrganizationID, boolString(row.OrganizationEnabled)))
+	}
+}
+
+func assertAdminLeaderboardByUsers(t *testing.T, body string, rows []adminLeaderboardExpectation) {
+	t.Helper()
+
+	for _, row := range rows {
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-users-org-%d"`, row.OrganizationID))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-users-org-%d" data-org-enabled="%s"`, row.OrganizationID, boolString(row.OrganizationEnabled)))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-users-value-%d">%d</span>`, row.OrganizationID, row.Value))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-users-enabled-%d">%d</span>`, row.OrganizationID, row.EnabledUsers))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-leaderboard-users-disabled-%d">%d</span>`, row.OrganizationID, row.DisabledUsers))
+	}
+}
+
+func boolString(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}

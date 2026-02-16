@@ -198,3 +198,42 @@ type MemberHopStats struct {
 	HopsFulfilled      int
 	LastHopFulfilledAt *time.Time
 }
+
+type AdminEnabledDisabledCounts struct {
+	Enabled  int
+	Disabled int
+}
+
+func (c AdminEnabledDisabledCounts) Total() int {
+	return c.Enabled + c.Disabled
+}
+
+type AdminHopStatusCount struct {
+	Status string
+	Count  int
+}
+
+type AdminOrganizationLeaderboardEntry struct {
+	OrganizationID      int64
+	OrganizationName    string
+	OrganizationURLName string
+	OrganizationEnabled bool
+	Value               int
+	EnabledUsers        int
+	DisabledUsers       int
+}
+
+func (e AdminOrganizationLeaderboardEntry) TotalUsers() int {
+	return e.EnabledUsers + e.DisabledUsers
+}
+
+type AdminAppOverview struct {
+	OrganizationCounts      AdminEnabledDisabledCounts
+	UserCounts              AdminEnabledDisabledCounts
+	HopsByStatus            []AdminHopStatusCount
+	TotalHoursExchanged     int
+	TopOrgsByHopsCreated    []AdminOrganizationLeaderboardEntry
+	TopOrgsByHoursExchanged []AdminOrganizationLeaderboardEntry
+	TopOrgsByUsers          []AdminOrganizationLeaderboardEntry
+	LeaderboardLimit        int
+}

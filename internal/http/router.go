@@ -140,10 +140,6 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Help(s.currentUserEmailPtr(r)))
 }
 
-func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
-	render(w, r, templates.Admin(s.currentUserEmailPtr(r)))
-}
-
 func (s *Server) handleTerms(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Terms(s.currentUserEmailPtr(r)))
 }

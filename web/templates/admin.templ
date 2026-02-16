@@ -1,17 +1,223 @@
 package templates
 
-templ Admin(userEmail *string) {
-	@Base("hopShare | Admin", userEmail, AdminBody())
+import (
+	"strconv"
+	"strings"
+
+	"hopshare/internal/types"
+)
+
+templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview) {
+	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview))
 }
 
-templ AdminBody() {
-	<section class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-4">
+templ AdminBody(activeTab string, overview types.AdminAppOverview) {
+	<div class="space-y-6">
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+			<div class="space-y-2">
+				<h1 class="text-2xl font-bold text-slate-900">Admin</h1>
+				<p class="text-slate-600">Cross-organization visibility into app health, usage, and participation.</p>
+			</div>
+			<div class="border-b border-slate-200">
+				<nav class="-mb-px flex gap-2" aria-label="Admin tabs">
+					@AdminTabLink("App Overview", "/admin?tab=app", activeTab == "app")
+				</nav>
+			</div>
+		</section>
+		if activeTab == "app" {
+			@AdminAppOverviewTab(overview)
+		}
+	</div>
+}
+
+templ AdminTabLink(label string, href string, active bool) {
+	<a
+		href={ href }
+		class={ adminTabLinkClass(active) }
+	>
+		{ label }
+	</a>
+}
+
+templ AdminAppOverviewTab(overview types.AdminAppOverview) {
+	<div class="space-y-6">
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-slate-900">App-Wide Metrics</h2>
+				<p class="text-sm text-slate-600">Includes enabled and disabled users and organizations.</p>
+			</div>
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+				@AdminEnabledDisabledCard("Organizations", overview.OrganizationCounts.Enabled, overview.OrganizationCounts.Disabled, "admin-org-enabled-count", "admin-org-disabled-count")
+				@AdminEnabledDisabledCard("Users", overview.UserCounts.Enabled, overview.UserCounts.Disabled, "admin-user-enabled-count", "admin-user-disabled-count")
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Exchanged Hours</p>
+					<p class="text-3xl font-bold text-slate-900" data-testid="admin-total-hours">{ overview.TotalHoursExchanged }</p>
+					<p class="text-xs text-slate-500">Sum of all completed hop transactions.</p>
+				</div>
+			</div>
+			<div class="rounded-lg border border-slate-200 p-4">
+				<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hops By Status</p>
+				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+					for _, statusCount := range overview.HopsByStatus {
+						<div class="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
+							<span class="text-sm font-medium text-slate-700">{ adminHopStatusLabel(statusCount.Status) }</span>
+							<span class="text-base font-semibold text-slate-900" data-testid={ "admin-hop-status-count-" + statusCount.Status }>{ statusCount.Count }</span>
+						</div>
+					}
+				</div>
+			</div>
+		</section>
+
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-slate-900">Leaderboards</h2>
+				<p class="text-sm text-slate-600">Organization rows include enabled/disabled status.</p>
+			</div>
+			<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+				@AdminLeaderboardCardByValue("Top organizations by hops created", "hops", "Hops", overview.TopOrgsByHopsCreated)
+				@AdminLeaderboardCardByValue("Top organizations by hours exchanged", "hours", "Hours", overview.TopOrgsByHoursExchanged)
+				@AdminLeaderboardCardByUsers(overview.TopOrgsByUsers)
+			</div>
+		</section>
+	</div>
+}
+
+templ AdminEnabledDisabledCard(title string, enabledCount int, disabledCount int, enabledTestID string, disabledTestID string) {
+	<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+		<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{ title }</p>
 		<div class="space-y-2">
-			<h1 class="text-2xl font-bold text-slate-900">Admin</h1>
-			<p class="text-slate-600">Admin tools are not enabled yet. This page is a read-only placeholder.</p>
+			<div class="flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+				<span class="text-sm font-medium text-emerald-900">Enabled</span>
+				<span class="text-base font-semibold text-emerald-900" data-testid={ enabledTestID }>{ enabledCount }</span>
+			</div>
+			<div class="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2">
+				<span class="text-sm font-medium text-slate-700">Disabled</span>
+				<span class="text-base font-semibold text-slate-900" data-testid={ disabledTestID }>{ disabledCount }</span>
+			</div>
 		</div>
-		<div class="pt-2">
-			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
+	</div>
+}
+
+templ AdminLeaderboardCardByValue(title string, keyPrefix string, valueLabel string, rows []types.AdminOrganizationLeaderboardEntry) {
+	<div class="rounded-lg border border-slate-200">
+		<div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
+			<h3 class="text-sm font-semibold text-slate-900">{ title }</h3>
 		</div>
-	</section>
+		if len(rows) == 0 {
+			<p class="p-4 text-sm text-slate-500">No organizations found.</p>
+		} else {
+			<ul class="divide-y divide-slate-200">
+				for _, row := range rows {
+					<li
+						class="px-4 py-3 space-y-2"
+						data-testid={ "admin-leaderboard-" + keyPrefix + "-org-" + strconv.FormatInt(row.OrganizationID, 10) }
+						data-org-enabled={ adminBoolString(row.OrganizationEnabled) }
+					>
+						<div class="flex items-center justify-between gap-3">
+							<a class="text-sm font-semibold text-slate-900 underline hover:text-sky-700" href={ "/organization/" + row.OrganizationURLName }>{ row.OrganizationName }</a>
+							@AdminEnabledBadge(row.OrganizationEnabled)
+						</div>
+						<div class="flex items-center justify-between text-sm text-slate-600">
+							<span>{ valueLabel }</span>
+							<span class="font-semibold text-slate-900" data-testid={ "admin-leaderboard-" + keyPrefix + "-value-" + strconv.FormatInt(row.OrganizationID, 10) }>{ row.Value }</span>
+						</div>
+					</li>
+				}
+			</ul>
+		}
+	</div>
+}
+
+templ AdminLeaderboardCardByUsers(rows []types.AdminOrganizationLeaderboardEntry) {
+	<div class="rounded-lg border border-slate-200">
+		<div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
+			<h3 class="text-sm font-semibold text-slate-900">Top organizations by users</h3>
+		</div>
+		if len(rows) == 0 {
+			<p class="p-4 text-sm text-slate-500">No organizations found.</p>
+		} else {
+			<ul class="divide-y divide-slate-200">
+				for _, row := range rows {
+					<li
+						class="px-4 py-3 space-y-2"
+						data-testid={ "admin-leaderboard-users-org-" + strconv.FormatInt(row.OrganizationID, 10) }
+						data-org-enabled={ adminBoolString(row.OrganizationEnabled) }
+					>
+						<div class="flex items-center justify-between gap-3">
+							<a class="text-sm font-semibold text-slate-900 underline hover:text-sky-700" href={ "/organization/" + row.OrganizationURLName }>{ row.OrganizationName }</a>
+							@AdminEnabledBadge(row.OrganizationEnabled)
+						</div>
+						<div class="flex items-center justify-between text-sm text-slate-600">
+							<span>Users</span>
+							<span class="font-semibold text-slate-900" data-testid={ "admin-leaderboard-users-value-" + strconv.FormatInt(row.OrganizationID, 10) }>{ row.TotalUsers() }</span>
+						</div>
+						<div class="flex items-center justify-between text-xs text-slate-600">
+							<span>Enabled users</span>
+							<span data-testid={ "admin-leaderboard-users-enabled-" + strconv.FormatInt(row.OrganizationID, 10) }>{ row.EnabledUsers }</span>
+						</div>
+						<div class="flex items-center justify-between text-xs text-slate-600">
+							<span>Disabled users</span>
+							<span data-testid={ "admin-leaderboard-users-disabled-" + strconv.FormatInt(row.OrganizationID, 10) }>{ row.DisabledUsers }</span>
+						</div>
+					</li>
+				}
+			</ul>
+		}
+	</div>
+}
+
+templ AdminEnabledBadge(enabled bool) {
+	<span
+		class={ adminEnabledBadgeClass(enabled) }
+	>
+		if enabled {
+			Enabled
+		} else {
+			Disabled
+		}
+	</span>
+}
+
+func adminHopStatusLabel(status string) string {
+	switch status {
+	case types.HopStatusOpen:
+		return "Open"
+	case types.HopStatusAccepted:
+		return "Accepted"
+	case types.HopStatusCompleted:
+		return "Completed"
+	case types.HopStatusCanceled:
+		return "Canceled"
+	case types.HopStatusExpired:
+		return "Expired"
+	default:
+		raw := strings.TrimSpace(strings.ReplaceAll(status, "_", " "))
+		if raw == "" {
+			return "Unknown"
+		}
+		return strings.ToUpper(raw[:1]) + raw[1:]
+	}
+}
+
+func adminBoolString(v bool) string {
+	if v {
+		return "true"
+	}
+	return "false"
+}
+
+func adminTabLinkClass(active bool) string {
+	base := "inline-flex items-center border-b-2 px-3 py-2 text-sm font-semibold transition "
+	if active {
+		return base + "border-sky-600 text-sky-700"
+	}
+	return base + "border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900"
+}
+
+func adminEnabledBadgeClass(enabled bool) string {
+	base := "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold "
+	if enabled {
+		return base + "bg-emerald-100 text-emerald-800"
+	}
+	return base + "bg-slate-200 text-slate-700"
 }

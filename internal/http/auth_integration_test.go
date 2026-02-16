@@ -352,7 +352,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		adminBody := requireStatus(t, actor.Get("/admin"), http.StatusOK)
-		requireBodyContains(t, adminBody, "Admin tools are not enabled yet.")
+		requireBodyContains(t, adminBody, "App-Wide Metrics")
 		homeBody := requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
 		requireBodyContains(t, homeBody, `href="/admin"`)
 	})
