@@ -446,7 +446,47 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 		return err
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin cancel hop: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var createdBy int64
+	var acceptedBy sql.NullInt64
+	var status string
+	var title string
+	var cancelerName string
+	if err = tx.QueryRowContext(ctx, `
+		SELECT
+			h.created_by,
+			h.accepted_by,
+			h.status,
+			h.title,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.username)
+		FROM hops h
+		JOIN members m ON m.id = h.created_by
+		WHERE h.id = $1 AND h.organization_id = $2
+		FOR UPDATE
+	`, hopID, orgID).Scan(&createdBy, &acceptedBy, &status, &title, &cancelerName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrHopNotFound
+		}
+		return fmt.Errorf("load hop for cancel: %w", err)
+	}
+
+	if createdBy != cancelerID {
+		return ErrHopInvalidState
+	}
+	if status != types.HopStatusOpen && status != types.HopStatusAccepted {
+		return ErrHopInvalidState
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE hops
 		SET status = $1, canceled_by = $2, canceled_at = NOW(), updated_at = NOW()
 		WHERE id = $3 AND organization_id = $4 AND created_by = $2 AND status IN ($5, $6)
@@ -460,6 +500,23 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 	}
 	if affected == 0 {
 		return ErrHopInvalidState
+	}
+
+	if status == types.HopStatusAccepted && acceptedBy.Valid && acceptedBy.Int64 != cancelerID {
+		subject := fmt.Sprintf("%s has canceled their Hop, %s", cancelerName, title)
+		body := fmt.Sprintf(
+			"We wanted to let you know that %s has canceled their Hop titled, %s. Thanks anyway for the offer to help! Why not go check for some other Hops that need help?",
+			cancelerName,
+			title,
+		)
+		senderID := cancelerID
+		if err = insertMessage(ctx, tx, acceptedBy.Int64, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit cancel hop: %w", err)
 	}
 	return nil
 }

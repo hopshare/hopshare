@@ -15,7 +15,6 @@
 ## Bugs
 
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
-* Don't let the "Helper" who marks the Hop complete be allowed to set the number of hours (only the requester)
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
@@ -28,8 +27,6 @@
 * Header
 
 * Hop Detail Page
-    * If Hop is Accepted, add the "Mark Complete" button just like on My Hops summary page
-    * If an Accepted Hop is Canceled, send a message to the User who was going to help letting them know.
 
 * My HopShare Dashboard
     * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization

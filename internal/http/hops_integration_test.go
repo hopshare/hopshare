@@ -208,6 +208,37 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
 		requireQueryValue(t, loc, "success", "Hop canceled.")
+
+		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
+		if ownerName == "" {
+			ownerName = members["owner"].Member.Username
+		}
+		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
+		wantBody := "We wanted to let you know that " + ownerName + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
+
+		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("list helper messages: %v", err)
+		}
+
+		var cancelNoticeID int64
+		for _, msg := range helperMessages {
+			if msg.Subject == wantSubject {
+				cancelNoticeID = msg.ID
+				break
+			}
+		}
+		if cancelNoticeID == 0 {
+			t.Fatalf("expected helper cancellation message with subject %q", wantSubject)
+		}
+
+		cancelNotice, err := service.GetMessageForMember(ctx, db, cancelNoticeID, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("load helper cancellation message: %v", err)
+		}
+		if cancelNotice.Body != wantBody {
+			t.Fatalf("unexpected helper cancellation body: got %q want %q", cancelNotice.Body, wantBody)
+		}
 	})
 
 	t.Run("HOP-17 cancel by non-creator is rejected", func(t *testing.T) {
