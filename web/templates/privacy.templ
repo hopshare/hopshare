@@ -1,0 +1,72 @@
+package templates
+
+templ Privacy(userEmail *string) {
+	@Base("hopShare | Privacy", userEmail, PrivacyBody())
+}
+
+templ PrivacyBody() {
+	<section class="rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-6">
+		<div class="space-y-2">
+			<h1 class="text-2xl font-bold text-slate-900">Privacy Statement</h1>
+			<p class="text-sm text-slate-500">Last updated: February 16, 2026</p>
+		</div>
+
+		<div class="space-y-3 text-slate-700 leading-relaxed">
+			<p>
+				hopShare does not sell or exchange personal information for third-party marketing or advertising
+				profiling.
+			</p>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">Information We Collect</h2>
+			<ul class="list-disc pl-6 space-y-1 text-slate-700">
+				<li>Account and profile information you provide.</li>
+				<li>Organization, hop, message, and participation data needed to run the service.</li>
+				<li>Basic technical and security logs needed for operations and abuse prevention.</li>
+			</ul>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">How We Use Information</h2>
+			<ul class="list-disc pl-6 space-y-1 text-slate-700">
+				<li>To operate and improve hopShare.</li>
+				<li>To support community coordination, messaging, and safety.</li>
+				<li>To detect misuse, enforce policies, and comply with legal obligations.</li>
+			</ul>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">Sharing of Information</h2>
+			<p class="text-slate-700 leading-relaxed">
+				We do not sell user information. We share information only when needed to provide the service, protect
+				users, comply with law, or with your direction.
+			</p>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">Your Choices and Control</h2>
+			<ul class="list-disc pl-6 space-y-1 text-slate-700">
+				<li>You can update your profile information.</li>
+				<li>You can remove your account and/or your organization at any time.</li>
+				<li>You can contact us to request evidence of deletion of personal information, subject to legal retention needs.</li>
+			</ul>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">Security</h2>
+			<p class="text-slate-700 leading-relaxed">
+				We make reasonable administrative, technical, and operational efforts to protect user information.
+				No security system is perfect, but we work continuously to reduce risk and respond to incidents.
+			</p>
+		</div>
+
+		<div class="space-y-2">
+			<h2 class="text-lg font-semibold text-slate-900">Policy Updates and Contact</h2>
+			<p class="text-slate-700 leading-relaxed">
+				We may update this Privacy Statement as the service evolves. Questions can be sent to
+				<a class="font-semibold text-sky-700 underline hover:text-sky-800" href="mailto:support@hopshare.org">support@hopshare.org</a>.
+			</p>
+		</div>
+	</section>
+}

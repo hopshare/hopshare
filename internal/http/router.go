@@ -56,6 +56,8 @@ func NewRouter(db *sql.DB) http.Handler {
 	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/signup-success", srv.handleSignupSuccess, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/learn-more", srv.handleLearnMore, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/terms", srv.handleTerms, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/privacy", srv.handlePrivacy, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/help", srv.handleHelp, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
@@ -105,6 +107,14 @@ func (s *Server) handleLearnMore(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Help(s.currentUserEmailPtr(r)))
+}
+
+func (s *Server) handleTerms(w http.ResponseWriter, r *http.Request) {
+	render(w, r, templates.Terms(s.currentUserEmailPtr(r)))
+}
+
+func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
+	render(w, r, templates.Privacy(s.currentUserEmailPtr(r)))
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
