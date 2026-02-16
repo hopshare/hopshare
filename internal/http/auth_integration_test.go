@@ -329,6 +329,84 @@ func TestAuthHTTPMatrix(t *testing.T) {
 	})
 }
 
+func TestAuthRateLimitingHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+	const maxRequests = 10
+
+	t.Run("RL-01 login endpoint throttles repeated POST attempts", func(t *testing.T) {
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		for i := 0; i < maxRequests; i++ {
+			resp := anon.PostForm("/login", formKV(
+				"username", "unknown_user",
+				"password", "wrong_password",
+			))
+			if resp.StatusCode == http.StatusTooManyRequests {
+				t.Fatalf("request %d unexpectedly rate-limited", i+1)
+			}
+			_ = requireStatus(t, resp, http.StatusOK)
+		}
+
+		limited := anon.PostForm("/login", formKV(
+			"username", "unknown_user",
+			"password", "wrong_password",
+		))
+		requireStatus(t, limited, http.StatusTooManyRequests)
+		if retry := limited.Header.Get("Retry-After"); retry == "" {
+			t.Fatalf("expected Retry-After header on rate-limited response")
+		}
+	})
+
+	t.Run("RL-02 signup endpoint throttles repeated POST attempts", func(t *testing.T) {
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		for i := 0; i < maxRequests; i++ {
+			resp := anon.PostForm("/signup", formKV(
+				"first_name", "",
+				"last_name", "",
+				"email", "ratelimit_signup_"+uniqueTestSuffix()+"@example.com",
+				"password", "Password123!",
+				"preferred_contact_method", "email",
+			))
+			if resp.StatusCode == http.StatusTooManyRequests {
+				t.Fatalf("request %d unexpectedly rate-limited", i+1)
+			}
+			_ = requireStatus(t, resp, http.StatusOK)
+		}
+
+		limited := anon.PostForm("/signup", formKV(
+			"first_name", "",
+			"last_name", "",
+			"email", "ratelimit_signup_"+uniqueTestSuffix()+"@example.com",
+			"password", "Password123!",
+			"preferred_contact_method", "email",
+		))
+		requireStatus(t, limited, http.StatusTooManyRequests)
+	})
+
+	t.Run("RL-03 forgot-password endpoint throttles repeated POST attempts", func(t *testing.T) {
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		for i := 0; i < maxRequests; i++ {
+			resp := anon.PostForm("/forgot-password", formKV(
+				"email", "ratelimit_forgot_"+uniqueTestSuffix()+"@example.com",
+			))
+			if resp.StatusCode == http.StatusTooManyRequests {
+				t.Fatalf("request %d unexpectedly rate-limited", i+1)
+			}
+			_ = requireStatus(t, resp, http.StatusOK)
+		}
+
+		limited := anon.PostForm("/forgot-password", formKV(
+			"email", "ratelimit_forgot_"+uniqueTestSuffix()+"@example.com",
+		))
+		requireStatus(t, limited, http.StatusTooManyRequests)
+	})
+}
+
 func formKV(kv ...string) url.Values {
 	out := make(url.Values)
 	for i := 0; i+1 < len(kv); i += 2 {

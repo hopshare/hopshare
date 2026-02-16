@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,10 +27,11 @@ import (
 
 // Server bundles dependencies for HTTP handlers.
 type Server struct {
-	db          *sql.DB
-	sessions    *auth.SessionManager
-	resetTokens map[string]int64
-	resetMu     sync.RWMutex
+	db              *sql.DB
+	sessions        *auth.SessionManager
+	resetTokens     map[string]int64
+	resetMu         sync.RWMutex
+	authRateLimiter *fixedWindowLimiter
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request)
@@ -44,6 +46,10 @@ const postAuthRedirectCookieName = "hopshare_post_auth_redirect"
 const csrfCookieName = "hopshare_csrf"
 const csrfHeaderName = "X-CSRF-Token"
 const csrfMaxRequestBodyBytes = 21 << 20
+const authRateLimitWindow = time.Minute
+const authRateLimitMaxRequests = 10
+
+const cspPolicy = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 // NewRouter wires the base HTTP routes.
 func NewRouter(db *sql.DB) http.Handler {
@@ -57,23 +63,24 @@ func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handl
 		sessions = auth.NewSessionManager()
 	}
 	srv := &Server{
-		db:          db,
-		sessions:    sessions,
-		resetTokens: make(map[string]int64),
+		db:              db,
+		sessions:        sessions,
+		resetTokens:     make(map[string]int64),
+		authRateLimiter: newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 	}
 
 	mux := http.NewServeMux()
 	staticFS := http.FileServer(http.Dir("web/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
 	srv.register(mux, "/", srv.handleLanding, srv.requireMethod(http.MethodGet))
-	srv.register(mux, "/login", srv.handleLogin, srv.requireMethod(http.MethodGet, http.MethodPost))
-	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/login", srv.handleLogin, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("login"))
+	srv.register(mux, "/signup", srv.handleSignup, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("signup"))
 	srv.register(mux, "/signup-success", srv.handleSignupSuccess, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/learn-more", srv.handleLearnMore, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/terms", srv.handleTerms, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/privacy", srv.handlePrivacy, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/help", srv.handleHelp, srv.requireAuth(), srv.requireMethod(http.MethodGet))
-	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("forgot-password"))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -647,8 +654,8 @@ func (s *Server) renderUnauthorized(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) register(mux *http.ServeMux, path string, h HandlerFunc, middlewares ...Middleware) {
-	// withUser runs first. withCSRF runs after route guards (e.g. method/auth).
-	all := append([]Middleware{s.withUser()}, middlewares...)
+	// Headers+user run first. CSRF runs after route guards (e.g. method/auth).
+	all := append([]Middleware{s.withSecurityHeaders(), s.withUser()}, middlewares...)
 	all = append(all, s.withCSRF())
 	mux.HandleFunc(path, chain(h, all...))
 }
@@ -678,6 +685,19 @@ func (s *Server) withUser() Middleware {
 	}
 }
 
+func (s *Server) withSecurityHeaders() Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Security-Policy", cspPolicy)
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			next(w, r)
+		}
+	}
+}
+
 func (s *Server) requireAuth() Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -702,6 +722,24 @@ func (s *Server) requireMethod(methods ...string) Middleware {
 			if _, ok := allowed[r.Method]; !ok {
 				w.Header().Set("Allow", allowHeader)
 				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+func (s *Server) rateLimitAuthEndpoint(endpoint string) Middleware {
+	return func(next HandlerFunc) HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPost {
+				next(w, r)
+				return
+			}
+			clientKey := endpoint + "|" + clientIPKey(r)
+			if !s.authRateLimiter.Allow(clientKey) {
+				w.Header().Set("Retry-After", strconv.Itoa(int(authRateLimitWindow/time.Second)))
+				http.Error(w, "too many requests", http.StatusTooManyRequests)
 				return
 			}
 			next(w, r)
@@ -746,6 +784,21 @@ func (s *Server) withCSRF() Middleware {
 
 func isMultipartRequest(r *http.Request) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type"))), "multipart/form-data")
+}
+
+func clientIPKey(r *http.Request) string {
+	if r == nil {
+		return "unknown"
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil && host != "" {
+		return host
+	}
+	remote := strings.TrimSpace(r.RemoteAddr)
+	if remote != "" {
+		return remote
+	}
+	return "unknown"
 }
 
 func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
@@ -795,6 +848,69 @@ func csrfTokensEqual(expected, submitted string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(submitted)) == 1
+}
+
+type fixedWindowLimiter struct {
+	mu     sync.Mutex
+	limit  int
+	window time.Duration
+	now    func() time.Time
+	hits   map[string]fixedWindowCounter
+}
+
+type fixedWindowCounter struct {
+	windowStart time.Time
+	count       int
+}
+
+func newFixedWindowLimiter(limit int, window time.Duration) *fixedWindowLimiter {
+	if limit <= 0 {
+		limit = 1
+	}
+	if window <= 0 {
+		window = time.Minute
+	}
+	return &fixedWindowLimiter{
+		limit:  limit,
+		window: window,
+		now:    time.Now,
+		hits:   make(map[string]fixedWindowCounter),
+	}
+}
+
+func (l *fixedWindowLimiter) Allow(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := l.now().UTC()
+	entry, ok := l.hits[key]
+	if !ok || now.Sub(entry.windowStart) >= l.window {
+		l.hits[key] = fixedWindowCounter{
+			windowStart: now,
+			count:       1,
+		}
+		l.cleanupStale(now)
+		return true
+	}
+
+	if entry.count >= l.limit {
+		return false
+	}
+
+	entry.count++
+	l.hits[key] = entry
+	return true
+}
+
+func (l *fixedWindowLimiter) cleanupStale(now time.Time) {
+	if len(l.hits) < 1024 {
+		return
+	}
+	for key, entry := range l.hits {
+		if now.Sub(entry.windowStart) >= 2*l.window {
+			delete(l.hits, key)
+		}
+	}
 }
 
 func currentUserFromContext(ctx context.Context) *types.Member {
