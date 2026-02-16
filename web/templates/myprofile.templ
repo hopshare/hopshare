@@ -18,7 +18,7 @@ templ MyProfile(email string, member types.Member, orgs []types.MemberOrganizati
 }
 
 templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, successMsg string, errorMsg string) {
-	<div class="space-y-6">
+	<div class="space-y-6" x-data="{ activeTab: 'details' }">
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
@@ -34,7 +34,36 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, succes
 			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
 		</div>
 
-		<div class="grid gap-6 lg:grid-cols-2">
+		<div class="border-b border-slate-200">
+			<nav class="-mb-px flex flex-wrap gap-2 sm:gap-4" aria-label="Profile tabs">
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'details'"
+				>
+					Details
+				</button>
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'organizations' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'organizations'"
+				>
+					Organizations
+				</button>
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'skills'"
+				>
+					Skills
+				</button>
+			</nav>
+		</div>
+
+		<div class="grid gap-6 lg:grid-cols-2" x-show="activeTab === 'details'">
 			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 				<h2 class="text-lg font-semibold text-slate-900">Profile details</h2>
 				<form
@@ -210,76 +239,78 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, succes
 				</form>
 			</section>
 
-			<div class="space-y-6">
-				<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-lg font-semibold text-slate-900">Change password</h2>
-					<form class="mt-4 space-y-4" method="POST" action="/profile">
-						<input type="hidden" name="action" value="password" />
-						<div class="space-y-1">
-							<label class="block text-sm font-semibold text-slate-800" for="current_password">Current password</label>
-							<input
-								class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-								type="password"
-								id="current_password"
-								name="current_password"
-								required
-							/>
-						</div>
-						<div class="space-y-1">
-							<label class="block text-sm font-semibold text-slate-800" for="new_password">New password</label>
-							<input
-								class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-								type="password"
-								id="new_password"
-								name="new_password"
-								required
-							/>
-						</div>
-						<div class="space-y-1">
-							<label class="block text-sm font-semibold text-slate-800" for="confirm_password">Confirm new password</label>
-							<input
-								class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-								type="password"
-								id="confirm_password"
-								name="confirm_password"
-								required
-							/>
-						</div>
-						<button class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400" type="submit">
-							Update password
-						</button>
-					</form>
-				</section>
+			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+				<h2 class="text-lg font-semibold text-slate-900">Change password</h2>
+				<form class="mt-4 space-y-4" method="POST" action="/profile">
+					<input type="hidden" name="action" value="password" />
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="current_password">Current password</label>
+						<input
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+							type="password"
+							id="current_password"
+							name="current_password"
+							required
+						/>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="new_password">New password</label>
+						<input
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+							type="password"
+							id="new_password"
+							name="new_password"
+							required
+						/>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="confirm_password">Confirm new password</label>
+						<input
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+							type="password"
+							id="confirm_password"
+							name="confirm_password"
+							required
+						/>
+					</div>
+					<button class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400" type="submit">
+						Update password
+					</button>
+				</form>
+			</section>
+		</div>
 
-				<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-					<h2 class="text-lg font-semibold text-slate-900">My Organizations</h2>
-					if len(orgs) == 0 {
-						<p class="mt-2 text-sm text-slate-600">You are not associated with any organizations yet.</p>
-					} else {
-						<div class="mt-4 space-y-3">
-							for _, org := range orgs {
-								<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
-									<div class="flex items-center gap-3">
-										<img
-											src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-											alt={ org.Name + " logo" }
-											class="h-11 w-11 rounded bg-white object-contain ring-1 ring-slate-200"
-										/>
-										if org.Role == "owner" {
-											<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) }>{ org.Name }</a>
-										} else {
-											<span class="text-sm font-semibold text-slate-900">{ org.Name }</span>
-										}
-									</div>
-									if org.Role != "owner" {
-										<a class="text-sm font-semibold text-slate-400 hover:text-slate-500" href="#" aria-disabled="true">Leave...</a>
+		<div x-show="activeTab === 'organizations'">
+			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+				<h2 class="text-lg font-semibold text-slate-900">My Organizations</h2>
+				if len(orgs) == 0 {
+					<p class="mt-2 text-sm text-slate-600">You are not associated with any organizations yet.</p>
+				} else {
+					<div class="mt-4 space-y-3">
+						for _, org := range orgs {
+							<div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+								<div class="flex items-center gap-3">
+									<img
+										src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+										alt={ org.Name + " logo" }
+										class="h-11 w-11 rounded bg-white object-contain ring-1 ring-slate-200"
+									/>
+									if org.Role == "owner" {
+										<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) }>{ org.Name }</a>
+									} else {
+										<span class="text-sm font-semibold text-slate-900">{ org.Name }</span>
 									}
 								</div>
-							}
-						</div>
-					}
-				</section>
-			</div>
+								if org.Role != "owner" {
+									<a class="text-sm font-semibold text-slate-400 hover:text-slate-500" href="#" aria-disabled="true">Leave...</a>
+								}
+							</div>
+						}
+					</div>
+				}
+			</section>
 		</div>
+
+		<div x-show="activeTab === 'skills'"></div>
 	</div>
 }

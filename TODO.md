@@ -72,6 +72,8 @@ Change the "My Organization" panel of the "My Profile" page as follows:
 
 ## Later
 
+* New User sign ups- need to have them confirm their emails. So we need an email service after signing up.
+
 * Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
 
 Font Awesome- https://icon-sets.iconify.design/fa7-regular/page-2.html?keyword=font
