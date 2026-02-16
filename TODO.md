@@ -29,6 +29,7 @@
 
 * Hop Detail Page
     * If Hop is Accepted, add the "Mark Complete" button just like on My Hops summary page
+    * If an Accepted Hop is Canceled, send a message to the User who was going to help letting them know.
 
 * My HopShare Dashboard
     * IDEA: Venmo as inspiration- both for individual 'dashboard' but also the 'feed' of activity in an Organization

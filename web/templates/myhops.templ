@@ -43,10 +43,12 @@ templ MyHopsBody(
 			completeHopID: null,
 			completeHopTitle: '',
 			completeHours: '',
-			openComplete(id, title, hours) {
+			completeCanSetHours: false,
+			openComplete(id, title, hours, isRequester) {
 				this.completeHopID = id;
 				this.completeHopTitle = title;
-				this.completeHours = hours ? String(hours) : '';
+				this.completeCanSetHours = Boolean(isRequester);
+				this.completeHours = this.completeCanSetHours && hours ? String(hours) : '';
 				this.completeModalOpen = true;
 			},
 		}"
@@ -171,7 +173,8 @@ templ MyHopRow(orgID int64, hop types.Hop, viewKey string, memberID int64) {
 						data-hop-id={ hop.ID }
 						data-hop-title={ hop.Title }
 						data-hop-hours={ hop.EstimatedHours }
-						x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours))"
+						data-hop-requester={ hop.CreatedBy == memberID }
+						x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours), $el.dataset.hopRequester === 'true')"
 					>
 						Mark complete
 					</button>

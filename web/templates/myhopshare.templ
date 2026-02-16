@@ -22,6 +22,9 @@ templ MyhopShare(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
+	activeAcceptedHop *types.Hop,
+	activeAcceptedViewKey string,
+	memberID int64,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -37,6 +40,9 @@ templ MyhopShare(
 		metrics,
 		memberStats,
 		myHops,
+		activeAcceptedHop,
+		activeAcceptedViewKey,
+		memberID,
 		activityCount,
 		hasPrimary,
 		successMsg,
@@ -54,6 +60,9 @@ templ MyhopShareBody(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
+	activeAcceptedHop *types.Hop,
+	activeAcceptedViewKey string,
+	memberID int64,
 	activityCount int,
 	hasPrimary bool,
 	successMsg string,
@@ -79,6 +88,9 @@ templ MyhopShareBody(
 				metrics,
 				memberStats,
 				myHops,
+				activeAcceptedHop,
+				activeAcceptedViewKey,
+				memberID,
 				activityCount,
 				hasPrimary,
 			)
@@ -120,6 +132,9 @@ templ MyhopShareDashboard(
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
+	activeAcceptedHop *types.Hop,
+	activeAcceptedViewKey string,
+	memberID int64,
 	activityCount int,
 	hasPrimary bool,
 ) {
@@ -132,10 +147,12 @@ templ MyhopShareDashboard(
 			completeHopID: null,
 			completeHopTitle: '',
 			completeHours: '',
-			openComplete(id, title, hours) {
+			completeCanSetHours: false,
+			openComplete(id, title, hours, isRequester) {
 				this.completeHopID = id;
 				this.completeHopTitle = title;
-				this.completeHours = hours ? String(hours) : '';
+				this.completeCanSetHours = Boolean(isRequester);
+				this.completeHours = this.completeCanSetHours && hours ? String(hours) : '';
 				this.completeModalOpen = true;
 			},
 		}"
@@ -213,6 +230,18 @@ templ MyhopShareDashboard(
 					</div>
 				</div>
 			</section>
+
+			if activeAcceptedHop != nil {
+				<section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+					<div class="px-6 py-4 bg-slate-50 space-y-1">
+						<h2 class="text-lg font-bold text-slate-900">Active accepted hop</h2>
+						<p class="text-sm text-slate-600">This hop is currently in progress and ready to complete.</p>
+					</div>
+					<ul class="divide-y divide-slate-200">
+						@MyHopRow(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
+					</ul>
+				</section>
+			}
 
 			<section class="rounded-2xl bg-sky-100 p-8">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -564,7 +593,8 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 					data-hop-id={ hop.ID }
 					data-hop-title={ hop.Title }
 					data-hop-hours={ hop.EstimatedHours }
-					x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours))"
+					data-hop-requester="false"
+					x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours), $el.dataset.hopRequester === 'true')"
 				>
 					Mark complete
 				</button>
@@ -750,7 +780,7 @@ templ CompleteModal(orgID int64, redirectTo string) {
 					<input type="hidden" name="redirect_to" value={ redirectTo } />
 					<input type="hidden" name="hop_id" x-bind:value="completeHopID" />
 					<div class="p-6 sm:p-7 space-y-4">
-						<div class="space-y-1">
+						<div class="space-y-1" x-show="completeCanSetHours">
 							<label class="block text-sm font-semibold text-slate-800" for="complete-hours">How many hours?</label>
 							<select id="complete-hours" name="completed_hours" x-model="completeHours" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
 								<option value="1">1 hour</option>

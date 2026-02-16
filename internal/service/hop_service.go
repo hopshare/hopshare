@@ -528,9 +528,11 @@ func CompleteHop(ctx context.Context, db *sql.DB, p CompleteHopParams) error {
 		return ErrHopForbidden
 	}
 
-	hours := p.CompletedHours
-	if hours <= 0 {
-		hours = estimatedHours
+	// Only the requester can choose awarded hours. For helpers, hours are fixed
+	// to the hop estimate to prevent self-awarded balance inflation.
+	hours := estimatedHours
+	if p.CompletedBy == createdBy && p.CompletedHours > 0 {
+		hours = p.CompletedHours
 	}
 	if hours <= 0 {
 		return ErrMissingField

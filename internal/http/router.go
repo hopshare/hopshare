@@ -515,6 +515,8 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	var metrics types.OrgHopMetrics
 	var memberStats types.MemberHopStats
 	var myHops []types.Hop
+	var activeAcceptedHop *types.Hop
+	activeAcceptedViewKey := "requested"
 	var activityCount int
 
 	if currentOrgID != 0 {
@@ -542,6 +544,23 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			http.Error(w, "could not load hops", http.StatusInternalServerError)
 			return
 		}
+		for i := range myHops {
+			hop := myHops[i]
+			if hop.Status != types.HopStatusAccepted {
+				continue
+			}
+			isRequester := hop.CreatedBy == user.ID
+			isHelper := hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID
+			if !isRequester && !isHelper {
+				continue
+			}
+			hopCopy := hop
+			activeAcceptedHop = &hopCopy
+			if isHelper && !isRequester {
+				activeAcceptedViewKey = "helped"
+			}
+			break
+		}
 		pendingOffers, err := service.PendingHopOfferIDs(r.Context(), s.db, user.ID)
 		if err != nil {
 			log.Printf("load pending hop offers member=%d: %v", user.ID, err)
@@ -564,6 +583,9 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		metrics,
 		memberStats,
 		myHops,
+		activeAcceptedHop,
+		activeAcceptedViewKey,
+		user.ID,
 		activityCount,
 		hasPrimary,
 		successMsg,
