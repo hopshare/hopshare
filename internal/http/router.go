@@ -92,6 +92,7 @@ func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions *auth.SessionManager, a
 	srv.register(mux, "/admin", srv.handleAdmin, srv.requireAuth(), srv.requireMethod(http.MethodGet), srv.requireAdmin())
 	srv.register(mux, "/admin/organizations/action", srv.handleAdminOrganizationAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
 	srv.register(mux, "/admin/moderation/action", srv.handleAdminModerationAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
+	srv.register(mux, "/admin/users/action", srv.handleAdminUserAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("forgot-password"))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -689,7 +690,7 @@ func (s *Server) withUser() Middleware {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if c, err := r.Cookie(s.sessions.CookieName()); err == nil {
 				if memberID, ok := s.sessions.Get(c.Value); ok {
-					if member, err := service.GetMemberByID(r.Context(), s.db, memberID); err == nil {
+					if member, err := service.GetMemberByID(r.Context(), s.db, memberID); err == nil && member.Enabled {
 						ctx := context.WithValue(r.Context(), userContextKey, &member)
 						ctx = context.WithValue(ctx, adminContextKey, s.admins.IsAdmin(member.Username))
 						r = r.WithContext(ctx)

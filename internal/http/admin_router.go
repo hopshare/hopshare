@@ -20,10 +20,12 @@ const (
 	adminTabApp                    = "app"
 	adminTabOrganizations          = "organizations"
 	adminTabModeration             = "moderation"
+	adminTabUsers                  = "users"
 	adminOverviewLeaderboardCap    = 5
 	adminOrganizationsSearchLimit  = 25
 	adminOrganizationHopListLimit  = 100
 	adminModerationReportListLimit = 200
+	adminUsersSearchLimit          = 25
 
 	adminOrgActionDisable = "disable_org"
 	adminOrgActionEnable  = "enable_org"
@@ -36,6 +38,12 @@ const (
 
 	adminModerationStatusAll = "all"
 	adminModerationTypeAll   = "all"
+
+	adminUserActionDisable            = "disable_user"
+	adminUserActionEnable             = "enable_user"
+	adminUserActionForcePasswordReset = "force_password_reset"
+	adminUserActionRevokeSessions     = "revoke_sessions"
+	adminUserActionAdjustHours        = "adjust_hours"
 )
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +58,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	var overview types.AdminAppOverview
 	var orgTab types.AdminOrganizationTabData
 	var moderationTab types.AdminModerationTabData
+	var usersTab types.AdminUsersTabData
 	var err error
 
 	switch activeTab {
@@ -65,6 +74,13 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("load admin moderation tab data: %v", err)
 			http.Error(w, "could not load admin moderation queue", http.StatusInternalServerError)
+			return
+		}
+	case adminTabUsers:
+		usersTab, err = s.loadAdminUsersTabData(r)
+		if err != nil {
+			log.Printf("load admin users tab data: %v", err)
+			http.Error(w, "could not load admin users", http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -95,7 +111,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab))
+	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab, usersTab))
 }
 
 func (s *Server) handleAdminOrganizationAction(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +271,112 @@ func (s *Server) handleAdminModerationAction(w http.ResponseWriter, r *http.Requ
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", successMessage), http.StatusSeeOther)
 }
 
+func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	action := strings.TrimSpace(r.FormValue("action"))
+	memberID, err := parseAdminMemberID(r.FormValue("member_id"))
+	if err != nil {
+		http.Redirect(w, r, "/admin?tab="+adminTabUsers+"&error="+url.QueryEscape("Invalid user."), http.StatusSeeOther)
+		return
+	}
+
+	searchQuery := strings.TrimSpace(r.FormValue("q"))
+	redirectBase := adminUsersRedirect(memberID, searchQuery)
+
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if reason == "" {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "A reason is required for this action."), http.StatusSeeOther)
+		return
+	}
+
+	actionMetadata := map[string]any{}
+	var auditAction string
+	var successMessage string
+
+	switch action {
+	case adminUserActionDisable:
+		reopenedCount, err := service.AdminDisableMember(r.Context(), s.db, memberID, user.ID, memberDisplayName(user))
+		if err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not disable user.")
+			return
+		}
+		auditAction = service.AdminAuditActionUserDisable
+		actionMetadata["reopened_accepted_hop_count"] = reopenedCount
+		successMessage = "User disabled."
+		if reopenedCount > 0 {
+			successMessage = fmt.Sprintf("User disabled. %d accepted hops were reopened.", reopenedCount)
+		}
+	case adminUserActionEnable:
+		if err := service.SetMemberEnabled(r.Context(), s.db, memberID, true); err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not re-enable user.")
+			return
+		}
+		auditAction = service.AdminAuditActionUserEnable
+		successMessage = "User re-enabled."
+	case adminUserActionForcePasswordReset:
+		if err := service.AdminForcePasswordReset(r.Context(), s.db, memberID); err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not force password reset.")
+			return
+		}
+		auditAction = service.AdminAuditActionUserForcePasswordReset
+		successMessage = "Password reset forced. User must use Forgot Password."
+	case adminUserActionRevokeSessions:
+		if _, err := service.GetMemberByID(r.Context(), s.db, memberID); err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not revoke sessions.")
+			return
+		}
+		revokedCount := s.sessions.RevokeAllForMember(memberID)
+		actionMetadata["revoked_session_count"] = revokedCount
+		auditAction = service.AdminAuditActionUserRevokeSessions
+		successMessage = fmt.Sprintf("Revoked %d active session(s).", revokedCount)
+	case adminUserActionAdjustHours:
+		orgID, err := parseAdminOrgID(r.FormValue("org_id"))
+		if err != nil {
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid organization."), http.StatusSeeOther)
+			return
+		}
+		hoursDelta, err := parseAdminHoursDelta(r.FormValue("hours_delta"))
+		if err != nil {
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid hours adjustment."), http.StatusSeeOther)
+			return
+		}
+
+		if err := service.AdjustMemberHourBalance(r.Context(), s.db, service.AdjustMemberHourBalanceParams{
+			OrganizationID: orgID,
+			MemberID:       memberID,
+			AdminMemberID:  user.ID,
+			HoursDelta:     hoursDelta,
+			Reason:         reason,
+		}); err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not adjust hour balance.")
+			return
+		}
+		actionMetadata["org_id"] = orgID
+		actionMetadata["hours_delta"] = hoursDelta
+		auditAction = service.AdminAuditActionUserBalanceAdjust
+		successMessage = "Hour balance adjusted."
+	default:
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Unknown user action."), http.StatusSeeOther)
+		return
+	}
+
+	if err := s.writeAdminUserAudit(r, user.ID, memberID, auditAction, reason, actionMetadata); err != nil {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", successMessage), http.StatusSeeOther)
+}
+
 func (s *Server) loadAdminOrganizationTabData(r *http.Request) (types.AdminOrganizationTabData, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	orgID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("org_id"))
@@ -308,6 +430,37 @@ func (s *Server) loadAdminModerationTabData(r *http.Request) (types.AdminModerat
 		Reports:      reports,
 		SuccessMsg:   r.URL.Query().Get("success"),
 		ErrorMsg:     r.URL.Query().Get("error"),
+	}, nil
+}
+
+func (s *Server) loadAdminUsersTabData(r *http.Request) (types.AdminUsersTabData, error) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	memberID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("member_id"))
+
+	results, err := service.SearchMembersForAdmin(r.Context(), s.db, q, adminUsersSearchLimit)
+	if err != nil {
+		return types.AdminUsersTabData{}, err
+	}
+
+	var selected *types.AdminUserDetail
+	if memberID > 0 {
+		detail, err := service.AdminUserDetail(r.Context(), s.db, memberID)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return types.AdminUsersTabData{}, err
+			}
+		} else {
+			selected = &detail
+		}
+	}
+
+	return types.AdminUsersTabData{
+		Query:            q,
+		Results:          results,
+		SelectedMemberID: memberID,
+		Selected:         selected,
+		SuccessMsg:       r.URL.Query().Get("success"),
+		ErrorMsg:         r.URL.Query().Get("error"),
 	}, nil
 }
 
@@ -378,6 +531,35 @@ func (s *Server) writeAdminModerationAudit(r *http.Request, actorID int64, resul
 	return nil
 }
 
+func (s *Server) writeAdminUserAudit(r *http.Request, actorID, memberID int64, action string, reason string, actionMetadata map[string]any) error {
+	metadata := map[string]any{
+		"tab":       adminTabUsers,
+		"member_id": memberID,
+	}
+	for k, v := range actionMetadata {
+		metadata[k] = v
+	}
+	rawMetadata, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshal user action metadata: %w", err)
+	}
+
+	if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
+		ActorMemberID: actorID,
+		Action:        action,
+		Target:        fmt.Sprintf("member:%d", memberID),
+		Reason:        reason,
+		Metadata:      rawMetadata,
+		Sensitive:     true,
+	}); err != nil {
+		if errors.Is(err, service.ErrAuditReasonRequired) {
+			return fmt.Errorf("A reason is required for this action.")
+		}
+		return fmt.Errorf("Could not log admin action.")
+	}
+	return nil
+}
+
 func handleAdminOrganizationActionError(w http.ResponseWriter, r *http.Request, redirectBase string, err error, fallbackMsg string) {
 	msg := fallbackMsg
 	switch {
@@ -393,6 +575,23 @@ func handleAdminOrganizationActionError(w http.ResponseWriter, r *http.Request, 
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "error", msg), http.StatusSeeOther)
 }
 
+func handleAdminUserActionError(w http.ResponseWriter, r *http.Request, redirectBase string, err error, fallbackMsg string) {
+	msg := fallbackMsg
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		msg = "Invalid user."
+	case errors.Is(err, service.ErrMissingMemberID):
+		msg = "Invalid user."
+	case errors.Is(err, service.ErrMissingOrgID):
+		msg = "Invalid organization."
+	case errors.Is(err, service.ErrMembershipNotFound):
+		msg = "User is not an active member of that organization."
+	case errors.Is(err, service.ErrInvalidHoursDelta):
+		msg = "Invalid hours adjustment."
+	}
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "error", msg), http.StatusSeeOther)
+}
+
 func normalizeAdminTab(raw string) string {
 	tab := strings.TrimSpace(strings.ToLower(raw))
 	switch tab {
@@ -402,6 +601,8 @@ func normalizeAdminTab(raw string) string {
 		return adminTabOrganizations
 	case adminTabModeration:
 		return adminTabModeration
+	case adminTabUsers:
+		return adminTabUsers
 	default:
 		return adminTabApp
 	}
@@ -429,6 +630,22 @@ func parseAdminReportID(raw string) (int64, error) {
 		return 0, fmt.Errorf("invalid report id")
 	}
 	return reportID, nil
+}
+
+func parseAdminMemberID(raw string) (int64, error) {
+	memberID, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || memberID <= 0 {
+		return 0, fmt.Errorf("invalid member id")
+	}
+	return memberID, nil
+}
+
+func parseAdminHoursDelta(raw string) (int, error) {
+	hoursDelta, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || hoursDelta == 0 {
+		return 0, fmt.Errorf("invalid hours delta")
+	}
+	return hoursDelta, nil
 }
 
 func parseOptionalPositiveInt64(raw string) (int64, error) {
@@ -463,6 +680,17 @@ func adminModerationRedirect(statusFilter, typeFilter, query string) string {
 	}
 	if typeFilter != adminModerationTypeAll {
 		base += "&type=" + url.QueryEscape(typeFilter)
+	}
+	if strings.TrimSpace(query) != "" {
+		base += "&q=" + url.QueryEscape(query)
+	}
+	return base
+}
+
+func adminUsersRedirect(memberID int64, query string) string {
+	base := "/admin?tab=" + adminTabUsers
+	if memberID > 0 {
+		base += "&member_id=" + strconv.FormatInt(memberID, 10)
 	}
 	if strings.TrimSpace(query) != "" {
 		base += "&q=" + url.QueryEscape(query)

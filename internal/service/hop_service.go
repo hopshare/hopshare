@@ -22,6 +22,14 @@ type CreateHopParams struct {
 	IsPrivate      bool
 }
 
+type ReopenedAcceptedHop struct {
+	ID             int64
+	OrganizationID int64
+	Title          string
+	CreatedBy      int64
+	AcceptedBy     int64
+}
+
 func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, error) {
 	if db == nil {
 		return types.Hop{}, ErrNilDB
@@ -1424,10 +1432,19 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	var stats types.MemberHopStats
 	if err := db.QueryRowContext(ctx, `
 		SELECT
-			COALESCE(SUM(CASE WHEN to_member_id = $2 THEN hours ELSE 0 END), 0) -
-			COALESCE(SUM(CASE WHEN from_member_id = $2 THEN hours ELSE 0 END), 0)
-		FROM hop_transactions
-		WHERE organization_id = $1 AND (to_member_id = $2 OR from_member_id = $2)
+			COALESCE((
+				SELECT
+					COALESCE(SUM(CASE WHEN ht.to_member_id = $2 THEN ht.hours ELSE 0 END), 0) -
+					COALESCE(SUM(CASE WHEN ht.from_member_id = $2 THEN ht.hours ELSE 0 END), 0)
+				FROM hop_transactions ht
+				WHERE ht.organization_id = $1 AND (ht.to_member_id = $2 OR ht.from_member_id = $2)
+			), 0)
+			+
+			COALESCE((
+				SELECT COALESCE(SUM(hba.hours_delta), 0)
+				FROM hour_balance_adjustments hba
+				WHERE hba.organization_id = $1 AND hba.member_id = $2
+			), 0)
 	`, orgID, memberID).Scan(&stats.BalanceHours); err != nil {
 		return types.MemberHopStats{}, fmt.Errorf("load balance: %w", err)
 	}
@@ -1457,6 +1474,56 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	}
 
 	return stats, nil
+}
+
+func ReopenAcceptedHopsForMember(ctx context.Context, tx *sql.Tx, memberID int64) ([]ReopenedAcceptedHop, error) {
+	if tx == nil {
+		return nil, ErrNilDB
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, organization_id, title, created_by, accepted_by
+		FROM hops
+		WHERE status = $1
+			AND accepted_by IS NOT NULL
+			AND (created_by = $2 OR accepted_by = $2)
+		FOR UPDATE
+	`, types.HopStatusAccepted, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list accepted hops for member reopen: %w", err)
+	}
+	defer rows.Close()
+
+	reopened := make([]ReopenedAcceptedHop, 0)
+	for rows.Next() {
+		var hop ReopenedAcceptedHop
+		if err := rows.Scan(&hop.ID, &hop.OrganizationID, &hop.Title, &hop.CreatedBy, &hop.AcceptedBy); err != nil {
+			return nil, fmt.Errorf("scan accepted hop for member reopen: %w", err)
+		}
+		reopened = append(reopened, hop)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list accepted hops for member reopen: %w", err)
+	}
+
+	for _, hop := range reopened {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE hops
+			SET status = $1,
+				accepted_by = NULL,
+				accepted_at = NULL,
+				updated_at = NOW()
+			WHERE id = $2
+			  AND status = $3
+		`, types.HopStatusOpen, hop.ID, types.HopStatusAccepted); err != nil {
+			return nil, fmt.Errorf("reopen accepted hop %d for member disable: %w", hop.ID, err)
+		}
+	}
+
+	return reopened, nil
 }
 
 func PendingHopOfferIDs(ctx context.Context, db *sql.DB, memberID int64) (map[int64]struct{}, error) {

@@ -536,6 +536,193 @@ func TestAdminModerationHTTP(t *testing.T) {
 	})
 }
 
+func TestAdminUsersHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-04 users tab supports recovery actions, accepted-hop reopen policy, and audit logs", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_users_admin", suffix)
+		requester := createSeededMember(t, ctx, db, "admin_users_requester", suffix)
+		target := createSeededMember(t, ctx, db, "admin_users_target", suffix)
+		helper := createSeededMember(t, ctx, db, "admin_users_helper", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Admin Users Org "+suffix, "City", "ST", "Org for admin user action integration coverage.", requester.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, org.ID, requester.Member.ID, target.Member.ID)
+		approveMemberForOrganization(t, ctx, db, org.ID, requester.Member.ID, helper.Member.ID)
+
+		targetAsHelperHop := createAdminOverviewHop(t, ctx, db, org.ID, requester.Member.ID, "Target as accepted helper "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, org.ID, targetAsHelperHop.ID, target.Member.ID); err != nil {
+			t.Fatalf("accept target-as-helper hop: %v", err)
+		}
+
+		targetAsRequesterHop := createAdminOverviewHop(t, ctx, db, org.ID, target.Member.ID, "Target as requester "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, org.ID, targetAsRequesterHop.ID, helper.Member.ID); err != nil {
+			t.Fatalf("accept target-as-requester hop: %v", err)
+		}
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+		targetActor := newTestActor(t, "target", server.URL, target.Member.Username, target.Password)
+		targetActor.Login()
+
+		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Username)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
+		requireBodyContains(t, userTabBody, "Users")
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-result-%d"`, target.Member.ID))
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-detail-%d"`, target.Member.ID))
+
+		beforeDisableAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDisable)
+		disableLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "disable_user",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Username,
+			"reason", "disable for account recovery policy",
+		)), "/admin")
+		requireQueryValue(t, disableLoc, "tab", "users")
+		requireQueryValue(t, disableLoc, "member_id", strconv.FormatInt(target.Member.ID, 10))
+
+		afterDisableAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDisable)
+		if afterDisableAuditCount != beforeDisableAuditCount+1 {
+			t.Fatalf("expected one user-disable audit event, before=%d after=%d", beforeDisableAuditCount, afterDisableAuditCount)
+		}
+
+		targetAfterDisable, err := service.GetMemberByID(ctx, db, target.Member.ID)
+		if err != nil {
+			t.Fatalf("load target member after disable: %v", err)
+		}
+		if targetAfterDisable.Enabled {
+			t.Fatalf("expected target member to be disabled")
+		}
+
+		targetAsHelperHopAfterDisable, err := service.GetHopByID(ctx, db, org.ID, targetAsHelperHop.ID)
+		if err != nil {
+			t.Fatalf("load target-as-helper hop after disable: %v", err)
+		}
+		if targetAsHelperHopAfterDisable.Status != types.HopStatusOpen || targetAsHelperHopAfterDisable.AcceptedBy != nil {
+			t.Fatalf("expected target-as-helper hop to reopen, got status=%q accepted_by=%v", targetAsHelperHopAfterDisable.Status, targetAsHelperHopAfterDisable.AcceptedBy)
+		}
+
+		targetAsRequesterHopAfterDisable, err := service.GetHopByID(ctx, db, org.ID, targetAsRequesterHop.ID)
+		if err != nil {
+			t.Fatalf("load target-as-requester hop after disable: %v", err)
+		}
+		if targetAsRequesterHopAfterDisable.Status != types.HopStatusOpen || targetAsRequesterHopAfterDisable.AcceptedBy != nil {
+			t.Fatalf("expected target-as-requester hop to reopen, got status=%q accepted_by=%v", targetAsRequesterHopAfterDisable.Status, targetAsRequesterHopAfterDisable.AcceptedBy)
+		}
+
+		if countReopenedHopNotificationMessages(t, ctx, db, requester.Member.ID) < 1 {
+			t.Fatalf("expected requester to receive reopen notification")
+		}
+		if countReopenedHopNotificationMessages(t, ctx, db, helper.Member.ID) < 1 {
+			t.Fatalf("expected helper to receive reopen notification")
+		}
+
+		disabledLoginActor := newTestActor(t, "disabled-target-login", server.URL, target.Member.Username, target.Password)
+		disabledLoginBody := requireStatus(t, disabledLoginActor.PostForm("/login", formKV(
+			"username", target.Member.Username,
+			"password", target.Password,
+		)), http.StatusOK)
+		requireBodyContains(t, disabledLoginBody, "Invalid username or password.")
+
+		enableLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "enable_user",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Username,
+			"reason", "restore account access",
+		)), "/admin")
+		requireQueryValue(t, enableLoc, "success", "User re-enabled.")
+
+		targetAfterEnable, err := service.GetMemberByID(ctx, db, target.Member.ID)
+		if err != nil {
+			t.Fatalf("load target member after enable: %v", err)
+		}
+		if !targetAfterEnable.Enabled {
+			t.Fatalf("expected target member to be enabled")
+		}
+
+		forceResetLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "force_password_reset",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Username,
+			"reason", "credential recovery",
+		)), "/admin")
+		requireQueryValue(t, forceResetLoc, "success", "Password reset forced. User must use Forgot Password.")
+
+		oldPasswordLoginBody := requireStatus(t, disabledLoginActor.PostForm("/login", formKV(
+			"username", target.Member.Username,
+			"password", target.Password,
+		)), http.StatusOK)
+		requireBodyContains(t, oldPasswordLoginBody, "Invalid username or password.")
+
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		forgotBody := requireStatus(t, anon.PostForm("/forgot-password", formKV(
+			"email", target.Member.Email,
+		)), http.StatusOK)
+		token := extractResetToken(t, forgotBody)
+		if token == "" {
+			t.Fatalf("expected reset token for forced-reset user")
+		}
+
+		requireRedirectPath(t, anon.PostForm("/reset-password", formKV(
+			"token", token,
+			"new_password", "TargetNewPassword123!",
+			"confirm_password", "TargetNewPassword123!",
+		)), "/login")
+
+		targetWithNewPassword := newTestActor(t, "target-new-password", server.URL, target.Member.Username, "TargetNewPassword123!")
+		targetWithNewPassword.Login()
+		requireStatus(t, targetWithNewPassword.Get("/my-hopshare"), http.StatusOK)
+
+		revokeSessionsLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "revoke_sessions",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Username,
+			"reason", "security session invalidation",
+		)), "/admin")
+		requireQueryValue(t, revokeSessionsLoc, "tab", "users")
+		requireRedirectPath(t, targetWithNewPassword.Get("/my-hopshare"), "/login")
+
+		adjustHoursLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "adjust_hours",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hours_delta", "3",
+			"q", target.Member.Username,
+			"reason", "manual correction",
+		)), "/admin")
+		requireQueryValue(t, adjustHoursLoc, "success", "Hour balance adjusted.")
+
+		stats, err := service.MemberStats(ctx, db, org.ID, target.Member.ID)
+		if err != nil {
+			t.Fatalf("load member stats after hour adjustment: %v", err)
+		}
+		if stats.BalanceHours != 3 {
+			t.Fatalf("expected adjusted balance of 3, got %d", stats.BalanceHours)
+		}
+
+		var adjustmentCount int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM hour_balance_adjustments
+			WHERE organization_id = $1
+			  AND member_id = $2
+			  AND admin_member_id = $3
+			  AND hours_delta = 3
+		`, org.ID, target.Member.ID, admin.Member.ID).Scan(&adjustmentCount); err != nil {
+			t.Fatalf("count hour balance adjustments: %v", err)
+		}
+		if adjustmentCount == 0 {
+			t.Fatalf("expected at least one hour adjustment ledger row")
+		}
+	})
+}
+
 func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
 	t.Helper()
 
@@ -734,6 +921,21 @@ func countAdminAuditEventsForActorAction(t *testing.T, ctx context.Context, db *
 		  AND action = $2
 	`, actorMemberID, action).Scan(&count); err != nil {
 		t.Fatalf("count admin audit events actor=%d action=%q: %v", actorMemberID, action, err)
+	}
+	return count
+}
+
+func countReopenedHopNotificationMessages(t *testing.T, ctx context.Context, db *sql.DB, recipientMemberID int64) int {
+	t.Helper()
+
+	var count int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM messages
+		WHERE recipient_member_id = $1
+		  AND subject LIKE 'Accepted hop reopened:%'
+	`, recipientMemberID).Scan(&count); err != nil {
+		t.Fatalf("count reopened hop notification messages recipient=%d: %v", recipientMemberID, err)
 	}
 	return count
 }

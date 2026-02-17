@@ -295,6 +295,57 @@ type AdminOrganizationTabData struct {
 	ErrorMsg      string
 }
 
+type AdminUserSearchResult struct {
+	MemberID    int64
+	Username    string
+	FirstName   string
+	LastName    string
+	Email       string
+	Enabled     bool
+	LastLoginAt *time.Time
+}
+
+type AdminUserMembershipTimelineEntry struct {
+	OrganizationID      int64
+	OrganizationName    string
+	OrganizationURLName string
+	Role                string
+	IsPrimaryOwner      bool
+	JoinedAt            time.Time
+	LeftAt              *time.Time
+}
+
+type AdminUserBalanceEntry struct {
+	OrganizationID      int64
+	OrganizationName    string
+	OrganizationURLName string
+	BalanceHours        int
+}
+
+type AdminUserDetail struct {
+	MemberID       int64
+	Username       string
+	FirstName      string
+	LastName       string
+	Email          string
+	Enabled        bool
+	Verified       bool
+	LastLoginAt    *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Memberships    []AdminUserMembershipTimelineEntry
+	ActiveBalances []AdminUserBalanceEntry
+}
+
+type AdminUsersTabData struct {
+	Query            string
+	Results          []AdminUserSearchResult
+	SelectedMemberID int64
+	Selected         *AdminUserDetail
+	SuccessMsg       string
+	ErrorMsg         string
+}
+
 type ModerationReport struct {
 	ID                  int64
 	OrganizationID      int64

@@ -103,6 +103,9 @@ func AuthenticateMemberByUsername(ctx context.Context, db *sql.DB, username, pas
 		}
 		return types.Member{}, fmt.Errorf("verify password: %w", err)
 	}
+	if !member.Enabled {
+		return types.Member{}, ErrInvalidCredentials
+	}
 	return member, nil
 }
 

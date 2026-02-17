@@ -35,6 +35,7 @@ var (
 	ErrModerationTargetNotFound  = errors.New("moderation target not found")
 	ErrModerationTargetMismatch  = errors.New("moderation target type mismatch")
 	ErrModerationAlreadyReported = errors.New("moderation target already reported by this member")
+	ErrInvalidHoursDelta         = errors.New("invalid hours delta")
 
 	ErrMessageNotFound = errors.New("message not found")
 	ErrInvalidMessage  = errors.New("invalid message")
