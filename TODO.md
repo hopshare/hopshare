@@ -31,6 +31,7 @@
     * Need a way to remove an owned Organization- need to think a bit about this one- to ensure it doesn't get abused.
 
 * Hop Detail Page
+    * Summary section is a little clunky. We can probably tidy this up more...make easier to read
 
 * My HopShare Dashboard
 

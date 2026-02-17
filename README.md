@@ -1,60 +1,90 @@
 # Hopshare
 
-Starter scaffold for the Hopshare application. The service is a single Go binary that serves HTML via Templ/HTMX/Alpine with Postgres as the data store and a minimal in-memory auth/session layer for demo flows.
+Hopshare is a single Go web app that serves server-rendered HTML with Templ + HTMX + Alpine, backed by PostgreSQL.
 
-## Layout
+## Project Layout
 - `cmd/server/` — entrypoint wiring config, DB, and HTTP router.
+- `cmd/migrate/` — applies SQL migrations.
+- `cmd/bulkload/` — optional local data seeding helper.
 - `internal/config/` — loads `HOPSHARE_*` environment variables.
 - `internal/database/` — database/sql helpers for Postgres connections.
 - `internal/http/` — HTTP router and handlers.
+- `internal/service/` — business/domain logic.
 - `web/templates/` — Templ view components.
 - `web/static/` — JS/CSS assets (HTMX/Alpine).
 - `docs/` — design notes.
 - `scripts/` — dev-ops scripts.
 - `deploy/` — deployment manifests and SQL migrations (`deploy/migrations/`).
 
-## Getting Started
-1. Copy `.env.example` to `.env` and set `HOPSHARE_DB_URL` (required).
-2. Generate templates: `templ generate`.
-3. Fetch modules: `go mod tidy` (will download `templ` and other deps).
-4. Run migrations: `go run ./cmd/migrate` (uses the Go migration runner, no psql needed).
-5. Run the server: `go run ./cmd/server` (also runs migrations on startup).
+## Prerequisites
+- Go `1.24.x` (module toolchain is `go1.24.1`).
+- PostgreSQL running locally or reachable by URL.
+- `templ` CLI for template generation.
 
-Health endpoint: `GET /healthz` returns `200 OK`.
+Install `templ` if needed:
+- `go install github.com/a-h/templ/cmd/templ@latest`
 
-## Testing
+## Environment Variables
+Copy `.env.example` to `.env`, then export values into your shell:
+- `cp .env.example .env`
+- `set -a; source .env; set +a`
 
-### Quick test run
-- `go test ./...`
+Important variables:
+- `HOPSHARE_DB_URL` (required): Postgres connection string used by app and migration command.
+- `HOPSHARE_ADDR` (optional): server bind address, default `:8080`.
+- `HOPSHARE_ENV` (optional): environment label (for example `development`).
+- `HOPSHARE_ADMINS` (optional): comma-separated usernames with admin access. Matching is case-insensitive and spaces are ignored.
+- `HOPSHARE_TIMEZONE` (optional): IANA timezone name used for rendered timestamps (for example `America/New_York`, `UTC`). Invalid values fail startup.
 
-### Database-backed integration tests
-The HTTP and service integration tests use a real Postgres connection:
-- `internal/http/*_integration_test.go`
-- `internal/service/service_test.go`
-
-These tests read `HOPSHARE_DB_URL` first, then `DATABASE_URL`. If neither is set, they are skipped.
-
-Recommended: use a dedicated disposable database for tests.
-
-Example setup:
-1. Create a test database (example name: `hopshare_test`).
-2. Export URL:
-   - `export HOPSHARE_DB_URL='postgres://user:pass@localhost:5432/hopshare_test?sslmode=disable'`
+## Running Locally
+1. Export env vars (`source .env` as shown above).
+2. Generate templates:
+   - `templ generate`
 3. Apply migrations:
    - `go run ./cmd/migrate`
-
-Run test suites:
-- HTTP integration tests:
-  - `go test ./internal/http -count=1 -v`
-- Service integration tests:
-  - `go test ./internal/service -count=1 -v`
-- Full repo (with DB enabled):
-  - `go test ./... -count=1`
+4. Start the app:
+   - `go run ./cmd/server`
 
 Notes:
-- Integration tests create and update real rows. Reusing the same DB is supported, but data will accumulate.
-- If you want a clean run each time, recreate the test database before running tests.
-- Handler logs may include expected error messages during negative test cases; this does not necessarily indicate a failing test.
+- `cmd/server` also runs migrations on startup.
+- Health endpoint: `GET /healthz` returns `200 OK`.
+
+## Optional Local Seed Data
+Generate sample members/orgs:
+- `go run ./cmd/bulkload --members 100 --orgs 8`
+
+Default generated member login pattern:
+- Username: `member_<n>`
+- Password: `password123`
+
+## Testing
+### Full Regression
+- `go test ./...`
+
+### Recommended Local Test Workflow
+1. Create a dedicated test database (example: `hopshare_test`).
+2. Export DB URL:
+   - `export HOPSHARE_DB_URL='postgres://user:pass@localhost:5432/hopshare_test?sslmode=disable'`
+3. Run migrations:
+   - `go run ./cmd/migrate`
+4. Run tests:
+   - `go test ./... -count=1`
+
+### Targeted Test Commands
+- HTTP integration suite:
+  - `go test ./internal/http -count=1 -v`
+- Service suite:
+  - `go test ./internal/service -count=1 -v`
+- Admin-focused integration tests only:
+  - `go test ./internal/http -run TestAdmin -count=1 -v`
+
+### Integration Test Behavior
+- Integration tests use real Postgres tables and real migrations.
+- Test DB URL lookup in tests:
+  1. `HOPSHARE_DB_URL`
+  2. `DATABASE_URL`
+- If neither is set, DB-backed integration tests are skipped.
+- Test data accumulates unless you recreate/reset the DB.
 
 ## Container / Podman
 Use the provided `Containerfile` and scripts in `deploy/scripts/` to build and run Hopshare with Postgres in a Podman pod.
@@ -88,14 +118,14 @@ Example custom run:
 
 The app is exposed at `http://localhost:${APP_PORT}` and Postgres data persists under `deploy/data/postgres` by default.
 
-## Demo Web Flows
-- Landing page at `/` with calls to action for Login and Request to join.
-- Login at `/login` for demo user `demo@hopshare.org` / `password123` (sets a cookie-based session).
-- Request to join at `/signup` posts to `/signup-success` confirmation.
-- Forgot/reset password at `/forgot-password` → `/reset-password?token=...` (in-memory tokens) updates the demo password.
-- Authenticated home at `/my-hopshare` (redirects to `/login` when not signed in).
-- Logout via `/logout` clears the session and returns to `/`.
+## Admin + Security Notes
+- Admin routes are under `/admin` and require:
+  - authenticated user
+  - username listed in `HOPSHARE_ADMINS`
+- Non-admin access to `/admin` routes returns `403 Unauthorized`.
+- Admin audit logging covers mutating actions only (not read-only views).
+- Audit exports are themselves audited.
 
 ## Database migrations
 - Add new SQL files to `deploy/migrations/` with a numeric prefix (e.g., `0002_add_tables.sql`). Files run in lexicographic order via the embedded migration runner.
-- Apply pending migrations with `go run ./cmd/migrate` using `HOPSHARE_DB_URL` (or `DATABASE_URL`) for the Postgres connection string.
+- Apply pending migrations with `go run ./cmd/migrate` using `HOPSHARE_DB_URL`.

@@ -881,6 +881,9 @@ func TestAdminAuditHTTP(t *testing.T) {
 			"&start_date=" + url.QueryEscape(filterDay) +
 			"&end_date=" + url.QueryEscape(filterDay)
 
+		beforeCSVExportAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionExportCSV)
+		beforeJSONExportAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionExportJSON)
+
 		csvResp := adminActor.Get("/admin/audit/export?format=csv&" + exportQuery)
 		csvBodyBytes, _ := io.ReadAll(csvResp.Body)
 		_ = csvResp.Body.Close()
@@ -893,6 +896,10 @@ func TestAdminAuditHTTP(t *testing.T) {
 		csvBody := string(csvBodyBytes)
 		requireBodyContains(t, csvBody, "admin.message.send")
 		requireBodyContains(t, csvBody, strconv.FormatInt(messageEvent.ID, 10))
+		afterCSVExportAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionExportCSV)
+		if afterCSVExportAuditCount != beforeCSVExportAuditCount+1 {
+			t.Fatalf("expected one admin csv-export audit event, before=%d after=%d", beforeCSVExportAuditCount, afterCSVExportAuditCount)
+		}
 
 		jsonResp := adminActor.Get("/admin/audit/export?format=json&" + exportQuery)
 		jsonBodyBytes, _ := io.ReadAll(jsonResp.Body)
@@ -910,9 +917,77 @@ func TestAdminAuditHTTP(t *testing.T) {
 		if len(exported) == 0 {
 			t.Fatalf("expected json export to include at least one event")
 		}
+		afterJSONExportAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionExportJSON)
+		if afterJSONExportAuditCount != beforeJSONExportAuditCount+1 {
+			t.Fatalf("expected one admin json-export audit event, before=%d after=%d", beforeJSONExportAuditCount, afterJSONExportAuditCount)
+		}
 
 		unauthorizedBody := requireStatus(t, nonAdminActor.Get("/admin/audit/export?format=csv"), http.StatusForbidden)
 		requireBodyContains(t, unauthorizedBody, "Unauthorized")
+	})
+}
+
+func TestAdminAuthorizationBoundariesHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-07 admin endpoints require authentication and admin role", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_authz_admin", suffix)
+		nonAdmin := createSeededMember(t, ctx, db, "admin_authz_member", suffix)
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		anonActor := newTestActor(t, "anon", server.URL, "", "")
+		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Username, nonAdmin.Password)
+		nonAdminActor.Login()
+
+		requireRedirectPath(t, anonActor.Get("/admin"), "/login")
+		requireRedirectPath(t, anonActor.PostForm("/admin/organizations/action", formKV(
+			"action", "disable_org",
+			"org_id", "1",
+			"reason", "authz test",
+		)), "/login")
+		requireRedirectPath(t, anonActor.PostForm("/admin/moderation/action", formKV(
+			"action", "dismiss_report",
+			"report_id", "1",
+			"reason", "authz test",
+		)), "/login")
+		requireRedirectPath(t, anonActor.PostForm("/admin/users/action", formKV(
+			"action", "disable_user",
+			"member_id", "1",
+			"reason", "authz test",
+		)), "/login")
+		requireRedirectPath(t, anonActor.PostForm("/admin/messages/send", formKV(
+			"recipient_id", "1",
+			"subject", "authz test",
+			"body", "authz test",
+		)), "/login")
+		requireRedirectPath(t, anonActor.Get("/admin/audit/export?format=csv"), "/login")
+
+		requireStatus(t, nonAdminActor.Get("/admin"), http.StatusForbidden)
+		requireStatus(t, nonAdminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "disable_org",
+			"org_id", "1",
+			"reason", "authz test",
+		)), http.StatusForbidden)
+		requireStatus(t, nonAdminActor.PostForm("/admin/moderation/action", formKV(
+			"action", "dismiss_report",
+			"report_id", "1",
+			"reason", "authz test",
+		)), http.StatusForbidden)
+		requireStatus(t, nonAdminActor.PostForm("/admin/users/action", formKV(
+			"action", "disable_user",
+			"member_id", "1",
+			"reason", "authz test",
+		)), http.StatusForbidden)
+		requireStatus(t, nonAdminActor.PostForm("/admin/messages/send", formKV(
+			"recipient_id", "1",
+			"subject", "authz test",
+			"body", "authz test",
+		)), http.StatusForbidden)
+		requireStatus(t, nonAdminActor.Get("/admin/audit/export?format=csv"), http.StatusForbidden)
 	})
 }
 

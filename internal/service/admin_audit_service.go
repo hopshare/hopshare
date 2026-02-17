@@ -26,6 +26,8 @@ const (
 	AdminAuditActionUserRevokeSessions      = "admin.user.sessions.revoke"
 	AdminAuditActionUserBalanceAdjust       = "admin.user.balance.adjust"
 	AdminAuditActionMessageSend             = "admin.message.send"
+	AdminAuditActionExportCSV               = "admin.audit.export.csv"
+	AdminAuditActionExportJSON              = "admin.audit.export.json"
 	AdminAuditTargetApplication             = "application"
 	defaultAdminAuditEventListLimit         = 200
 	maxAdminAuditEventListLimit             = 2000

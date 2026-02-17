@@ -479,6 +479,10 @@ func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "could not export admin audit events", http.StatusInternalServerError)
 		return
 	}
+	if err := s.writeAdminAuditExportAudit(r, user.ID, format, filter, len(events)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	filenameTime := time.Now().UTC().Format("20060102-150405")
 	switch format {
@@ -836,6 +840,65 @@ func (s *Server) writeAdminMessageAudit(r *http.Request, actorID, recipientID in
 		ActorMemberID: actorID,
 		Action:        service.AdminAuditActionMessageSend,
 		Target:        fmt.Sprintf("member:%d", recipientID),
+		Metadata:      rawMetadata,
+	}); err != nil {
+		return fmt.Errorf("Could not log admin action.")
+	}
+	return nil
+}
+
+func (s *Server) writeAdminAuditExportAudit(r *http.Request, actorID int64, format string, filter types.AdminAuditFilter, exportedEventCount int) error {
+	action := ""
+	switch format {
+	case adminAuditExportFormatCSV:
+		action = service.AdminAuditActionExportCSV
+	case adminAuditExportFormatJSON:
+		action = service.AdminAuditActionExportJSON
+	default:
+		return fmt.Errorf("Could not log admin action.")
+	}
+
+	filterMetadata := map[string]string{}
+	if v := strings.TrimSpace(filter.Actor); v != "" {
+		filterMetadata["actor"] = v
+	}
+	if v := strings.TrimSpace(filter.Action); v != "" {
+		filterMetadata["action"] = v
+	}
+	if v := strings.TrimSpace(filter.Organization); v != "" {
+		filterMetadata["organization"] = v
+	}
+	if v := strings.TrimSpace(filter.User); v != "" {
+		filterMetadata["user"] = v
+	}
+	if v := strings.TrimSpace(filter.Target); v != "" {
+		filterMetadata["target"] = v
+	}
+	if v := strings.TrimSpace(filter.StartDate); v != "" {
+		filterMetadata["start_date"] = v
+	}
+	if v := strings.TrimSpace(filter.EndDate); v != "" {
+		filterMetadata["end_date"] = v
+	}
+
+	metadata := map[string]any{
+		"tab":                  adminTabAudit,
+		"format":               format,
+		"exported_event_count": exportedEventCount,
+	}
+	if len(filterMetadata) > 0 {
+		metadata["filter"] = filterMetadata
+	}
+
+	rawMetadata, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("Could not log admin action.")
+	}
+
+	if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
+		ActorMemberID: actorID,
+		Action:        action,
+		Target:        service.AdminAuditTargetApplication,
 		Metadata:      rawMetadata,
 	}); err != nil {
 		return fmt.Errorf("Could not log admin action.")
