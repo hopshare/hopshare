@@ -49,7 +49,7 @@ templ MessagesBody(
 						if msg.ReadAt == nil {
 							if selected != nil && selected.ID == msg.ID {
 								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900 bg-sky-50">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
 									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
 									<div class="flex items-center justify-between gap-3 min-w-0">
 										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
@@ -62,7 +62,7 @@ templ MessagesBody(
 								</div>
 							} else {
 								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
 									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
 									<div class="flex items-center justify-between gap-3 min-w-0">
 										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
@@ -77,7 +77,7 @@ templ MessagesBody(
 						} else {
 							if selected != nil && selected.ID == msg.ID {
 								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700 bg-sky-50">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
 									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
 									<div class="flex items-center justify-between gap-3 min-w-0">
 										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
@@ -90,7 +90,7 @@ templ MessagesBody(
 								</div>
 							} else {
 								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.CreatedAt.Format("Jan 2, 2006") }</a>
+									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
 									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
 									<div class="flex items-center justify-between gap-3 min-w-0">
 										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
@@ -117,7 +117,7 @@ templ MessagesBody(
 					<span class="font-semibold text-slate-800">From:</span>
 					{ " " + selected.SenderName }
 					<span class="ml-3 font-semibold text-slate-800">Sent:</span>
-					{ " " + selected.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
+					{ " " + formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM") }
 				</div>
 				<div class="text-sm text-slate-600">
 					<span class="font-semibold text-slate-800">Subject:</span>

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -173,42 +174,10 @@ func TestAdminOverviewHTTP(t *testing.T) {
 		actor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
 		actor.Login()
 
-		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionAppOverviewViewed)
 		body := requireStatus(t, actor.Get("/admin"), http.StatusOK)
 		requireBodyContains(t, body, "App-Wide Metrics")
 		requireBodyContains(t, body, "Leaderboards")
 		requireBodyContains(t, body, `href="/admin?tab=app"`)
-		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionAppOverviewViewed)
-		if afterAuditCount != beforeAuditCount+1 {
-			t.Fatalf("expected one new admin audit row, before=%d after=%d", beforeAuditCount, afterAuditCount)
-		}
-
-		var target string
-		var reason sql.NullString
-		var metadata []byte
-		if err := db.QueryRowContext(ctx, `
-			SELECT target, reason, metadata
-			FROM admin_audit_events
-			WHERE actor_member_id = $1
-			  AND action = $2
-			ORDER BY created_at DESC, id DESC
-			LIMIT 1
-		`, admin.Member.ID, service.AdminAuditActionAppOverviewViewed).Scan(&target, &reason, &metadata); err != nil {
-			t.Fatalf("query admin audit event: %v", err)
-		}
-		if target != service.AdminAuditTargetApplication {
-			t.Fatalf("unexpected audit target: got=%q want=%q", target, service.AdminAuditTargetApplication)
-		}
-		if reason.Valid {
-			t.Fatalf("expected nil reason for admin overview view audit action")
-		}
-		var metadataMap map[string]string
-		if err := json.Unmarshal(metadata, &metadataMap); err != nil {
-			t.Fatalf("unmarshal audit metadata: %v", err)
-		}
-		if metadataMap["tab"] != "app" {
-			t.Fatalf("expected audit metadata tab=app, got %#v", metadataMap)
-		}
 
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-enabled-count">%d</span>`, expected.OrganizationEnabledCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-disabled-count">%d</span>`, expected.OrganizationDisabledCount))
@@ -800,6 +769,150 @@ func TestAdminMessagesHTTP(t *testing.T) {
 		if strings.Count(secondMessage.Subject, adminMessageSubjectPrefixInTests) != 1 {
 			t.Fatalf("expected exactly one admin subject prefix, got %q", secondMessage.Subject)
 		}
+	})
+}
+
+func TestAdminAuditHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-06 audit tab filters events and exports csv/json", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_audit_admin", suffix)
+		owner := createSeededMember(t, ctx, db, "admin_audit_owner", suffix)
+		target := createSeededMember(t, ctx, db, "admin_audit_target", suffix)
+		nonAdmin := createSeededMember(t, ctx, db, "admin_audit_non_admin", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Admin Audit Org "+suffix, "City", "ST", "Org for admin audit integration coverage.", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+
+		now := time.Now().UTC().Add(-2 * time.Minute)
+		disableMetadata, err := json.Marshal(map[string]any{
+			"tab":    "organizations",
+			"org_id": org.ID,
+		})
+		if err != nil {
+			t.Fatalf("marshal disable metadata: %v", err)
+		}
+		disableEvent, err := service.WriteAdminAuditEvent(ctx, db, service.WriteAdminAuditEventParams{
+			ActorMemberID: admin.Member.ID,
+			Action:        service.AdminAuditActionOrganizationDisable,
+			Target:        fmt.Sprintf("organization:%d", org.ID),
+			Reason:        "maintenance window",
+			Metadata:      disableMetadata,
+			OccurredAt:    now.Add(-time.Minute),
+		})
+		if err != nil {
+			t.Fatalf("write disable audit event: %v", err)
+		}
+
+		messageMetadata, err := json.Marshal(map[string]any{
+			"tab":                 "messages",
+			"org_id":              org.ID,
+			"recipient_member_id": target.Member.ID,
+		})
+		if err != nil {
+			t.Fatalf("marshal message metadata: %v", err)
+		}
+		messageEvent, err := service.WriteAdminAuditEvent(ctx, db, service.WriteAdminAuditEventParams{
+			ActorMemberID: admin.Member.ID,
+			Action:        service.AdminAuditActionMessageSend,
+			Target:        fmt.Sprintf("member:%d", target.Member.ID),
+			Metadata:      messageMetadata,
+			OccurredAt:    now,
+		})
+		if err != nil {
+			t.Fatalf("write message audit event: %v", err)
+		}
+
+		userMetadata, err := json.Marshal(map[string]any{
+			"tab":       "users",
+			"member_id": target.Member.ID,
+		})
+		if err != nil {
+			t.Fatalf("marshal user metadata: %v", err)
+		}
+		userEvent, err := service.WriteAdminAuditEvent(ctx, db, service.WriteAdminAuditEventParams{
+			ActorMemberID: admin.Member.ID,
+			Action:        service.AdminAuditActionUserEnable,
+			Target:        fmt.Sprintf("member:%d", target.Member.ID),
+			Metadata:      userMetadata,
+			OccurredAt:    now.Add(time.Minute),
+		})
+		if err != nil {
+			t.Fatalf("write user audit event: %v", err)
+		}
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Username, nonAdmin.Password)
+		nonAdminActor.Login()
+
+		auditBody := requireStatus(t, adminActor.Get("/admin?tab=audit"), http.StatusOK)
+		requireBodyContains(t, auditBody, "Admin Audit Log")
+		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, disableEvent.ID))
+		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, messageEvent.ID))
+		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
+
+		filterDay := now.Format("2006-01-02")
+		filteredURL := "/admin?tab=audit" +
+			"&actor=" + url.QueryEscape(admin.Member.Username) +
+			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
+			"&organization=" + url.QueryEscape(org.Name) +
+			"&user=" + url.QueryEscape(target.Member.Username) +
+			"&target=" + url.QueryEscape("member:") +
+			"&start_date=" + url.QueryEscape(filterDay) +
+			"&end_date=" + url.QueryEscape(filterDay)
+		filteredBody := requireStatus(t, adminActor.Get(filteredURL), http.StatusOK)
+		requireBodyContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, messageEvent.ID))
+		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, disableEvent.ID))
+		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
+
+		exportQuery := "actor=" + url.QueryEscape(admin.Member.Username) +
+			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
+			"&organization=" + url.QueryEscape(org.Name) +
+			"&user=" + url.QueryEscape(target.Member.Username) +
+			"&target=" + url.QueryEscape("member:") +
+			"&start_date=" + url.QueryEscape(filterDay) +
+			"&end_date=" + url.QueryEscape(filterDay)
+
+		csvResp := adminActor.Get("/admin/audit/export?format=csv&" + exportQuery)
+		csvBodyBytes, _ := io.ReadAll(csvResp.Body)
+		_ = csvResp.Body.Close()
+		if csvResp.StatusCode != http.StatusOK {
+			t.Fatalf("expected csv export status %d, got %d body=%q", http.StatusOK, csvResp.StatusCode, string(csvBodyBytes))
+		}
+		if !strings.Contains(csvResp.Header.Get("Content-Type"), "text/csv") {
+			t.Fatalf("expected csv export content type, got %q", csvResp.Header.Get("Content-Type"))
+		}
+		csvBody := string(csvBodyBytes)
+		requireBodyContains(t, csvBody, "admin.message.send")
+		requireBodyContains(t, csvBody, strconv.FormatInt(messageEvent.ID, 10))
+
+		jsonResp := adminActor.Get("/admin/audit/export?format=json&" + exportQuery)
+		jsonBodyBytes, _ := io.ReadAll(jsonResp.Body)
+		_ = jsonResp.Body.Close()
+		if jsonResp.StatusCode != http.StatusOK {
+			t.Fatalf("expected json export status %d, got %d body=%q", http.StatusOK, jsonResp.StatusCode, string(jsonBodyBytes))
+		}
+		if !strings.Contains(jsonResp.Header.Get("Content-Type"), "application/json") {
+			t.Fatalf("expected json export content type, got %q", jsonResp.Header.Get("Content-Type"))
+		}
+		var exported []types.AdminAuditEventView
+		if err := json.Unmarshal(jsonBodyBytes, &exported); err != nil {
+			t.Fatalf("unmarshal json export: %v body=%q", err, string(jsonBodyBytes))
+		}
+		if len(exported) == 0 {
+			t.Fatalf("expected json export to include at least one event")
+		}
+
+		unauthorizedBody := requireStatus(t, nonAdminActor.Get("/admin/audit/export?format=csv"), http.StatusForbidden)
+		requireBodyContains(t, unauthorizedBody, "Unauthorized")
 	})
 }
 

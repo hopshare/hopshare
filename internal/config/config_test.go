@@ -10,6 +10,7 @@ func TestLoadParsesAdmins(t *testing.T) {
 	t.Setenv("HOPSHARE_DB_URL", "postgres://example")
 	t.Setenv("HOPSHARE_ENV", "test")
 	t.Setenv("HOPSHARE_ADMINS", " Alice ,bob,ALICE,, carol ")
+	t.Setenv("HOPSHARE_TIMEZONE", "America/New_York")
 
 	cfg := Load()
 	if cfg.Addr != ":9090" {
@@ -20,6 +21,9 @@ func TestLoadParsesAdmins(t *testing.T) {
 	}
 	if cfg.Env != "test" {
 		t.Fatalf("env: got %q want %q", cfg.Env, "test")
+	}
+	if cfg.Timezone != "America/New_York" {
+		t.Fatalf("timezone: got %q want %q", cfg.Timezone, "America/New_York")
 	}
 
 	wantAdmins := []string{"alice", "bob", "carol"}
@@ -33,5 +37,13 @@ func TestLoadWithoutAdmins(t *testing.T) {
 	cfg := Load()
 	if len(cfg.Admins) != 0 {
 		t.Fatalf("admins: got %v want empty", cfg.Admins)
+	}
+}
+
+func TestLoadTimezoneDefaultUTC(t *testing.T) {
+	t.Setenv("HOPSHARE_TIMEZONE", "")
+	cfg := Load()
+	if cfg.Timezone != "UTC" {
+		t.Fatalf("timezone default: got %q want %q", cfg.Timezone, "UTC")
 	}
 }

@@ -171,7 +171,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 										<p class="font-semibold text-slate-900">{ req.MemberName }</p>
 										<p class="text-sm text-slate-600">{ req.MemberEmail }</p>
 									</div>
-									<p class="text-xs text-slate-500">{ req.RequestedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+									<p class="text-xs text-slate-500">{ formatInAppTime(req.RequestedAt, "Jan 2, 2006 3:04 PM") }</p>
 								</div>
 								<div class="flex flex-wrap gap-2">
 									<form method="POST" action="/organizations/manage/request" class="inline-flex">
@@ -209,7 +209,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 							<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
 								<div>
 									<p class="font-semibold text-slate-900">{ m.Username }</p>
-									<p class="text-xs text-slate-600">Joined { m.JoinedAt.Format("Jan 2, 2006") } • { m.Role }</p>
+									<p class="text-xs text-slate-600">Joined { formatInAppTime(m.JoinedAt, "Jan 2, 2006") } • { m.Role }</p>
 								</div>
 								<div class="flex flex-wrap gap-2">
 									if m.Role == "member" {

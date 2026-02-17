@@ -128,7 +128,7 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 						<h1 class="text-3xl font-bold text-slate-900 truncate">{ org.Name }</h1>
 						<p class="text-sm text-slate-600 truncate">{ strings.TrimSpace(org.Description) }</p>
 						<p class="text-sm text-slate-600">
-							Date created: { org.CreatedAt.Format("Jan 2, 2006") }
+							Date created: { formatInAppTime(org.CreatedAt, "Jan 2, 2006") }
 							if organizationLocation(org.City, org.State) != "" {
 								<span> · { organizationLocation(org.City, org.State) }</span>
 							}

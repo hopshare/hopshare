@@ -148,9 +148,9 @@ func MessagesBody(
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var6 string
-						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(msg.CreatedAt.Format("Jan 2, 2006"))
+						templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 52, Col: 150}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 52, Col: 160}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 						if templ_7745c5c3_Err != nil {
@@ -252,9 +252,9 @@ func MessagesBody(
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var13 string
-						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(msg.CreatedAt.Format("Jan 2, 2006"))
+						templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 65, Col: 150}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 65, Col: 160}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 						if templ_7745c5c3_Err != nil {
@@ -358,9 +358,9 @@ func MessagesBody(
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var20 string
-						templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(msg.CreatedAt.Format("Jan 2, 2006"))
+						templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 80, Col: 150}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 80, Col: 160}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 						if templ_7745c5c3_Err != nil {
@@ -462,9 +462,9 @@ func MessagesBody(
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var27 string
-						templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(msg.CreatedAt.Format("Jan 2, 2006"))
+						templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 93, Col: 150}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 93, Col: 160}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 						if templ_7745c5c3_Err != nil {
@@ -579,9 +579,9 @@ func MessagesBody(
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var34 string
-			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(" " + selected.CreatedAt.Format("Jan 2, 2006 3:04 PM"))
+			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(" " + formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 120, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 120, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {

@@ -268,6 +268,40 @@ type AdminAuditEvent struct {
 	CreatedAt     time.Time
 }
 
+type AdminAuditFilter struct {
+	Actor        string
+	StartDate    string
+	EndDate      string
+	Action       string
+	Organization string
+	User         string
+	Target       string
+}
+
+type AdminAuditEventView struct {
+	ID               int64
+	ActorMemberID    int64
+	ActorUsername    string
+	ActorName        string
+	Action           string
+	Target           string
+	Reason           *string
+	Metadata         json.RawMessage
+	CreatedAt        time.Time
+	OrganizationID   *int64
+	OrganizationName *string
+	UserMemberID     *int64
+	UserUsername     *string
+	UserName         *string
+}
+
+type AdminAuditTabData struct {
+	Filter     AdminAuditFilter
+	Events     []AdminAuditEventView
+	SuccessMsg string
+	ErrorMsg   string
+}
+
 type AdminOrganizationHop struct {
 	ID             int64
 	OrganizationID int64

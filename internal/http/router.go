@@ -94,6 +94,7 @@ func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions *auth.SessionManager, a
 	srv.register(mux, "/admin/moderation/action", srv.handleAdminModerationAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
 	srv.register(mux, "/admin/users/action", srv.handleAdminUserAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
 	srv.register(mux, "/admin/messages/send", srv.handleAdminMessageSend, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
+	srv.register(mux, "/admin/audit/export", srv.handleAdminAuditExport, srv.requireAuth(), srv.requireMethod(http.MethodGet), srv.requireAdmin())
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("forgot-password"))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))

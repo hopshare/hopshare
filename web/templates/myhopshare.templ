@@ -444,7 +444,7 @@ templ CompletedHopRow(hop types.Hop) {
 		</div>
 		<div class="text-sm text-slate-500 whitespace-nowrap">
 			if hop.CompletedAt != nil {
-				{ hop.CompletedAt.Format("Jan 2") }
+				{ formatInAppTime(hop.CompletedAt, "Jan 2") }
 			}
 		</div>
 	</li>
@@ -507,7 +507,7 @@ templ StatCardCount(title string, count int, lastAt *time.Time) {
 		<p class="text-3xl font-bold text-slate-900 mt-2">{ count }</p>
 		<p class="text-sm text-slate-600 mt-2">
 			if lastAt != nil {
-				Last: { lastAt.Format("Jan 2, 2006") }
+				Last: { formatInAppTime(lastAt, "Jan 2, 2006") }
 			} else {
 				No activity yet
 			}
@@ -607,7 +607,7 @@ templ HelpHopRow(orgID int64, hop types.Hop) {
 			<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
 				<p class="text-sm text-slate-700">
 					<span class="font-semibold text-slate-800">Created:</span>
-					{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }
+					{ formatInAppTime(hop.CreatedAt, "Jan 2, 2006 3:04 PM") }
 				</p>
 				if hop.Details != nil && *hop.Details != "" {
 					<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
@@ -650,11 +650,11 @@ templ HopTimingLine(hop types.Hop) {
 			Needed: anytime
 		} else if hop.NeededByDate != nil {
 			if hop.NeededByKind == types.HopNeededByOn {
-				Needed on { hop.NeededByDate.Format("Jan 2, 2006") }
+				Needed on { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByAround {
-				Needed around { hop.NeededByDate.Format("Jan 2, 2006") }
+				Needed around { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByNoLaterThan {
-				Needed no later than { hop.NeededByDate.Format("Jan 2, 2006") }
+				Needed no later than { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
 			}
 		}
 	</span>

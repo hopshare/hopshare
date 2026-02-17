@@ -14,11 +14,15 @@ import (
 	"hopshare/internal/database"
 	"hopshare/internal/database/migrate"
 	httpserver "hopshare/internal/http"
+	"hopshare/web/templates"
 )
 
 func main() {
 	// Load configuration from environment.
 	cfg := config.Load()
+	if err := templates.SetAppTimezone(cfg.Timezone); err != nil {
+		log.Fatalf("configure app timezone: %v", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

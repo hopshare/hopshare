@@ -8,11 +8,11 @@ import (
 	"hopshare/internal/types"
 )
 
-templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData) {
-	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview, orgTab, moderationTab, usersTab, messagesTab))
+templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData, auditTab types.AdminAuditTabData) {
+	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview, orgTab, moderationTab, usersTab, messagesTab, auditTab))
 }
 
-templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData) {
+templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData, auditTab types.AdminAuditTabData) {
 	<div class="space-y-6">
 		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
 			<div class="space-y-2">
@@ -26,6 +26,7 @@ templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.
 					@AdminTabLink("Moderation", "/admin?tab=moderation", activeTab == "moderation")
 					@AdminTabLink("Users", "/admin?tab=users", activeTab == "users")
 					@AdminTabLink("Messages", "/admin?tab=messages", activeTab == "messages")
+					@AdminTabLink("Audit", "/admin?tab=audit", activeTab == "audit")
 				</nav>
 			</div>
 		</section>
@@ -39,6 +40,8 @@ templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.
 			@AdminUsersTab(usersTab)
 		} else if activeTab == "messages" {
 			@AdminMessagesTab(messagesTab)
+		} else if activeTab == "audit" {
+			@AdminAuditTab(auditTab)
 		}
 	</div>
 }
@@ -300,7 +303,7 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 								<div class="min-w-0">
 									<p class="truncate text-sm font-semibold text-slate-900">{ hop.Title }</p>
-									<p class="text-xs text-slate-600">#{ hop.ID } · { hop.CreatedByName } · { hop.CreatedAt.Format("2006-01-02") }</p>
+									<p class="text-xs text-slate-600">#{ hop.ID } · { hop.CreatedByName } · { formatInAppTime(hop.CreatedAt, "2006-01-02") }</p>
 								</div>
 								<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{ adminHopStatusLabel(hop.Status) }</span>
 							</div>
@@ -433,7 +436,7 @@ templ AdminModerationTab(data types.AdminModerationTabData) {
 									if report.ReporterDetails != nil && strings.TrimSpace(*report.ReporterDetails) != "" {
 										<p class="text-xs text-slate-500">Reporter note: { *report.ReporterDetails }</p>
 									}
-									<p class="text-xs text-slate-500">{ report.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+									<p class="text-xs text-slate-500">{ formatInAppTime(report.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
 								</div>
 								if report.Status == "open" {
 									<div class="flex items-center gap-2">
@@ -677,7 +680,7 @@ templ AdminUserDetailView(detail types.AdminUserDetail, query string) {
 				<h3 class="text-lg font-bold text-slate-900">{ adminUserDisplayName(detail.FirstName, detail.LastName, detail.Username) }</h3>
 				<p class="text-sm text-slate-600">{ "@" + detail.Username }{ " · " }{ detail.Email }</p>
 				if detail.LastLoginAt != nil {
-					<p class="text-xs text-slate-500">Last login: { detail.LastLoginAt.Format("Jan 2, 2006 3:04 PM") }</p>
+					<p class="text-xs text-slate-500">Last login: { formatInAppTime(detail.LastLoginAt, "Jan 2, 2006 3:04 PM") }</p>
 				} else {
 					<p class="text-xs text-slate-500">Last login: never</p>
 				}
@@ -794,9 +797,9 @@ templ AdminUserDetailView(detail types.AdminUserDetail, query string) {
 								</p>
 							</div>
 							<div class="text-xs text-slate-500">
-								<p>Joined { membership.JoinedAt.Format("Jan 2, 2006") }</p>
+								<p>Joined { formatInAppTime(membership.JoinedAt, "Jan 2, 2006") }</p>
 								if membership.LeftAt != nil {
-									<p>Left { membership.LeftAt.Format("Jan 2, 2006") }</p>
+									<p>Left { formatInAppTime(membership.LeftAt, "Jan 2, 2006") }</p>
 								} else {
 									<p class="font-semibold text-emerald-700">Active</p>
 								}
@@ -929,7 +932,7 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 											}
 											<p class="text-sm font-semibold text-slate-900">{ msg.Subject }</p>
 											<p class="text-sm text-slate-700 whitespace-pre-line">{ msg.Body }</p>
-											<p class="text-xs text-slate-500">{ msg.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+											<p class="text-xs text-slate-500">{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
 										</li>
 									}
 								</ul>
@@ -939,6 +942,163 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 				}
 			</section>
 		</div>
+	</div>
+}
+
+templ AdminAuditTab(data types.AdminAuditTabData) {
+	<div class="space-y-6">
+		if data.SuccessMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ data.SuccessMsg }</div>
+		}
+		if data.ErrorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ data.ErrorMsg }</div>
+		}
+
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-slate-900">Admin Audit Log</h2>
+				<p class="text-sm text-slate-600">Filter audit activity by actor, date range, action, organization, user, and target.</p>
+			</div>
+			<form method="GET" action="/admin" class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+				<input type="hidden" name="tab" value="audit" />
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="text"
+						name="actor"
+						placeholder="username/name"
+						value={ data.Filter.Actor }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Action</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="text"
+						name="action"
+						placeholder="admin.user.disable"
+						value={ data.Filter.Action }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Organization</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="text"
+						name="organization"
+						placeholder="org name or id"
+						value={ data.Filter.Organization }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">User</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="text"
+						name="user"
+						placeholder="username or id"
+						value={ data.Filter.User }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Target</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="text"
+						name="target"
+						placeholder="member:, organization:, hop:"
+						value={ data.Filter.Target }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Date</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="date"
+						name="start_date"
+						value={ data.Filter.StartDate }
+					/>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">End Date</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="date"
+						name="end_date"
+						value={ data.Filter.EndDate }
+					/>
+				</label>
+				<div class="flex items-end gap-2">
+					<button
+						type="submit"
+						class="inline-flex items-center justify-center rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800"
+					>
+						Apply
+					</button>
+					<a
+						href="/admin?tab=audit"
+						class="inline-flex items-center justify-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+					>
+						Clear
+					</a>
+				</div>
+			</form>
+			<div class="flex flex-wrap items-center gap-2 pt-1">
+				<a
+					href={ adminAuditExportURL("csv", data.Filter) }
+					class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+					data-testid="admin-audit-export-csv"
+				>
+					Export CSV
+				</a>
+				<a
+					href={ adminAuditExportURL("json", data.Filter) }
+					class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+					data-testid="admin-audit-export-json"
+				>
+					Export JSON
+				</a>
+			</div>
+		</section>
+
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+			if len(data.Events) == 0 {
+				<p class="text-sm text-slate-500">No audit events found for the current filters.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="min-w-full divide-y divide-slate-200 text-sm">
+						<thead class="bg-slate-50">
+							<tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+								<th class="px-3 py-2">When</th>
+								<th class="px-3 py-2">Actor</th>
+								<th class="px-3 py-2">Action</th>
+								<th class="px-3 py-2">Target</th>
+								<th class="px-3 py-2">Org</th>
+								<th class="px-3 py-2">User</th>
+								<th class="px-3 py-2">Reason</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-slate-100">
+							for _, event := range data.Events {
+								<tr data-testid={ "admin-audit-event-" + strconv.FormatInt(event.ID, 10) } class="align-top">
+									<td class="px-3 py-2 whitespace-nowrap text-slate-600">{ formatInAppTime(event.CreatedAt, "2006-01-02 15:04:05") }</td>
+									<td class="px-3 py-2 text-slate-700">
+										<p class="font-semibold text-slate-900">{ event.ActorName }</p>
+										<p class="text-xs text-slate-500">{ "@" + event.ActorUsername }</p>
+									</td>
+									<td class="px-3 py-2 text-slate-700">{ event.Action }</td>
+									<td class="px-3 py-2 text-slate-700">{ event.Target }</td>
+									<td class="px-3 py-2 text-slate-700">{ adminAuditOrgSummary(event) }</td>
+									<td class="px-3 py-2 text-slate-700">{ adminAuditUserSummary(event) }</td>
+									<td class="px-3 py-2 text-slate-700">{ adminAuditReason(event.Reason) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</section>
 	</div>
 }
 
@@ -1275,6 +1435,73 @@ func adminMessagesTabURL(recipientID int64, query string) string {
 		base += "&q=" + url.QueryEscape(query)
 	}
 	return base
+}
+
+func adminAuditExportURL(format string, filter types.AdminAuditFilter) string {
+	values := url.Values{}
+	values.Set("format", strings.TrimSpace(strings.ToLower(format)))
+	if strings.TrimSpace(filter.Actor) != "" {
+		values.Set("actor", strings.TrimSpace(filter.Actor))
+	}
+	if strings.TrimSpace(filter.StartDate) != "" {
+		values.Set("start_date", strings.TrimSpace(filter.StartDate))
+	}
+	if strings.TrimSpace(filter.EndDate) != "" {
+		values.Set("end_date", strings.TrimSpace(filter.EndDate))
+	}
+	if strings.TrimSpace(filter.Action) != "" {
+		values.Set("action", strings.TrimSpace(filter.Action))
+	}
+	if strings.TrimSpace(filter.Organization) != "" {
+		values.Set("organization", strings.TrimSpace(filter.Organization))
+	}
+	if strings.TrimSpace(filter.User) != "" {
+		values.Set("user", strings.TrimSpace(filter.User))
+	}
+	if strings.TrimSpace(filter.Target) != "" {
+		values.Set("target", strings.TrimSpace(filter.Target))
+	}
+	return "/admin/audit/export?" + values.Encode()
+}
+
+func adminAuditOrgSummary(event types.AdminAuditEventView) string {
+	if event.OrganizationName != nil && strings.TrimSpace(*event.OrganizationName) != "" {
+		if event.OrganizationID != nil {
+			return *event.OrganizationName + " (#" + strconv.FormatInt(*event.OrganizationID, 10) + ")"
+		}
+		return *event.OrganizationName
+	}
+	if event.OrganizationID != nil {
+		return "#" + strconv.FormatInt(*event.OrganizationID, 10)
+	}
+	return "-"
+}
+
+func adminAuditUserSummary(event types.AdminAuditEventView) string {
+	if event.UserName != nil && strings.TrimSpace(*event.UserName) != "" {
+		if event.UserUsername != nil && strings.TrimSpace(*event.UserUsername) != "" {
+			return *event.UserName + " (@" + *event.UserUsername + ")"
+		}
+		return *event.UserName
+	}
+	if event.UserUsername != nil && strings.TrimSpace(*event.UserUsername) != "" {
+		return "@" + *event.UserUsername
+	}
+	if event.UserMemberID != nil {
+		return "#" + strconv.FormatInt(*event.UserMemberID, 10)
+	}
+	return "-"
+}
+
+func adminAuditReason(reason *string) string {
+	if reason == nil {
+		return "-"
+	}
+	trimmed := strings.TrimSpace(*reason)
+	if trimmed == "" {
+		return "-"
+	}
+	return trimmed
 }
 
 func adminBoolString(v bool) string {

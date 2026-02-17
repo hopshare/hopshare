@@ -18,13 +18,13 @@ func hopNeededByLabel(hop types.Hop) string {
 		}
 		switch hop.NeededByKind {
 		case types.HopNeededByOn:
-			return "On " + hop.NeededByDate.Format("Jan 2, 2006")
+			return "On " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
 		case types.HopNeededByAround:
-			return "Around " + hop.NeededByDate.Format("Jan 2, 2006")
+			return "Around " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
 		case types.HopNeededByNoLaterThan:
-			return "No later than " + hop.NeededByDate.Format("Jan 2, 2006")
+			return "No later than " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
 		default:
-			return hop.NeededByDate.Format("Jan 2, 2006")
+			return formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
 		}
 	}
 }
@@ -190,7 +190,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 						<div class="space-y-2">
 							<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Completion</h2>
 							<p class="text-sm text-slate-700">
-								Completed { hop.CompletedAt.Format("Jan 2, 2006 3:04 PM") }
+								Completed { formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM") }
 								if hop.CompletedHours != nil {
 									{ " • " }{ hopHoursLabel(*hop.CompletedHours) }
 								}
@@ -208,7 +208,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 						</div>
 						<div class="flex items-center justify-between text-sm text-slate-700">
 							<span class="text-slate-500">Created</span>
-							<span class="font-semibold">{ hop.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</span>
+							<span class="font-semibold">{ formatInAppTime(hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</span>
 						</div>
 						<div class="flex items-center justify-between text-sm text-slate-700">
 							<span class="text-slate-500">Needed by</span>
@@ -380,7 +380,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 							<div class="space-y-2">
 								<div class="flex flex-wrap items-center gap-2">
 									<p class="text-sm font-semibold text-slate-900">{ comment.MemberName }</p>
-									<p class="text-xs text-slate-500">{ comment.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+									<p class="text-xs text-slate-500">{ formatInAppTime(comment.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
 								</div>
 								<p class="text-sm text-slate-700 whitespace-pre-line">{ comment.Body }</p>
 								<form method="POST" action="/hops/comments/report">

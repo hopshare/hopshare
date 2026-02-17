@@ -11,6 +11,7 @@ type Config struct {
 	DatabaseURL string
 	Env         string
 	Admins      []string
+	Timezone    string
 }
 
 // Load returns configuration populated from HOPSHARE_* environment variables.
@@ -20,6 +21,7 @@ func Load() Config {
 		DatabaseURL: getenv("HOPSHARE_DB_URL", ""),
 		Env:         getenv("HOPSHARE_ENV", "development"),
 		Admins:      parseAdmins(getenv("HOPSHARE_ADMINS", "")),
+		Timezone:    loadTimezone(),
 	}
 }
 
@@ -51,4 +53,11 @@ func parseAdmins(raw string) []string {
 		admins = append(admins, username)
 	}
 	return admins
+}
+
+func loadTimezone() string {
+	if tz := strings.TrimSpace(getenv("HOPSHARE_TIMEZONE", "")); tz != "" {
+		return tz
+	}
+	return "UTC"
 }

@@ -2,6 +2,7 @@ package http
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"hopshare/internal/service"
 	"hopshare/internal/types"
@@ -22,6 +24,7 @@ const (
 	adminTabModeration             = "moderation"
 	adminTabUsers                  = "users"
 	adminTabMessages               = "messages"
+	adminTabAudit                  = "audit"
 	adminOverviewLeaderboardCap    = 5
 	adminOrganizationsSearchLimit  = 25
 	adminOrganizationHopListLimit  = 100
@@ -29,6 +32,8 @@ const (
 	adminUsersSearchLimit          = 25
 	adminMessagesSearchLimit       = 25
 	adminMessagesConversationLimit = 200
+	adminAuditEventListLimit       = 250
+	adminAuditExportLimit          = 2000
 
 	adminOrgActionDisable = "disable_org"
 	adminOrgActionEnable  = "enable_org"
@@ -49,6 +54,9 @@ const (
 	adminUserActionAdjustHours        = "adjust_hours"
 
 	adminMessageSubjectPrefix = "ADMIN Message:"
+
+	adminAuditExportFormatCSV  = "csv"
+	adminAuditExportFormatJSON = "json"
 )
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +73,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	var moderationTab types.AdminModerationTabData
 	var usersTab types.AdminUsersTabData
 	var messagesTab types.AdminMessagesTabData
+	var auditTab types.AdminAuditTabData
 	var err error
 
 	switch activeTab {
@@ -96,6 +105,13 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load admin messages", http.StatusInternalServerError)
 			return
 		}
+	case adminTabAudit:
+		auditTab, err = s.loadAdminAuditTabData(r)
+		if err != nil {
+			log.Printf("load admin audit tab data: %v", err)
+			http.Error(w, "could not load admin audit events", http.StatusInternalServerError)
+			return
+		}
 	default:
 		overview, err = service.AdminAppOverview(r.Context(), s.db, adminOverviewLeaderboardCap)
 		if err != nil {
@@ -103,28 +119,9 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load admin overview", http.StatusInternalServerError)
 			return
 		}
-
-		auditMetadata, err := json.Marshal(map[string]string{
-			"tab": activeTab,
-		})
-		if err != nil {
-			log.Printf("marshal admin audit metadata: %v", err)
-			http.Error(w, "could not log admin action", http.StatusInternalServerError)
-			return
-		}
-		if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
-			ActorMemberID: user.ID,
-			Action:        service.AdminAuditActionAppOverviewViewed,
-			Target:        service.AdminAuditTargetApplication,
-			Metadata:      auditMetadata,
-		}); err != nil {
-			log.Printf("write admin audit event actor=%d action=%q: %v", user.ID, service.AdminAuditActionAppOverviewViewed, err)
-			http.Error(w, "could not log admin action", http.StatusInternalServerError)
-			return
-		}
 	}
 
-	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab, usersTab, messagesTab))
+	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab, usersTab, messagesTab, auditTab))
 }
 
 func (s *Server) handleAdminOrganizationAction(w http.ResponseWriter, r *http.Request) {
@@ -457,6 +454,99 @@ func (s *Server) handleAdminMessageSend(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Message sent."), http.StatusSeeOther)
 }
 
+func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	format := normalizeAdminAuditExportFormat(r.URL.Query().Get("format"))
+	filter, params, err := parseAdminAuditFilter(r.URL.Query())
+	if err != nil {
+		http.Redirect(w, r, redirectWithMessage(adminAuditRedirect(filter), "error", err.Error()), http.StatusSeeOther)
+		return
+	}
+	if format == "" {
+		http.Redirect(w, r, redirectWithMessage(adminAuditRedirect(filter), "error", "Invalid export format."), http.StatusSeeOther)
+		return
+	}
+
+	params.Limit = adminAuditExportLimit
+	events, err := service.ListAdminAuditEvents(r.Context(), s.db, params)
+	if err != nil {
+		log.Printf("list admin audit events for export: %v", err)
+		http.Error(w, "could not export admin audit events", http.StatusInternalServerError)
+		return
+	}
+
+	filenameTime := time.Now().UTC().Format("20060102-150405")
+	switch format {
+	case adminAuditExportFormatCSV:
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="admin-audit-%s.csv"`, filenameTime))
+
+		csvWriter := csv.NewWriter(w)
+		if err := csvWriter.Write([]string{
+			"id",
+			"created_at",
+			"actor_member_id",
+			"actor_username",
+			"actor_name",
+			"action",
+			"target",
+			"reason",
+			"organization_id",
+			"organization_name",
+			"user_member_id",
+			"user_username",
+			"user_name",
+			"metadata",
+		}); err != nil {
+			http.Error(w, "could not write csv export", http.StatusInternalServerError)
+			return
+		}
+		for _, event := range events {
+			record := []string{
+				strconv.FormatInt(event.ID, 10),
+				event.CreatedAt.UTC().Format(time.RFC3339),
+				strconv.FormatInt(event.ActorMemberID, 10),
+				event.ActorUsername,
+				event.ActorName,
+				event.Action,
+				event.Target,
+				adminAuditOptionalString(event.Reason),
+				adminAuditOptionalInt64(event.OrganizationID),
+				adminAuditOptionalString(event.OrganizationName),
+				adminAuditOptionalInt64(event.UserMemberID),
+				adminAuditOptionalString(event.UserUsername),
+				adminAuditOptionalString(event.UserName),
+				string(event.Metadata),
+			}
+			if err := csvWriter.Write(record); err != nil {
+				http.Error(w, "could not write csv export", http.StatusInternalServerError)
+				return
+			}
+		}
+		csvWriter.Flush()
+		if err := csvWriter.Error(); err != nil {
+			http.Error(w, "could not write csv export", http.StatusInternalServerError)
+			return
+		}
+	case adminAuditExportFormatJSON:
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="admin-audit-%s.json"`, filenameTime))
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(events); err != nil {
+			http.Error(w, "could not write json export", http.StatusInternalServerError)
+			return
+		}
+	default:
+		http.Error(w, "invalid export format", http.StatusBadRequest)
+	}
+}
+
 func (s *Server) loadAdminOrganizationTabData(r *http.Request) (types.AdminOrganizationTabData, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	orgID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("org_id"))
@@ -608,6 +698,31 @@ func (s *Server) loadAdminMessagesTabData(r *http.Request, actorMemberID int64) 
 		Conversation:        conversation,
 		SuccessMsg:          r.URL.Query().Get("success"),
 		ErrorMsg:            r.URL.Query().Get("error"),
+	}, nil
+}
+
+func (s *Server) loadAdminAuditTabData(r *http.Request) (types.AdminAuditTabData, error) {
+	filter, params, err := parseAdminAuditFilter(r.URL.Query())
+	if err != nil {
+		return types.AdminAuditTabData{
+			Filter:     filter,
+			Events:     []types.AdminAuditEventView{},
+			SuccessMsg: r.URL.Query().Get("success"),
+			ErrorMsg:   err.Error(),
+		}, nil
+	}
+	params.Limit = adminAuditEventListLimit
+
+	events, err := service.ListAdminAuditEvents(r.Context(), s.db, params)
+	if err != nil {
+		return types.AdminAuditTabData{}, err
+	}
+
+	return types.AdminAuditTabData{
+		Filter:     filter,
+		Events:     events,
+		SuccessMsg: r.URL.Query().Get("success"),
+		ErrorMsg:   r.URL.Query().Get("error"),
 	}, nil
 }
 
@@ -773,6 +888,8 @@ func normalizeAdminTab(raw string) string {
 		return adminTabUsers
 	case adminTabMessages:
 		return adminTabMessages
+	case adminTabAudit:
+		return adminTabAudit
 	default:
 		return adminTabApp
 	}
@@ -877,6 +994,119 @@ func adminMessagesRedirect(recipientID int64, query string) string {
 		base += "&q=" + url.QueryEscape(query)
 	}
 	return base
+}
+
+func adminAuditRedirect(filter types.AdminAuditFilter) string {
+	values := url.Values{}
+	values.Set("tab", adminTabAudit)
+	if strings.TrimSpace(filter.Actor) != "" {
+		values.Set("actor", strings.TrimSpace(filter.Actor))
+	}
+	if strings.TrimSpace(filter.StartDate) != "" {
+		values.Set("start_date", strings.TrimSpace(filter.StartDate))
+	}
+	if strings.TrimSpace(filter.EndDate) != "" {
+		values.Set("end_date", strings.TrimSpace(filter.EndDate))
+	}
+	if strings.TrimSpace(filter.Action) != "" {
+		values.Set("action", strings.TrimSpace(filter.Action))
+	}
+	if strings.TrimSpace(filter.Organization) != "" {
+		values.Set("organization", strings.TrimSpace(filter.Organization))
+	}
+	if strings.TrimSpace(filter.User) != "" {
+		values.Set("user", strings.TrimSpace(filter.User))
+	}
+	if strings.TrimSpace(filter.Target) != "" {
+		values.Set("target", strings.TrimSpace(filter.Target))
+	}
+	return "/admin?" + values.Encode()
+}
+
+func parseAdminAuditFilter(values url.Values) (types.AdminAuditFilter, service.ListAdminAuditEventsParams, error) {
+	filter := types.AdminAuditFilter{
+		Actor:        strings.TrimSpace(values.Get("actor")),
+		StartDate:    strings.TrimSpace(values.Get("start_date")),
+		EndDate:      strings.TrimSpace(values.Get("end_date")),
+		Action:       strings.TrimSpace(values.Get("action")),
+		Organization: strings.TrimSpace(values.Get("organization")),
+		User:         strings.TrimSpace(values.Get("user")),
+		Target:       strings.TrimSpace(values.Get("target")),
+	}
+
+	startAt, endBefore, err := parseAdminAuditDateRange(filter.StartDate, filter.EndDate)
+	if err != nil {
+		return filter, service.ListAdminAuditEventsParams{}, err
+	}
+
+	return filter, service.ListAdminAuditEventsParams{
+		ActorQuery:        filter.Actor,
+		ActionQuery:       filter.Action,
+		OrganizationQuery: filter.Organization,
+		UserQuery:         filter.User,
+		TargetQuery:       filter.Target,
+		StartAt:           startAt,
+		EndBefore:         endBefore,
+	}, nil
+}
+
+func parseAdminAuditDateRange(startDate, endDate string) (*time.Time, *time.Time, error) {
+	startAt, err := parseAdminAuditDate(startDate)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Invalid start date. Use YYYY-MM-DD.")
+	}
+	endAt, err := parseAdminAuditDate(endDate)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Invalid end date. Use YYYY-MM-DD.")
+	}
+
+	if startAt != nil && endAt != nil && startAt.After(*endAt) {
+		return nil, nil, fmt.Errorf("Start date must be on or before end date.")
+	}
+	if endAt == nil {
+		return startAt, nil, nil
+	}
+	endBefore := endAt.Add(24 * time.Hour)
+	return startAt, &endBefore, nil
+}
+
+func parseAdminAuditDate(raw string) (*time.Time, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse("2006-01-02", trimmed)
+	if err != nil {
+		return nil, err
+	}
+	parsed = parsed.UTC()
+	return &parsed, nil
+}
+
+func normalizeAdminAuditExportFormat(raw string) string {
+	format := strings.TrimSpace(strings.ToLower(raw))
+	switch format {
+	case adminAuditExportFormatCSV:
+		return adminAuditExportFormatCSV
+	case adminAuditExportFormatJSON:
+		return adminAuditExportFormatJSON
+	default:
+		return ""
+	}
+}
+
+func adminAuditOptionalString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func adminAuditOptionalInt64(v *int64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatInt(*v, 10)
 }
 
 func adminMessageSubjectCore(raw string) string {

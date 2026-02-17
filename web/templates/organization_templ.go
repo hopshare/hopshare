@@ -225,9 +225,9 @@ func OrganizationBody(userEmail *string, org types.Organization, metrics types.O
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.CreatedAt.Format("Jan 2, 2006"))
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(org.CreatedAt, "Jan 2, 2006"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 131, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/organization.templ`, Line: 131, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
