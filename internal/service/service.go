@@ -30,6 +30,12 @@ var (
 	ErrHopOfferExists   = errors.New("hop offer already exists")
 	ErrHopImageNotFound = errors.New("hop image not found")
 
+	ErrModerationReportNotFound  = errors.New("moderation report not found")
+	ErrModerationReportResolved  = errors.New("moderation report already resolved")
+	ErrModerationTargetNotFound  = errors.New("moderation target not found")
+	ErrModerationTargetMismatch  = errors.New("moderation target type mismatch")
+	ErrModerationAlreadyReported = errors.New("moderation target already reported by this member")
+
 	ErrMessageNotFound = errors.New("message not found")
 	ErrInvalidMessage  = errors.New("invalid message")
 )

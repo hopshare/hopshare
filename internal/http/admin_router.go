@@ -17,16 +17,25 @@ import (
 )
 
 const (
-	adminTabApp                   = "app"
-	adminTabOrganizations         = "organizations"
-	adminOverviewLeaderboardCap   = 5
-	adminOrganizationsSearchLimit = 25
-	adminOrganizationHopListLimit = 100
+	adminTabApp                    = "app"
+	adminTabOrganizations          = "organizations"
+	adminTabModeration             = "moderation"
+	adminOverviewLeaderboardCap    = 5
+	adminOrganizationsSearchLimit  = 25
+	adminOrganizationHopListLimit  = 100
+	adminModerationReportListLimit = 200
 
 	adminOrgActionDisable = "disable_org"
 	adminOrgActionEnable  = "enable_org"
 	adminOrgActionExpire  = "expire_hop"
 	adminOrgActionDelete  = "delete_hop"
+
+	adminModerationActionDismiss       = "dismiss_report"
+	adminModerationActionDeleteComment = "delete_comment"
+	adminModerationActionDeleteImage   = "delete_image"
+
+	adminModerationStatusAll = "all"
+	adminModerationTypeAll   = "all"
 )
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +49,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 
 	var overview types.AdminAppOverview
 	var orgTab types.AdminOrganizationTabData
+	var moderationTab types.AdminModerationTabData
 	var err error
 
 	switch activeTab {
@@ -48,6 +58,13 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("load admin organization tab data: %v", err)
 			http.Error(w, "could not load admin organizations", http.StatusInternalServerError)
+			return
+		}
+	case adminTabModeration:
+		moderationTab, err = s.loadAdminModerationTabData(r)
+		if err != nil {
+			log.Printf("load admin moderation tab data: %v", err)
+			http.Error(w, "could not load admin moderation queue", http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -78,7 +95,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab))
+	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab))
 }
 
 func (s *Server) handleAdminOrganizationAction(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +180,81 @@ func (s *Server) handleAdminOrganizationAction(w http.ResponseWriter, r *http.Re
 	}
 }
 
+func (s *Server) handleAdminModerationAction(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	action := strings.TrimSpace(r.FormValue("action"))
+	reportID, err := parseAdminReportID(r.FormValue("report_id"))
+	if err != nil {
+		http.Redirect(w, r, "/admin?tab="+adminTabModeration+"&error="+url.QueryEscape("Invalid report."), http.StatusSeeOther)
+		return
+	}
+
+	statusFilter := normalizeModerationStatusFilter(r.FormValue("status"))
+	typeFilter := normalizeModerationTypeFilter(r.FormValue("type"))
+	searchQuery := strings.TrimSpace(r.FormValue("q"))
+	redirectBase := adminModerationRedirect(statusFilter, typeFilter, searchQuery)
+
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if reason == "" {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "A reason is required for this action."), http.StatusSeeOther)
+		return
+	}
+
+	var result types.ModerationReport
+	var auditAction string
+	var successMessage string
+
+	switch action {
+	case adminModerationActionDismiss:
+		result, err = service.DismissModerationReport(r.Context(), s.db, reportID, user.ID)
+		auditAction = service.AdminAuditActionModerationDismiss
+		successMessage = "Report dismissed."
+	case adminModerationActionDeleteComment:
+		result, err = service.DeleteReportedHopComment(r.Context(), s.db, reportID, user.ID)
+		auditAction = service.AdminAuditActionModerationCommentDelete
+		successMessage = "Comment deleted."
+	case adminModerationActionDeleteImage:
+		result, err = service.DeleteReportedHopImage(r.Context(), s.db, reportID, user.ID)
+		auditAction = service.AdminAuditActionModerationImageDelete
+		successMessage = "Image deleted."
+	default:
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Unknown moderation action."), http.StatusSeeOther)
+		return
+	}
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrModerationReportNotFound):
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid report."), http.StatusSeeOther)
+		case errors.Is(err, service.ErrModerationReportResolved):
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Report has already been resolved."), http.StatusSeeOther)
+		case errors.Is(err, service.ErrModerationTargetMismatch):
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Action does not match report type."), http.StatusSeeOther)
+		case errors.Is(err, service.ErrModerationTargetNotFound):
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Reported content was already removed."), http.StatusSeeOther)
+		default:
+			log.Printf("resolve moderation report action=%q report=%d: %v", action, reportID, err)
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not process moderation action."), http.StatusSeeOther)
+		}
+		return
+	}
+
+	if err := s.writeAdminModerationAudit(r, user.ID, result, auditAction, reason); err != nil {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", successMessage), http.StatusSeeOther)
+}
+
 func (s *Server) loadAdminOrganizationTabData(r *http.Request) (types.AdminOrganizationTabData, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	orgID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("org_id"))
@@ -194,6 +286,31 @@ func (s *Server) loadAdminOrganizationTabData(r *http.Request) (types.AdminOrgan
 	}, nil
 }
 
+func (s *Server) loadAdminModerationTabData(r *http.Request) (types.AdminModerationTabData, error) {
+	statusFilter := normalizeModerationStatusFilter(r.URL.Query().Get("status"))
+	typeFilter := normalizeModerationTypeFilter(r.URL.Query().Get("type"))
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+
+	reports, err := service.ListModerationReports(r.Context(), s.db, types.ListModerationReportsParams{
+		Status:     statusFilter,
+		ReportType: typeFilter,
+		Query:      query,
+		Limit:      adminModerationReportListLimit,
+	})
+	if err != nil {
+		return types.AdminModerationTabData{}, err
+	}
+
+	return types.AdminModerationTabData{
+		StatusFilter: statusFilter,
+		TypeFilter:   typeFilter,
+		Query:        query,
+		Reports:      reports,
+		SuccessMsg:   r.URL.Query().Get("success"),
+		ErrorMsg:     r.URL.Query().Get("error"),
+	}, nil
+}
+
 func (s *Server) writeAdminOrganizationAudit(r *http.Request, actorID, orgID int64, action string, hopID *int64, reason string) error {
 	metadata := map[string]any{
 		"tab":    adminTabOrganizations,
@@ -207,6 +324,42 @@ func (s *Server) writeAdminOrganizationAudit(r *http.Request, actorID, orgID int
 	rawMetadata, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("marshal admin action metadata: %w", err)
+	}
+
+	if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
+		ActorMemberID: actorID,
+		Action:        action,
+		Target:        target,
+		Reason:        reason,
+		Metadata:      rawMetadata,
+		Sensitive:     true,
+	}); err != nil {
+		if errors.Is(err, service.ErrAuditReasonRequired) {
+			return fmt.Errorf("A reason is required for this action.")
+		}
+		return fmt.Errorf("Could not log admin action.")
+	}
+	return nil
+}
+
+func (s *Server) writeAdminModerationAudit(r *http.Request, actorID int64, result types.ModerationReport, action string, reason string) error {
+	metadata := map[string]any{
+		"tab":         adminTabModeration,
+		"report_id":   result.ID,
+		"org_id":      result.OrganizationID,
+		"hop_id":      result.HopID,
+		"report_type": result.ReportType,
+	}
+	target := fmt.Sprintf("moderation_report:%d", result.ID)
+	if result.HopCommentID != nil {
+		metadata["hop_comment_id"] = *result.HopCommentID
+	}
+	if result.HopImageID != nil {
+		metadata["hop_image_id"] = *result.HopImageID
+	}
+	rawMetadata, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("marshal moderation action metadata: %w", err)
 	}
 
 	if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
@@ -247,6 +400,8 @@ func normalizeAdminTab(raw string) string {
 		return adminTabApp
 	case adminTabOrganizations:
 		return adminTabOrganizations
+	case adminTabModeration:
+		return adminTabModeration
 	default:
 		return adminTabApp
 	}
@@ -266,6 +421,14 @@ func parseAdminHopID(raw string) (int64, error) {
 		return 0, fmt.Errorf("invalid hop id")
 	}
 	return hopID, nil
+}
+
+func parseAdminReportID(raw string) (int64, error) {
+	reportID, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || reportID <= 0 {
+		return 0, fmt.Errorf("invalid report id")
+	}
+	return reportID, nil
 }
 
 func parseOptionalPositiveInt64(raw string) (int64, error) {
@@ -289,4 +452,50 @@ func adminOrganizationsRedirect(orgID int64, query string) string {
 		base += "&q=" + url.QueryEscape(query)
 	}
 	return base
+}
+
+func adminModerationRedirect(statusFilter, typeFilter, query string) string {
+	base := "/admin?tab=" + adminTabModeration
+	statusFilter = normalizeModerationStatusFilter(statusFilter)
+	typeFilter = normalizeModerationTypeFilter(typeFilter)
+	if statusFilter != types.ModerationReportStatusOpen {
+		base += "&status=" + url.QueryEscape(statusFilter)
+	}
+	if typeFilter != adminModerationTypeAll {
+		base += "&type=" + url.QueryEscape(typeFilter)
+	}
+	if strings.TrimSpace(query) != "" {
+		base += "&q=" + url.QueryEscape(query)
+	}
+	return base
+}
+
+func normalizeModerationStatusFilter(raw string) string {
+	status := strings.TrimSpace(strings.ToLower(raw))
+	switch status {
+	case "", types.ModerationReportStatusOpen:
+		return types.ModerationReportStatusOpen
+	case types.ModerationReportStatusDismissed:
+		return types.ModerationReportStatusDismissed
+	case types.ModerationReportStatusActioned:
+		return types.ModerationReportStatusActioned
+	case adminModerationStatusAll:
+		return adminModerationStatusAll
+	default:
+		return types.ModerationReportStatusOpen
+	}
+}
+
+func normalizeModerationTypeFilter(raw string) string {
+	reportType := strings.TrimSpace(strings.ToLower(raw))
+	switch reportType {
+	case "", adminModerationTypeAll:
+		return adminModerationTypeAll
+	case types.ModerationReportTypeHopComment:
+		return types.ModerationReportTypeHopComment
+	case types.ModerationReportTypeHopImage:
+		return types.ModerationReportTypeHopImage
+	default:
+		return adminModerationTypeAll
+	}
 }

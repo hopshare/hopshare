@@ -311,17 +311,28 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 									alt="Hop photo"
 								/>
 							</button>
-							if canUpload {
-								<form method="POST" action="/hops/images/delete">
+							<div class="flex items-center gap-3">
+								if canUpload {
+									<form method="POST" action="/hops/images/delete">
+										@CSRFField()
+										<input type="hidden" name="org_id" value={ org.ID } />
+										<input type="hidden" name="hop_id" value={ hop.ID } />
+										<input type="hidden" name="image_id" value={ img.ID } />
+										<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+										<input type="hidden" name="view" value={ backView } />
+										<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
+									</form>
+								}
+								<form method="POST" action="/hops/images/report">
 									@CSRFField()
 									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="hop_id" value={ hop.ID } />
 									<input type="hidden" name="image_id" value={ img.ID } />
 									<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
 									<input type="hidden" name="view" value={ backView } />
-									<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
+									<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this image</button>
 								</form>
-							}
+							</div>
 						</div>
 					}
 				</div>
@@ -372,6 +383,15 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 									<p class="text-xs text-slate-500">{ comment.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
 								</div>
 								<p class="text-sm text-slate-700 whitespace-pre-line">{ comment.Body }</p>
+								<form method="POST" action="/hops/comments/report">
+									@CSRFField()
+									<input type="hidden" name="org_id" value={ org.ID } />
+									<input type="hidden" name="hop_id" value={ hop.ID } />
+									<input type="hidden" name="comment_id" value={ comment.ID } />
+									<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+									<input type="hidden" name="view" value={ backView } />
+									<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this comment</button>
+								</form>
 							</div>
 						</div>
 					}

@@ -8,11 +8,11 @@ import (
 	"hopshare/internal/types"
 )
 
-templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData) {
-	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview, orgTab))
+templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData) {
+	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview, orgTab, moderationTab))
 }
 
-templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData) {
+templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData) {
 	<div class="space-y-6">
 		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
 			<div class="space-y-2">
@@ -23,6 +23,7 @@ templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.
 				<nav class="-mb-px flex gap-2" aria-label="Admin tabs">
 					@AdminTabLink("App Overview", "/admin?tab=app", activeTab == "app")
 					@AdminTabLink("Organizations", "/admin?tab=organizations", activeTab == "organizations")
+					@AdminTabLink("Moderation", "/admin?tab=moderation", activeTab == "moderation")
 				</nav>
 			</div>
 		</section>
@@ -30,6 +31,8 @@ templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.
 			@AdminAppOverviewTab(overview)
 		} else if activeTab == "organizations" {
 			@AdminOrganizationsTab(orgTab)
+		} else if activeTab == "moderation" {
+			@AdminModerationTab(moderationTab)
 		}
 	</div>
 }
@@ -340,6 +343,193 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 	</div>
 }
 
+templ AdminModerationTab(data types.AdminModerationTabData) {
+	<div
+		class="space-y-6"
+		x-data={ adminModerationActionModalData(data.StatusFilter, data.TypeFilter, data.Query) }
+		x-on:keydown.escape.window="closeModerationActionModal()"
+	>
+		if data.SuccessMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ data.SuccessMsg }</div>
+		}
+		if data.ErrorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ data.ErrorMsg }</div>
+		}
+
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-slate-900">Moderation Queue</h2>
+				<p class="text-sm text-slate-600">Review and resolve reported hop comments and images.</p>
+			</div>
+			<form method="GET" action="/admin" class="grid grid-cols-1 gap-3 md:grid-cols-4">
+				<input type="hidden" name="tab" value="moderation" />
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+					<select class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" name="status">
+						<option value="open" selected?={ data.StatusFilter == "open" }>Open</option>
+						<option value="actioned" selected?={ data.StatusFilter == "actioned" }>Actioned</option>
+						<option value="dismissed" selected?={ data.StatusFilter == "dismissed" }>Dismissed</option>
+						<option value="all" selected?={ data.StatusFilter == "all" }>All</option>
+					</select>
+				</label>
+				<label class="space-y-1 text-sm">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Content Type</span>
+					<select class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" name="type">
+						<option value="all" selected?={ data.TypeFilter == "all" }>All content</option>
+						<option value="hop_comment" selected?={ data.TypeFilter == "hop_comment" }>Comments</option>
+						<option value="hop_image" selected?={ data.TypeFilter == "hop_image" }>Images</option>
+					</select>
+				</label>
+				<label class="space-y-1 text-sm md:col-span-2">
+					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Organization</span>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="search"
+						name="q"
+						placeholder="Filter by organization name"
+						value={ data.Query }
+					/>
+				</label>
+				<div class="md:col-span-4">
+					<button
+						type="submit"
+						class="inline-flex items-center justify-center rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800"
+					>
+						Apply filters
+					</button>
+				</div>
+			</form>
+		</section>
+
+		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+			if len(data.Reports) == 0 {
+				<p class="text-sm text-slate-500">No reports match the current filters.</p>
+			} else {
+				<ul class="divide-y divide-slate-200">
+					for _, report := range data.Reports {
+						<li class="py-4 space-y-3" data-testid={ "admin-moderation-report-" + strconv.FormatInt(report.ID, 10) }>
+							<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+								<div class="space-y-1">
+									<div class="flex flex-wrap items-center gap-2 text-sm">
+										@AdminModerationStatusBadge(report.Status)
+										<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{ adminModerationReportTypeLabel(report.ReportType) }</span>
+										<span class="text-xs text-slate-500">Report #{ report.ID }</span>
+									</div>
+									<p class="text-sm font-semibold text-slate-900">
+										<a class="underline hover:text-sky-700" href={ "/organization/" + report.OrganizationURLName }>{ report.OrganizationName }</a>
+										{ " · " }
+										<a class="underline hover:text-sky-700" href={ "/hops/view?hop_id=" + strconv.FormatInt(report.HopID, 10) + "&org_id=" + strconv.FormatInt(report.OrganizationID, 10) }>Hop #{ report.HopID }</a>
+									</p>
+									<p class="text-sm text-slate-700">
+										Reported by <span class="font-semibold">{ report.ReportedMemberName }</span> against <span class="font-semibold">{ report.ContentMemberName }</span>
+									</p>
+									<p class="text-sm text-slate-600 whitespace-pre-line">{ report.ContentSummary }</p>
+									if report.ReporterDetails != nil && strings.TrimSpace(*report.ReporterDetails) != "" {
+										<p class="text-xs text-slate-500">Reporter note: { *report.ReporterDetails }</p>
+									}
+									<p class="text-xs text-slate-500">{ report.CreatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+								</div>
+								if report.Status == "open" {
+									<div class="flex items-center gap-2">
+										<button
+											type="button"
+											class="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+											data-testid={ "admin-moderation-dismiss-" + strconv.FormatInt(report.ID, 10) }
+											x-on:click={ adminOpenModerationActionModalCall("dismiss_report", report.ID, "Dismiss report?", "Keep the content and mark this report as reviewed.", "Dismiss report", "bg-slate-700 hover:bg-slate-800") }
+										>
+											Dismiss
+										</button>
+										if report.ReportType == types.ModerationReportTypeHopComment {
+											<button
+												type="button"
+												class="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100"
+												data-testid={ "admin-moderation-delete-comment-" + strconv.FormatInt(report.ID, 10) }
+												x-on:click={ adminOpenModerationActionModalCall("delete_comment", report.ID, "Delete this comment?", "This removes the comment and resolves the report.", "Delete comment", "bg-red-700 hover:bg-red-800") }
+											>
+												Delete comment
+											</button>
+										}
+										if report.ReportType == types.ModerationReportTypeHopImage {
+											<button
+												type="button"
+												class="inline-flex items-center rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100"
+												data-testid={ "admin-moderation-delete-image-" + strconv.FormatInt(report.ID, 10) }
+												x-on:click={ adminOpenModerationActionModalCall("delete_image", report.ID, "Delete this image?", "This removes the image and resolves the report.", "Delete image", "bg-red-700 hover:bg-red-800") }
+											>
+												Delete image
+											</button>
+										}
+									</div>
+								}
+							</div>
+						</li>
+					}
+				</ul>
+			}
+		</section>
+
+		<div class="fixed inset-0 z-50" x-show="moderationActionModalOpen" x-transition.opacity style="display: none;">
+			<div class="absolute inset-0 bg-slate-900/50" x-on:click="closeModerationActionModal()"></div>
+			<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
+				<div class="w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200" role="dialog" aria-modal="true" aria-label="Confirm moderation action" x-on:click.stop>
+					<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
+						<div class="flex items-start justify-between gap-4">
+							<div class="space-y-1">
+								<h3 class="text-xl font-bold text-slate-900" x-text="moderationActionTitle"></h3>
+								<p class="text-slate-600 leading-relaxed" x-text="moderationActionPrompt"></p>
+							</div>
+							<button type="button" class="rounded-lg px-2 py-1 text-slate-500 hover:text-slate-700" aria-label="Close" x-on:click="closeModerationActionModal()">
+								&times;
+							</button>
+						</div>
+					</div>
+					<form
+						method="POST"
+						action="/admin/moderation/action"
+						x-on:submit="if (moderationActionReason.trim().length < 3) { $event.preventDefault(); return; }"
+					>
+						@CSRFField()
+						<input type="hidden" name="action" x-bind:value="moderationActionValue" />
+						<input type="hidden" name="report_id" x-bind:value="moderationActionReportID" />
+						<input type="hidden" name="status" x-bind:value="moderationFilterStatus" />
+						<input type="hidden" name="type" x-bind:value="moderationFilterType" />
+						<input type="hidden" name="q" x-bind:value="moderationFilterQuery" />
+						<div class="p-6 sm:p-7 space-y-4">
+							<div class="space-y-1">
+								<label class="block text-sm font-semibold text-slate-800" for="admin-moderation-reason">Reason (required)</label>
+								<textarea
+									id="admin-moderation-reason"
+									name="reason"
+									class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+									rows="4"
+									required
+									minlength="3"
+									placeholder="Explain this moderation decision."
+									x-model="moderationActionReason"
+								></textarea>
+							</div>
+						</div>
+						<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">
+							<button
+								type="submit"
+								class="inline-flex justify-center rounded-lg px-4 py-2.5 font-semibold text-white transition"
+								x-bind:class="moderationActionConfirmClass"
+								x-bind:disabled="moderationActionReason.trim().length < 3"
+								x-bind:aria-disabled="moderationActionReason.trim().length < 3 ? 'true' : 'false'"
+							>
+								<span x-text="moderationActionConfirmLabel"></span>
+							</button>
+							<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" type="button" x-on:click="closeModerationActionModal()">
+								Cancel
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
 templ AdminEnabledDisabledCard(title string, enabledCount int, disabledCount int, enabledTestID string, disabledTestID string) {
 	<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
 		<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{ title }</p>
@@ -424,6 +614,12 @@ templ AdminLeaderboardCardByUsers(rows []types.AdminOrganizationLeaderboardEntry
 	</div>
 }
 
+templ AdminModerationStatusBadge(status string) {
+	<span class={ adminModerationStatusBadgeClass(status) }>
+		{ adminModerationStatusLabel(status) }
+	</span>
+}
+
 templ AdminEnabledBadge(enabled bool) {
 	<span
 		class={ adminEnabledBadgeClass(enabled) }
@@ -473,6 +669,44 @@ func adminCanDeleteHopStatus(status string) bool {
 	return status == types.HopStatusOpen || status == types.HopStatusCanceled
 }
 
+func adminModerationReportTypeLabel(reportType string) string {
+	switch reportType {
+	case types.ModerationReportTypeHopComment:
+		return "Comment"
+	case types.ModerationReportTypeHopImage:
+		return "Image"
+	default:
+		return "Unknown"
+	}
+}
+
+func adminModerationStatusLabel(status string) string {
+	switch status {
+	case types.ModerationReportStatusOpen:
+		return "Open"
+	case types.ModerationReportStatusActioned:
+		return "Actioned"
+	case types.ModerationReportStatusDismissed:
+		return "Dismissed"
+	default:
+		return "Unknown"
+	}
+}
+
+func adminModerationStatusBadgeClass(status string) string {
+	base := "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold "
+	switch status {
+	case types.ModerationReportStatusOpen:
+		return base + "bg-amber-100 text-amber-800"
+	case types.ModerationReportStatusActioned:
+		return base + "bg-red-100 text-red-800"
+	case types.ModerationReportStatusDismissed:
+		return base + "bg-slate-200 text-slate-700"
+	default:
+		return base + "bg-slate-200 text-slate-700"
+	}
+}
+
 func adminOrganizationsActionModalData(query string) string {
 	return "{" +
 		"actionModalOpen: false," +
@@ -503,6 +737,36 @@ func adminOrganizationsActionModalData(query string) string {
 		"}"
 }
 
+func adminModerationActionModalData(statusFilter string, typeFilter string, query string) string {
+	return "{" +
+		"moderationActionModalOpen: false," +
+		"moderationActionValue: ''," +
+		"moderationActionReportID: ''," +
+		"moderationActionTitle: ''," +
+		"moderationActionPrompt: ''," +
+		"moderationActionConfirmLabel: ''," +
+		"moderationActionConfirmClass: 'bg-sky-700 hover:bg-sky-800'," +
+		"moderationActionReason: ''," +
+		"moderationFilterStatus: " + strconv.Quote(strings.TrimSpace(statusFilter)) + "," +
+		"moderationFilterType: " + strconv.Quote(strings.TrimSpace(typeFilter)) + "," +
+		"moderationFilterQuery: " + strconv.Quote(strings.TrimSpace(query)) + "," +
+		"openModerationActionModal(action, reportID, title, prompt, confirmLabel, confirmClass) {" +
+		"this.moderationActionValue = action;" +
+		"this.moderationActionReportID = String(reportID);" +
+		"this.moderationActionTitle = title;" +
+		"this.moderationActionPrompt = prompt;" +
+		"this.moderationActionConfirmLabel = confirmLabel;" +
+		"this.moderationActionConfirmClass = confirmClass;" +
+		"this.moderationActionReason = '';" +
+		"this.moderationActionModalOpen = true;" +
+		"}," +
+		"closeModerationActionModal() {" +
+		"this.moderationActionModalOpen = false;" +
+		"this.moderationActionReason = '';" +
+		"}," +
+		"}"
+}
+
 func adminOpenActionModalCall(action string, orgID int64, hopID int64, title string, prompt string, confirmLabel string, confirmClass string) string {
 	hopArg := "null"
 	if hopID > 0 {
@@ -512,6 +776,17 @@ func adminOpenActionModalCall(action string, orgID int64, hopID int64, title str
 		strconv.Quote(action) + ", " +
 		strconv.FormatInt(orgID, 10) + ", " +
 		hopArg + ", " +
+		strconv.Quote(title) + ", " +
+		strconv.Quote(prompt) + ", " +
+		strconv.Quote(confirmLabel) + ", " +
+		strconv.Quote(confirmClass) +
+		")"
+}
+
+func adminOpenModerationActionModalCall(action string, reportID int64, title string, prompt string, confirmLabel string, confirmClass string) string {
+	return "openModerationActionModal(" +
+		strconv.Quote(action) + ", " +
+		strconv.FormatInt(reportID, 10) + ", " +
 		strconv.Quote(title) + ", " +
 		strconv.Quote(prompt) + ", " +
 		strconv.Quote(confirmLabel) + ", " +

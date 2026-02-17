@@ -41,6 +41,23 @@ const (
 	MessageActionDeclined = "declined"
 )
 
+const (
+	ModerationReportTypeHopComment = "hop_comment"
+	ModerationReportTypeHopImage   = "hop_image"
+)
+
+const (
+	ModerationReportStatusOpen      = "open"
+	ModerationReportStatusDismissed = "dismissed"
+	ModerationReportStatusActioned  = "actioned"
+)
+
+const (
+	ModerationResolutionDismiss       = "dismiss_report"
+	ModerationResolutionDeleteComment = "delete_comment"
+	ModerationResolutionDeleteImage   = "delete_image"
+)
+
 // Member represents a row in the members table.
 type Member struct {
 	ID                     int64
@@ -276,4 +293,42 @@ type AdminOrganizationTabData struct {
 	Selected      *AdminOrganizationDetail
 	SuccessMsg    string
 	ErrorMsg      string
+}
+
+type ModerationReport struct {
+	ID                  int64
+	OrganizationID      int64
+	OrganizationName    string
+	OrganizationURLName string
+	HopID               int64
+	ReportType          string
+	HopCommentID        *int64
+	HopImageID          *int64
+	ReportedMemberID    int64
+	ReportedMemberName  string
+	ContentMemberID     int64
+	ContentMemberName   string
+	ContentSummary      string
+	ReporterDetails     *string
+	Status              string
+	ResolutionAction    *string
+	ResolvedByMemberID  *int64
+	ResolvedAt          *time.Time
+	CreatedAt           time.Time
+}
+
+type ListModerationReportsParams struct {
+	Status     string
+	ReportType string
+	Query      string
+	Limit      int
+}
+
+type AdminModerationTabData struct {
+	StatusFilter string
+	TypeFilter   string
+	Query        string
+	Reports      []ModerationReport
+	SuccessMsg   string
+	ErrorMsg     string
 }

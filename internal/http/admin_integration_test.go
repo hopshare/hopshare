@@ -376,6 +376,166 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 	})
 }
 
+func TestAdminModerationHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-03 moderation queue supports dismiss and delete actions for reported hop content", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_mod_admin", suffix)
+		owner := createSeededMember(t, ctx, db, "admin_mod_owner", suffix)
+		reporter := createSeededMember(t, ctx, db, "admin_mod_reporter", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Admin Moderation Org "+suffix, "City", "ST", "Org for moderation integration coverage.", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, reporter.Member.ID)
+
+		hop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Moderation Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AddHopComment(ctx, db, hop.ID, owner.Member.ID, "Comment to delete "+suffix); err != nil {
+			t.Fatalf("add hop comment to delete: %v", err)
+		}
+		if err := service.AddHopComment(ctx, db, hop.ID, owner.Member.ID, "Comment to dismiss "+suffix); err != nil {
+			t.Fatalf("add hop comment to dismiss: %v", err)
+		}
+		if err := service.AddHopImage(ctx, db, hop.ID, owner.Member.ID, "image/png", tinyPNGData()); err != nil {
+			t.Fatalf("add hop image to delete: %v", err)
+		}
+
+		comments, err := service.ListHopComments(ctx, db, hop.ID)
+		if err != nil || len(comments) < 2 {
+			t.Fatalf("list hop comments: err=%v len=%d", err, len(comments))
+		}
+		images, err := service.ListHopImages(ctx, db, hop.ID)
+		if err != nil || len(images) == 0 {
+			t.Fatalf("list hop images: err=%v len=%d", err, len(images))
+		}
+
+		var deleteCommentID int64
+		var dismissCommentID int64
+		for _, comment := range comments {
+			switch comment.Body {
+			case "Comment to delete " + suffix:
+				deleteCommentID = comment.ID
+			case "Comment to dismiss " + suffix:
+				dismissCommentID = comment.ID
+			}
+		}
+		if deleteCommentID == 0 || dismissCommentID == 0 {
+			t.Fatalf("failed to locate seeded comments for moderation: delete=%d dismiss=%d", deleteCommentID, dismissCommentID)
+		}
+		deleteImageID := images[0].ID
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		reporterActor := newTestActor(t, "reporter", server.URL, reporter.Member.Username, reporter.Password)
+		reporterActor.Login()
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+
+		requireRedirectPath(t, reporterActor.PostForm("/hops/comments/report", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"comment_id", strconv.FormatInt(deleteCommentID, 10),
+		)), "/hops/view")
+		requireRedirectPath(t, reporterActor.PostForm("/hops/images/report", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"image_id", strconv.FormatInt(deleteImageID, 10),
+		)), "/hops/view")
+		requireRedirectPath(t, reporterActor.PostForm("/hops/comments/report", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"comment_id", strconv.FormatInt(dismissCommentID, 10),
+		)), "/hops/view")
+
+		deleteCommentReportID := moderationReportIDForComment(t, ctx, db, deleteCommentID)
+		deleteImageReportID := moderationReportIDForImage(t, ctx, db, deleteImageID)
+		dismissReportID := moderationReportIDForComment(t, ctx, db, dismissCommentID)
+
+		queueBody := requireStatus(t, adminActor.Get("/admin?tab=moderation&status=open&type=all&q="+url.QueryEscape("Admin Moderation Org")), http.StatusOK)
+		requireBodyContains(t, queueBody, "Moderation Queue")
+		requireBodyContains(t, queueBody, fmt.Sprintf(`data-testid="admin-moderation-report-%d"`, deleteCommentReportID))
+		requireBodyContains(t, queueBody, fmt.Sprintf(`data-testid="admin-moderation-report-%d"`, deleteImageReportID))
+		requireBodyContains(t, queueBody, fmt.Sprintf(`data-testid="admin-moderation-report-%d"`, dismissReportID))
+
+		beforeDismissCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationDismiss)
+		beforeCommentDeleteCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationCommentDelete)
+		beforeImageDeleteCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationImageDelete)
+
+		deleteCommentLoc := requireRedirectPath(t, adminActor.PostForm("/admin/moderation/action", formKV(
+			"action", types.ModerationResolutionDeleteComment,
+			"report_id", strconv.FormatInt(deleteCommentReportID, 10),
+			"status", "open",
+			"type", "all",
+			"q", "Admin Moderation Org",
+			"reason", "remove abusive comment",
+		)), "/admin")
+		requireQueryValue(t, deleteCommentLoc, "tab", "moderation")
+		requireQueryValue(t, deleteCommentLoc, "success", "Comment deleted.")
+
+		deleteImageLoc := requireRedirectPath(t, adminActor.PostForm("/admin/moderation/action", formKV(
+			"action", types.ModerationResolutionDeleteImage,
+			"report_id", strconv.FormatInt(deleteImageReportID, 10),
+			"status", "open",
+			"type", "all",
+			"q", "Admin Moderation Org",
+			"reason", "remove unsafe image",
+		)), "/admin")
+		requireQueryValue(t, deleteImageLoc, "tab", "moderation")
+		requireQueryValue(t, deleteImageLoc, "success", "Image deleted.")
+
+		dismissLoc := requireRedirectPath(t, adminActor.PostForm("/admin/moderation/action", formKV(
+			"action", types.ModerationResolutionDismiss,
+			"report_id", strconv.FormatInt(dismissReportID, 10),
+			"status", "open",
+			"type", "all",
+			"q", "Admin Moderation Org",
+			"reason", "report not actionable",
+		)), "/admin")
+		requireQueryValue(t, dismissLoc, "tab", "moderation")
+		requireQueryValue(t, dismissLoc, "success", "Report dismissed.")
+
+		afterDismissCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationDismiss)
+		afterCommentDeleteCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationCommentDelete)
+		afterImageDeleteCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionModerationImageDelete)
+		if afterDismissCount != beforeDismissCount+1 {
+			t.Fatalf("expected dismiss moderation audit count increment by 1, before=%d after=%d", beforeDismissCount, afterDismissCount)
+		}
+		if afterCommentDeleteCount != beforeCommentDeleteCount+1 {
+			t.Fatalf("expected comment-delete moderation audit count increment by 1, before=%d after=%d", beforeCommentDeleteCount, afterCommentDeleteCount)
+		}
+		if afterImageDeleteCount != beforeImageDeleteCount+1 {
+			t.Fatalf("expected image-delete moderation audit count increment by 1, before=%d after=%d", beforeImageDeleteCount, afterImageDeleteCount)
+		}
+
+		remainingComments, err := service.ListHopComments(ctx, db, hop.ID)
+		if err != nil {
+			t.Fatalf("list remaining hop comments: %v", err)
+		}
+		if moderationContainsCommentID(remainingComments, deleteCommentID) {
+			t.Fatalf("expected deleted comment %d to be removed", deleteCommentID)
+		}
+		if !moderationContainsCommentID(remainingComments, dismissCommentID) {
+			t.Fatalf("expected dismissed report comment %d to remain", dismissCommentID)
+		}
+
+		remainingImages, err := service.ListHopImages(ctx, db, hop.ID)
+		if err != nil {
+			t.Fatalf("list remaining hop images: %v", err)
+		}
+		if moderationContainsImageID(remainingImages, deleteImageID) {
+			t.Fatalf("expected deleted image %d to be removed", deleteImageID)
+		}
+
+		assertModerationReportResolution(t, ctx, db, deleteCommentReportID, types.ModerationReportStatusActioned, types.ModerationResolutionDeleteComment)
+		assertModerationReportResolution(t, ctx, db, deleteImageReportID, types.ModerationReportStatusActioned, types.ModerationResolutionDeleteImage)
+		assertModerationReportResolution(t, ctx, db, dismissReportID, types.ModerationReportStatusDismissed, types.ModerationResolutionDismiss)
+	})
+}
+
 func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
 	t.Helper()
 
@@ -576,4 +736,84 @@ func countAdminAuditEventsForActorAction(t *testing.T, ctx context.Context, db *
 		t.Fatalf("count admin audit events actor=%d action=%q: %v", actorMemberID, action, err)
 	}
 	return count
+}
+
+func moderationReportIDForComment(t *testing.T, ctx context.Context, db *sql.DB, commentID int64) int64 {
+	t.Helper()
+
+	var reportID int64
+	if err := db.QueryRowContext(ctx, `
+		SELECT id
+		FROM moderation_reports
+		WHERE report_type = $1
+		  AND hop_comment_id = $2
+		ORDER BY id DESC
+		LIMIT 1
+	`, types.ModerationReportTypeHopComment, commentID).Scan(&reportID); err != nil {
+		t.Fatalf("query moderation report for comment %d: %v", commentID, err)
+	}
+	return reportID
+}
+
+func moderationReportIDForImage(t *testing.T, ctx context.Context, db *sql.DB, imageID int64) int64 {
+	t.Helper()
+
+	var reportID int64
+	if err := db.QueryRowContext(ctx, `
+		SELECT id
+		FROM moderation_reports
+		WHERE report_type = $1
+		  AND hop_image_id = $2
+		ORDER BY id DESC
+		LIMIT 1
+	`, types.ModerationReportTypeHopImage, imageID).Scan(&reportID); err != nil {
+		t.Fatalf("query moderation report for image %d: %v", imageID, err)
+	}
+	return reportID
+}
+
+func moderationContainsCommentID(comments []types.HopComment, commentID int64) bool {
+	for _, comment := range comments {
+		if comment.ID == commentID {
+			return true
+		}
+	}
+	return false
+}
+
+func moderationContainsImageID(images []types.HopImage, imageID int64) bool {
+	for _, img := range images {
+		if img.ID == imageID {
+			return true
+		}
+	}
+	return false
+}
+
+func assertModerationReportResolution(t *testing.T, ctx context.Context, db *sql.DB, reportID int64, expectedStatus, expectedResolutionAction string) {
+	t.Helper()
+
+	var status string
+	var resolutionAction sql.NullString
+	var resolvedBy sql.NullInt64
+	var resolvedAt sql.NullTime
+	if err := db.QueryRowContext(ctx, `
+		SELECT status, resolution_action, resolved_by_member_id, resolved_at
+		FROM moderation_reports
+		WHERE id = $1
+	`, reportID).Scan(&status, &resolutionAction, &resolvedBy, &resolvedAt); err != nil {
+		t.Fatalf("query moderation report resolution report_id=%d: %v", reportID, err)
+	}
+	if status != expectedStatus {
+		t.Fatalf("unexpected moderation report status report_id=%d got=%q want=%q", reportID, status, expectedStatus)
+	}
+	if !resolutionAction.Valid || resolutionAction.String != expectedResolutionAction {
+		t.Fatalf("unexpected moderation report resolution action report_id=%d got=%q want=%q", reportID, resolutionAction.String, expectedResolutionAction)
+	}
+	if !resolvedBy.Valid || resolvedBy.Int64 == 0 {
+		t.Fatalf("expected moderation report %d to have resolved_by_member_id", reportID)
+	}
+	if !resolvedAt.Valid {
+		t.Fatalf("expected moderation report %d to have resolved_at", reportID)
+	}
 }

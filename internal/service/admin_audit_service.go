@@ -13,12 +13,15 @@ import (
 )
 
 const (
-	AdminAuditActionAppOverviewViewed   = "admin.app_overview.view"
-	AdminAuditActionOrganizationDisable = "admin.organization.disable"
-	AdminAuditActionOrganizationEnable  = "admin.organization.enable"
-	AdminAuditActionHopExpire           = "admin.hop.expire"
-	AdminAuditActionHopDelete           = "admin.hop.delete"
-	AdminAuditTargetApplication         = "application"
+	AdminAuditActionAppOverviewViewed       = "admin.app_overview.view"
+	AdminAuditActionOrganizationDisable     = "admin.organization.disable"
+	AdminAuditActionOrganizationEnable      = "admin.organization.enable"
+	AdminAuditActionHopExpire               = "admin.hop.expire"
+	AdminAuditActionHopDelete               = "admin.hop.delete"
+	AdminAuditActionModerationDismiss       = "admin.moderation.dismiss"
+	AdminAuditActionModerationCommentDelete = "admin.moderation.comment.delete"
+	AdminAuditActionModerationImageDelete   = "admin.moderation.image.delete"
+	AdminAuditTargetApplication             = "application"
 )
 
 type WriteAdminAuditEventParams struct {

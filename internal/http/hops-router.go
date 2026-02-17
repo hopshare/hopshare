@@ -504,6 +504,79 @@ func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
+func (s *Server) handleReportHopComment(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	commentID, _ := strconv.ParseInt(r.FormValue("comment_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 || commentID <= 0 {
+		http.Error(w, "invalid report target", http.StatusBadRequest)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check moderation report membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not submit report", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop for report hop=%d org=%d: %v", hopID, orgID, err)
+		http.Error(w, "could not submit report", http.StatusInternalServerError)
+		return
+	}
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if hop.IsPrivate && !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	_, err = service.CreateHopCommentReport(r.Context(), s.db, service.CreateHopCommentReportParams{
+		OrganizationID:   orgID,
+		HopID:            hopID,
+		HopCommentID:     commentID,
+		ReportedMemberID: user.ID,
+		ReporterDetails:  r.FormValue("details"),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrModerationAlreadyReported):
+			// Re-reporting the same target is safe and idempotent from the UI perspective.
+		case errors.Is(err, service.ErrModerationTargetNotFound):
+			http.NotFound(w, r)
+			return
+		default:
+			log.Printf("create hop comment report failed: %v", err)
+			http.Error(w, "could not submit report", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
+}
+
 func (s *Server) handleUploadHopImage(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -586,6 +659,79 @@ func (s *Server) handleUploadHopImage(w http.ResponseWriter, r *http.Request) {
 		log.Printf("add hop image failed: %v", err)
 		http.Error(w, "could not upload image", http.StatusInternalServerError)
 		return
+	}
+
+	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
+}
+
+func (s *Server) handleReportHopImage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	imageID, _ := strconv.ParseInt(r.FormValue("image_id"), 10, 64)
+	if orgID <= 0 || hopID <= 0 || imageID <= 0 {
+		http.Error(w, "invalid report target", http.StatusBadRequest)
+		return
+	}
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check moderation report membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not submit report", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop for image report hop=%d org=%d: %v", hopID, orgID, err)
+		http.Error(w, "could not submit report", http.StatusInternalServerError)
+		return
+	}
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if hop.IsPrivate && !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	_, err = service.CreateHopImageReport(r.Context(), s.db, service.CreateHopImageReportParams{
+		OrganizationID:   orgID,
+		HopID:            hopID,
+		HopImageID:       imageID,
+		ReportedMemberID: user.ID,
+		ReporterDetails:  r.FormValue("details"),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrModerationAlreadyReported):
+			// Re-reporting the same target is safe and idempotent from the UI perspective.
+		case errors.Is(err, service.ErrModerationTargetNotFound):
+			http.NotFound(w, r)
+			return
+		default:
+			log.Printf("create hop image report failed: %v", err)
+			http.Error(w, "could not submit report", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
