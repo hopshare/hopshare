@@ -346,6 +346,16 @@ type AdminUsersTabData struct {
 	ErrorMsg         string
 }
 
+type AdminMessagesTabData struct {
+	Query               string
+	Results             []AdminUserSearchResult
+	SelectedRecipientID int64
+	SelectedRecipient   *AdminUserSearchResult
+	Conversation        []Message
+	SuccessMsg          string
+	ErrorMsg            string
+}
+
 type ModerationReport struct {
 	ID                  int64
 	OrganizationID      int64

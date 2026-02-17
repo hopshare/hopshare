@@ -21,11 +21,14 @@ const (
 	adminTabOrganizations          = "organizations"
 	adminTabModeration             = "moderation"
 	adminTabUsers                  = "users"
+	adminTabMessages               = "messages"
 	adminOverviewLeaderboardCap    = 5
 	adminOrganizationsSearchLimit  = 25
 	adminOrganizationHopListLimit  = 100
 	adminModerationReportListLimit = 200
 	adminUsersSearchLimit          = 25
+	adminMessagesSearchLimit       = 25
+	adminMessagesConversationLimit = 200
 
 	adminOrgActionDisable = "disable_org"
 	adminOrgActionEnable  = "enable_org"
@@ -44,6 +47,8 @@ const (
 	adminUserActionForcePasswordReset = "force_password_reset"
 	adminUserActionRevokeSessions     = "revoke_sessions"
 	adminUserActionAdjustHours        = "adjust_hours"
+
+	adminMessageSubjectPrefix = "ADMIN Message:"
 )
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +64,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 	var orgTab types.AdminOrganizationTabData
 	var moderationTab types.AdminModerationTabData
 	var usersTab types.AdminUsersTabData
+	var messagesTab types.AdminMessagesTabData
 	var err error
 
 	switch activeTab {
@@ -81,6 +87,13 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("load admin users tab data: %v", err)
 			http.Error(w, "could not load admin users", http.StatusInternalServerError)
+			return
+		}
+	case adminTabMessages:
+		messagesTab, err = s.loadAdminMessagesTabData(r, user.ID)
+		if err != nil {
+			log.Printf("load admin messages tab data: %v", err)
+			http.Error(w, "could not load admin messages", http.StatusInternalServerError)
 			return
 		}
 	default:
@@ -111,7 +124,7 @@ func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab, usersTab))
+	render(w, r, templates.Admin(s.currentUserEmailPtr(r), activeTab, overview, orgTab, moderationTab, usersTab, messagesTab))
 }
 
 func (s *Server) handleAdminOrganizationAction(w http.ResponseWriter, r *http.Request) {
@@ -377,6 +390,73 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", successMessage), http.StatusSeeOther)
 }
 
+func (s *Server) handleAdminMessageSend(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	recipientID, err := parseAdminMemberID(r.FormValue("recipient_id"))
+	if err != nil {
+		http.Redirect(w, r, "/admin?tab="+adminTabMessages+"&error="+url.QueryEscape("Invalid recipient."), http.StatusSeeOther)
+		return
+	}
+	searchQuery := strings.TrimSpace(r.FormValue("q"))
+	redirectBase := adminMessagesRedirect(recipientID, searchQuery)
+
+	if recipientID == user.ID {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Choose another user as recipient."), http.StatusSeeOther)
+		return
+	}
+
+	if _, err := service.GetMemberByID(r.Context(), s.db, recipientID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, service.ErrMissingMemberID) {
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid recipient."), http.StatusSeeOther)
+			return
+		}
+		log.Printf("load admin message recipient=%d: %v", recipientID, err)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not load recipient."), http.StatusSeeOther)
+		return
+	}
+
+	subjectCore := adminMessageSubjectCore(r.FormValue("subject"))
+	if subjectCore == "" {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Subject is required."), http.StatusSeeOther)
+		return
+	}
+	body := strings.TrimSpace(r.FormValue("body"))
+	if body == "" {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Message body is required."), http.StatusSeeOther)
+		return
+	}
+	subject := adminMessageSubject(subjectCore)
+
+	senderID := user.ID
+	if err := service.SendMessage(r.Context(), s.db, service.SendMessageParams{
+		SenderID:    &senderID,
+		SenderName:  memberDisplayName(user),
+		RecipientID: recipientID,
+		Subject:     subject,
+		Body:        body,
+	}); err != nil {
+		log.Printf("send admin message recipient=%d: %v", recipientID, err)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send message."), http.StatusSeeOther)
+		return
+	}
+
+	if err := s.writeAdminMessageAudit(r, user.ID, recipientID, subject); err != nil {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", err.Error()), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Message sent."), http.StatusSeeOther)
+}
+
 func (s *Server) loadAdminOrganizationTabData(r *http.Request) (types.AdminOrganizationTabData, error) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	orgID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("org_id"))
@@ -461,6 +541,73 @@ func (s *Server) loadAdminUsersTabData(r *http.Request) (types.AdminUsersTabData
 		Selected:         selected,
 		SuccessMsg:       r.URL.Query().Get("success"),
 		ErrorMsg:         r.URL.Query().Get("error"),
+	}, nil
+}
+
+func (s *Server) loadAdminMessagesTabData(r *http.Request, actorMemberID int64) (types.AdminMessagesTabData, error) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	recipientID, _ := parseOptionalPositiveInt64(r.URL.Query().Get("recipient_id"))
+
+	results, err := service.SearchMembersForAdmin(r.Context(), s.db, q, adminMessagesSearchLimit)
+	if err != nil {
+		return types.AdminMessagesTabData{}, err
+	}
+
+	filteredResults := make([]types.AdminUserSearchResult, 0, len(results))
+	for _, row := range results {
+		if row.MemberID == actorMemberID {
+			continue
+		}
+		filteredResults = append(filteredResults, row)
+	}
+
+	var selected *types.AdminUserSearchResult
+	if recipientID > 0 && recipientID != actorMemberID {
+		for i := range filteredResults {
+			if filteredResults[i].MemberID == recipientID {
+				selected = &filteredResults[i]
+				break
+			}
+		}
+		if selected == nil {
+			member, err := service.GetMemberByID(r.Context(), s.db, recipientID)
+			if err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					return types.AdminMessagesTabData{}, err
+				}
+			} else if member.ID != actorMemberID {
+				fallback := types.AdminUserSearchResult{
+					MemberID:    member.ID,
+					Username:    member.Username,
+					FirstName:   member.FirstName,
+					LastName:    member.LastName,
+					Email:       member.Email,
+					Enabled:     member.Enabled,
+					LastLoginAt: member.LastLoginAt,
+				}
+				selected = &fallback
+			}
+		}
+	}
+
+	conversation := make([]types.Message, 0)
+	selectedRecipientID := int64(0)
+	if selected != nil {
+		selectedRecipientID = selected.MemberID
+		conversation, err = service.ListMessagesBetweenMembers(r.Context(), s.db, actorMemberID, selected.MemberID, adminMessagesConversationLimit)
+		if err != nil {
+			return types.AdminMessagesTabData{}, err
+		}
+	}
+
+	return types.AdminMessagesTabData{
+		Query:               q,
+		Results:             filteredResults,
+		SelectedRecipientID: selectedRecipientID,
+		SelectedRecipient:   selected,
+		Conversation:        conversation,
+		SuccessMsg:          r.URL.Query().Get("success"),
+		ErrorMsg:            r.URL.Query().Get("error"),
 	}, nil
 }
 
@@ -560,6 +707,27 @@ func (s *Server) writeAdminUserAudit(r *http.Request, actorID, memberID int64, a
 	return nil
 }
 
+func (s *Server) writeAdminMessageAudit(r *http.Request, actorID, recipientID int64, subject string) error {
+	rawMetadata, err := json.Marshal(map[string]any{
+		"tab":                 adminTabMessages,
+		"recipient_member_id": recipientID,
+		"subject":             subject,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal message action metadata: %w", err)
+	}
+
+	if _, err := service.WriteAdminAuditEvent(r.Context(), s.db, service.WriteAdminAuditEventParams{
+		ActorMemberID: actorID,
+		Action:        service.AdminAuditActionMessageSend,
+		Target:        fmt.Sprintf("member:%d", recipientID),
+		Metadata:      rawMetadata,
+	}); err != nil {
+		return fmt.Errorf("Could not log admin action.")
+	}
+	return nil
+}
+
 func handleAdminOrganizationActionError(w http.ResponseWriter, r *http.Request, redirectBase string, err error, fallbackMsg string) {
 	msg := fallbackMsg
 	switch {
@@ -603,6 +771,8 @@ func normalizeAdminTab(raw string) string {
 		return adminTabModeration
 	case adminTabUsers:
 		return adminTabUsers
+	case adminTabMessages:
+		return adminTabMessages
 	default:
 		return adminTabApp
 	}
@@ -696,6 +866,33 @@ func adminUsersRedirect(memberID int64, query string) string {
 		base += "&q=" + url.QueryEscape(query)
 	}
 	return base
+}
+
+func adminMessagesRedirect(recipientID int64, query string) string {
+	base := "/admin?tab=" + adminTabMessages
+	if recipientID > 0 {
+		base += "&recipient_id=" + strconv.FormatInt(recipientID, 10)
+	}
+	if strings.TrimSpace(query) != "" {
+		base += "&q=" + url.QueryEscape(query)
+	}
+	return base
+}
+
+func adminMessageSubjectCore(raw string) string {
+	subject := strings.TrimSpace(raw)
+	if len(subject) >= len(adminMessageSubjectPrefix) && strings.EqualFold(subject[:len(adminMessageSubjectPrefix)], adminMessageSubjectPrefix) {
+		subject = strings.TrimSpace(subject[len(adminMessageSubjectPrefix):])
+	}
+	return subject
+}
+
+func adminMessageSubject(core string) string {
+	core = strings.TrimSpace(core)
+	if core == "" {
+		return adminMessageSubjectPrefix
+	}
+	return adminMessageSubjectPrefix + " " + core
 }
 
 func normalizeModerationStatusFilter(raw string) string {

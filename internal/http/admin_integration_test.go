@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -722,6 +723,87 @@ func TestAdminUsersHTTP(t *testing.T) {
 		}
 	})
 }
+
+func TestAdminMessagesHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-05 messages tab allows admin send, user reply, and audits each send", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_messages_admin", suffix)
+		recipient := createSeededMember(t, ctx, db, "admin_messages_recipient", suffix)
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+		recipientActor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		recipientActor.Login()
+
+		searchBody := requireStatus(t, adminActor.Get("/admin?tab=messages&q="+url.QueryEscape(recipient.Member.Username)), http.StatusOK)
+		requireBodyContains(t, searchBody, "Admin Messages")
+		requireBodyContains(t, searchBody, fmt.Sprintf(`data-testid="admin-message-result-%d"`, recipient.Member.ID))
+
+		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionMessageSend)
+		firstLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
+			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
+			"q", recipient.Member.Username,
+			"subject", "Account update "+suffix,
+			"body", "Message body "+suffix,
+		)), "/admin")
+		requireQueryValue(t, firstLoc, "tab", "messages")
+		requireQueryValue(t, firstLoc, "recipient_id", strconv.FormatInt(recipient.Member.ID, 10))
+		requireQueryValue(t, firstLoc, "success", "Message sent.")
+
+		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionMessageSend)
+		if afterAuditCount != beforeAuditCount+1 {
+			t.Fatalf("expected one admin message-send audit event, before=%d after=%d", beforeAuditCount, afterAuditCount)
+		}
+
+		firstSubject := "ADMIN Message: Account update " + suffix
+		firstMessage := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, firstSubject)
+		if firstMessage.SenderID == nil || *firstMessage.SenderID != admin.Member.ID {
+			t.Fatalf("expected admin sender id %d on sent message, got %+v", admin.Member.ID, firstMessage.SenderID)
+		}
+		if firstMessage.MessageType != types.MessageTypeInformation {
+			t.Fatalf("expected information message type, got %q", firstMessage.MessageType)
+		}
+
+		recipientInboxBody := requireStatus(t, recipientActor.Get("/messages"), http.StatusOK)
+		requireBodyContains(t, recipientInboxBody, firstSubject)
+
+		replyText := "Reply from recipient " + suffix
+		replyLoc := requireRedirectPath(t, recipientActor.PostForm("/messages/reply", formKV(
+			"message_id", strconv.FormatInt(firstMessage.ID, 10),
+			"body", replyText,
+		)), "/messages")
+		requireQueryValue(t, replyLoc, "success", "Reply sent.")
+
+		adminInboxBody := requireStatus(t, adminActor.Get("/messages"), http.StatusOK)
+		requireBodyContains(t, adminInboxBody, "Re: "+firstSubject)
+
+		conversationBody := requireStatus(t, adminActor.Get("/admin?tab=messages&recipient_id="+strconv.FormatInt(recipient.Member.ID, 10)+"&q="+url.QueryEscape(recipient.Member.Username)), http.StatusOK)
+		requireBodyContains(t, conversationBody, replyText)
+		requireBodyContains(t, conversationBody, firstSubject)
+
+		secondLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
+			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
+			"q", recipient.Member.Username,
+			"subject", "ADMIN Message: Follow-up "+suffix,
+			"body", "Second admin message "+suffix,
+		)), "/admin")
+		requireQueryValue(t, secondLoc, "success", "Message sent.")
+
+		secondSubject := "ADMIN Message: Follow-up " + suffix
+		secondMessage := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, secondSubject)
+		if strings.Count(secondMessage.Subject, adminMessageSubjectPrefixInTests) != 1 {
+			t.Fatalf("expected exactly one admin subject prefix, got %q", secondMessage.Subject)
+		}
+	})
+}
+
+const adminMessageSubjectPrefixInTests = "ADMIN Message:"
 
 func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
 	t.Helper()

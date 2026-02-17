@@ -26,6 +26,7 @@ const (
 	AdminAuditActionUserForcePasswordReset  = "admin.user.password.force_reset"
 	AdminAuditActionUserRevokeSessions      = "admin.user.sessions.revoke"
 	AdminAuditActionUserBalanceAdjust       = "admin.user.balance.adjust"
+	AdminAuditActionMessageSend             = "admin.message.send"
 	AdminAuditTargetApplication             = "application"
 )
 

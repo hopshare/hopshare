@@ -11,6 +11,8 @@ import (
 	"hopshare/internal/types"
 )
 
+const defaultConversationMessageLimit = 100
+
 type SendMessageParams struct {
 	SenderID    *int64
 	SenderName  string
@@ -138,6 +140,109 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
+	}
+	return out, nil
+}
+
+func ListMessagesBetweenMembers(ctx context.Context, db *sql.DB, memberAID, memberBID int64, limit int) ([]types.Message, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if memberAID == 0 || memberBID == 0 {
+		return nil, ErrMissingMemberID
+	}
+	if memberAID == memberBID {
+		return []types.Message{}, nil
+	}
+	if limit <= 0 {
+		limit = defaultConversationMessageLimit
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			id,
+			recipient_member_id,
+			sender_member_id,
+			sender_name,
+			message_type,
+			hop_id,
+			action_status,
+			action_taken_at,
+			subject,
+			body,
+			read_at,
+			created_at
+		FROM (
+			SELECT
+				id,
+				recipient_member_id,
+				sender_member_id,
+				sender_name,
+				message_type,
+				hop_id,
+				action_status,
+				action_taken_at,
+				subject,
+				body,
+				read_at,
+				created_at
+			FROM messages
+			WHERE
+				(recipient_member_id = $1 AND sender_member_id = $2)
+				OR (recipient_member_id = $2 AND sender_member_id = $1)
+			ORDER BY created_at DESC, id DESC
+			LIMIT $3
+		) AS conversation
+		ORDER BY created_at ASC, id ASC
+	`, memberAID, memberBID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list member conversation: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]types.Message, 0)
+	for rows.Next() {
+		var msg types.Message
+		var senderID sql.NullInt64
+		var hopID sql.NullInt64
+		var actionStatus sql.NullString
+		var actionTakenAt sql.NullTime
+		var readAt sql.NullTime
+		if err := rows.Scan(
+			&msg.ID,
+			&msg.RecipientID,
+			&senderID,
+			&msg.SenderName,
+			&msg.MessageType,
+			&hopID,
+			&actionStatus,
+			&actionTakenAt,
+			&msg.Subject,
+			&msg.Body,
+			&readAt,
+			&msg.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan member conversation message: %w", err)
+		}
+		if senderID.Valid {
+			msg.SenderID = &senderID.Int64
+		}
+		if hopID.Valid {
+			msg.HopID = &hopID.Int64
+		}
+		if actionStatus.Valid {
+			msg.ActionStatus = &actionStatus.String
+		}
+		if actionTakenAt.Valid {
+			msg.ActionTakenAt = &actionTakenAt.Time
+		}
+		if readAt.Valid {
+			msg.ReadAt = &readAt.Time
+		}
+		out = append(out, msg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list member conversation: %w", err)
 	}
 	return out, nil
 }
