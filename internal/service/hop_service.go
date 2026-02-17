@@ -642,6 +642,90 @@ func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (in
 	return affected, nil
 }
 
+func AdminExpireHop(ctx context.Context, db *sql.DB, orgID, hopID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE hops
+		SET status = $1, updated_at = NOW()
+		WHERE organization_id = $2
+			AND id = $3
+			AND status IN ($4, $5)
+	`, types.HopStatusExpired, orgID, hopID, types.HopStatusOpen, types.HopStatusAccepted)
+	if err != nil {
+		return fmt.Errorf("admin expire hop: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("admin expire hop rows affected: %w", err)
+	}
+	if affected == 0 {
+		var status string
+		if err := db.QueryRowContext(ctx, `
+			SELECT status
+			FROM hops
+			WHERE organization_id = $1 AND id = $2
+		`, orgID, hopID).Scan(&status); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrHopNotFound
+			}
+			return fmt.Errorf("admin load hop status before expire: %w", err)
+		}
+		return ErrHopInvalidState
+	}
+	return nil
+}
+
+func AdminDeleteHop(ctx context.Context, db *sql.DB, orgID, hopID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+
+	res, err := db.ExecContext(ctx, `
+		DELETE FROM hops
+		WHERE organization_id = $1
+			AND id = $2
+			AND status IN ($3, $4)
+	`, orgID, hopID, types.HopStatusOpen, types.HopStatusCanceled)
+	if err != nil {
+		return fmt.Errorf("admin delete hop: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("admin delete hop rows affected: %w", err)
+	}
+	if affected == 0 {
+		var status string
+		if err := db.QueryRowContext(ctx, `
+			SELECT status
+			FROM hops
+			WHERE organization_id = $1 AND id = $2
+		`, orgID, hopID).Scan(&status); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrHopNotFound
+			}
+			return fmt.Errorf("admin load hop status before delete: %w", err)
+		}
+		return ErrHopInvalidState
+	}
+
+	return nil
+}
+
 func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop, error) {
 	if db == nil {
 		return types.Hop{}, ErrNilDB
@@ -1673,8 +1757,13 @@ func requireActiveMembership(ctx context.Context, q queryer, orgID, memberID int
 	var exists bool
 	if err := q.QueryRowContext(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM organization_memberships
-			WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+			SELECT 1
+			FROM organization_memberships om
+			JOIN organizations o ON o.id = om.organization_id
+			WHERE om.organization_id = $1
+				AND om.member_id = $2
+				AND om.left_at IS NULL
+				AND o.enabled = TRUE
 		)
 	`, orgID, memberID).Scan(&exists); err != nil {
 		return fmt.Errorf("check membership: %w", err)

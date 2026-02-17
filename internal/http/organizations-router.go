@@ -119,7 +119,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
+		org, err := service.GetEnabledOrganizationByID(r.Context(), s.db, orgID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				http.NotFound(w, r)
@@ -139,7 +139,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org, err := service.GetOrganizationByURLName(r.Context(), s.db, orgURLName)
+	org, err := service.GetEnabledOrganizationByURLName(r.Context(), s.db, orgURLName)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			http.NotFound(w, r)
@@ -245,6 +245,16 @@ func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if _, err := service.GetEnabledOrganizationByID(r.Context(), s.db, orgID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load organization for logo org=%d: %v", orgID, err)
+		http.Error(w, "could not load logo", http.StatusInternalServerError)
+		return
+	}
+
 	// TODO: Add some filesystem caching here to alleviate load on the database.
 	//       First time we render this logo, save it to the filesystem and serve from there on subsequent requests.
 	//       This way we keep 'state' all in the database for backups, etc, but use filesystem for regular requests.
@@ -290,7 +300,7 @@ func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request)
 
 	redirectBase := "/organizations"
 	var orgName string
-	if org, err := service.GetOrganizationByID(r.Context(), s.db, orgID); err == nil {
+	if org, err := service.GetEnabledOrganizationByID(r.Context(), s.db, orgID); err == nil {
 		orgName = org.Name
 		redirectBase = "/organization/" + org.URLName
 	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -312,6 +322,8 @@ func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request)
 			msg = "You need a member record to request membership."
 		case errors.Is(err, service.ErrMissingOrgID):
 			msg = "Invalid organization."
+		case errors.Is(err, service.ErrOrganizationDisabled):
+			msg = "This organization is currently disabled."
 		case errors.Is(err, service.ErrRequestAlreadyExists):
 			msg = "You already have a pending request for this organization."
 		}

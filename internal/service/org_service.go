@@ -32,7 +32,7 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
-		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL
+		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL AND o.enabled = TRUE
 	`, memberID)
 
 	var o types.Organization
@@ -55,7 +55,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
-		WHERE om.member_id = $1 AND om.left_at IS NULL
+		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
 		ORDER BY o.name
 	`, memberID)
 	if err != nil {
@@ -92,7 +92,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 		       om.role, om.is_primary_owner
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
-		WHERE om.member_id = $1 AND om.left_at IS NULL
+		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
 		ORDER BY o.name
 	`, memberID)
 	if err != nil {
@@ -131,7 +131,7 @@ func OrganizationForOwner(ctx context.Context, db *sql.DB, memberID, orgID int64
 		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
-		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL
+		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL AND o.enabled = TRUE
 	`, memberID, orgID)
 
 	var o types.Organization
@@ -182,8 +182,9 @@ func MemberHasActiveMembership(ctx context.Context, db *sql.DB, memberID, orgID 
 	if err := db.QueryRowContext(ctx, `
 		SELECT EXISTS(
 			SELECT 1
-			FROM organization_memberships
-			WHERE member_id = $1 AND organization_id = $2 AND left_at IS NULL
+			FROM organization_memberships om
+			JOIN organizations o ON o.id = om.organization_id
+			WHERE om.member_id = $1 AND om.organization_id = $2 AND om.left_at IS NULL AND o.enabled = TRUE
 		)
 	`, memberID, orgID).Scan(&exists); err != nil {
 		return false, fmt.Errorf("check member organization membership: %w", err)
@@ -209,10 +210,12 @@ func MembersShareOrganization(ctx context.Context, db *sql.DB, memberID, otherMe
 			SELECT 1
 			FROM organization_memberships om1
 			JOIN organization_memberships om2 ON om1.organization_id = om2.organization_id
+			JOIN organizations o ON o.id = om1.organization_id
 			WHERE om1.member_id = $1
 				AND om2.member_id = $2
 				AND om1.left_at IS NULL
 				AND om2.left_at IS NULL
+				AND o.enabled = TRUE
 		)
 	`, memberID, otherMemberID).Scan(&exists); err != nil {
 		return false, fmt.Errorf("check shared organization membership: %w", err)
@@ -242,6 +245,18 @@ func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Or
 	return o, nil
 }
 
+// GetEnabledOrganizationByID returns an enabled organization by ID.
+func GetEnabledOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Organization, error) {
+	org, err := GetOrganizationByID(ctx, db, orgID)
+	if err != nil {
+		return types.Organization{}, err
+	}
+	if !org.Enabled {
+		return types.Organization{}, sql.ErrNoRows
+	}
+	return org, nil
+}
+
 // GetOrganizationByURLName returns an organization by permanent URL name.
 func GetOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (types.Organization, error) {
 	if db == nil {
@@ -265,6 +280,18 @@ func GetOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (
 	return o, nil
 }
 
+// GetEnabledOrganizationByURLName returns an enabled organization by URL name.
+func GetEnabledOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (types.Organization, error) {
+	org, err := GetOrganizationByURLName(ctx, db, urlName)
+	if err != nil {
+		return types.Organization{}, err
+	}
+	if !org.Enabled {
+		return types.Organization{}, sql.ErrNoRows
+	}
+	return org, nil
+}
+
 // ListOrganizations returns all organizations ordered by name.
 func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, error) {
 	if db == nil {
@@ -274,6 +301,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	rows, err := db.QueryContext(ctx, `
 		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
+		WHERE enabled = TRUE
 		ORDER BY name
 	`)
 	if err != nil {
@@ -294,6 +322,99 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	return orgs, nil
+}
+
+// SearchOrganizationsForAdmin returns organizations filtered by case-insensitive name search.
+// Disabled organizations are included for admin use.
+func SearchOrganizationsForAdmin(ctx context.Context, db *sql.DB, query string, limit int) ([]types.Organization, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+
+	query = strings.TrimSpace(query)
+	searchPattern := "%"
+	if query != "" {
+		searchPattern = "%" + strings.ToLower(query) + "%"
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		FROM organizations
+		WHERE ($1 = '%' OR LOWER(name) LIKE $1)
+		ORDER BY name
+		LIMIT $2
+	`, searchPattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search organizations for admin: %w", err)
+	}
+	defer rows.Close()
+
+	var orgs []types.Organization
+	for rows.Next() {
+		var o types.Organization
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan organization: %w", err)
+		}
+		orgs = append(orgs, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("search organizations for admin: %w", err)
+	}
+
+	return orgs, nil
+}
+
+// OrganizationEnabled reports whether an organization is enabled.
+func OrganizationEnabled(ctx context.Context, db *sql.DB, orgID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if orgID == 0 {
+		return false, ErrMissingOrgID
+	}
+
+	var enabled bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT enabled
+		FROM organizations
+		WHERE id = $1
+	`, orgID).Scan(&enabled); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrMissingOrgID
+		}
+		return false, fmt.Errorf("check organization enabled: %w", err)
+	}
+	return enabled, nil
+}
+
+// SetOrganizationEnabled updates an organization's enabled state.
+func SetOrganizationEnabled(ctx context.Context, db *sql.DB, orgID int64, enabled bool) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET enabled = $1, updated_at = NOW()
+		WHERE id = $2
+	`, enabled, orgID)
+	if err != nil {
+		return fmt.Errorf("set organization enabled: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set organization enabled rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func OrganizationLogo(ctx context.Context, db *sql.DB, orgID int64) ([]byte, string, bool, error) {
@@ -365,6 +486,14 @@ func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, n
 	}
 	if orgID == 0 {
 		return ErrMissingOrgID
+	}
+
+	enabled, err := OrganizationEnabled(ctx, db, orgID)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return ErrOrganizationDisabled
 	}
 
 	var exists bool
@@ -698,10 +827,18 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 		return types.Organization{}, ErrMissingMemberID
 	}
 
-	if _, err := PrimaryOwnedOrganization(ctx, db, primaryOwnerMemberID); err == nil {
+	var alreadyPrimaryOwner bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM organization_memberships
+			WHERE member_id = $1 AND is_primary_owner = TRUE AND left_at IS NULL
+		)
+	`, primaryOwnerMemberID).Scan(&alreadyPrimaryOwner); err != nil {
+		return types.Organization{}, fmt.Errorf("check existing primary ownership: %w", err)
+	}
+	if alreadyPrimaryOwner {
 		return types.Organization{}, ErrAlreadyPrimaryOwner
-	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return types.Organization{}, err
 	}
 
 	tx, err := db.BeginTx(ctx, nil)

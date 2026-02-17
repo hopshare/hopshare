@@ -13,8 +13,12 @@ import (
 )
 
 const (
-	AdminAuditActionAppOverviewViewed = "admin.app_overview.view"
-	AdminAuditTargetApplication       = "application"
+	AdminAuditActionAppOverviewViewed   = "admin.app_overview.view"
+	AdminAuditActionOrganizationDisable = "admin.organization.disable"
+	AdminAuditActionOrganizationEnable  = "admin.organization.enable"
+	AdminAuditActionHopExpire           = "admin.hop.expire"
+	AdminAuditActionHopDelete           = "admin.hop.delete"
+	AdminAuditTargetApplication         = "application"
 )
 
 type WriteAdminAuditEventParams struct {

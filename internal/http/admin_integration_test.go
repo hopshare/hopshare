@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -226,6 +229,150 @@ func TestAdminOverviewHTTP(t *testing.T) {
 		assertAdminLeaderboardByValue(t, body, "hops", expected.TopByHopsCreated)
 		assertAdminLeaderboardByValue(t, body, "hours", expected.TopByHoursExchanged)
 		assertAdminLeaderboardByUsers(t, body, expected.TopByUsers)
+	})
+}
+
+func TestAdminOrganizationsHTTP(t *testing.T) {
+	db := requireHTTPTestDB(t)
+
+	t.Run("ADMIN-02 organizations tab supports disable, re-enable, expire, and delete actions", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_org_admin", suffix)
+		owner := createSeededMember(t, ctx, db, "admin_org_owner", suffix)
+		helper := createSeededMember(t, ctx, db, "admin_org_helper", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Admin Org Actions "+suffix, "City", "ST", "Org for admin organization actions integration coverage.", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, helper.Member.ID)
+
+		openHop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Org Open Hop "+suffix, types.HopNeededByAnytime, nil)
+		acceptedHop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Org Accepted Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, org.ID, acceptedHop.ID, helper.Member.ID); err != nil {
+			t.Fatalf("accept hop %d: %v", acceptedHop.ID, err)
+		}
+		completedHop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Org Completed Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, org.ID, completedHop.ID, helper.Member.ID); err != nil {
+			t.Fatalf("accept completed hop %d: %v", completedHop.ID, err)
+		}
+		if err := service.CompleteHop(ctx, db, service.CompleteHopParams{
+			OrganizationID: org.ID,
+			HopID:          completedHop.ID,
+			CompletedBy:    owner.Member.ID,
+			Comment:        "mark completed for delete rejection coverage",
+			CompletedHours: 2,
+		}); err != nil {
+			t.Fatalf("complete hop %d: %v", completedHop.ID, err)
+		}
+		canceledHop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Org Canceled Hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.CancelHop(ctx, db, org.ID, canceledHop.ID, owner.Member.ID); err != nil {
+			t.Fatalf("cancel hop %d: %v", canceledHop.ID, err)
+		}
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+		ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		ownerActor.Login()
+
+		adminBody := requireStatus(t, adminActor.Get("/admin?tab=organizations&org_id="+strconv.FormatInt(org.ID, 10)+"&q="+url.QueryEscape("Admin Org")), http.StatusOK)
+		requireBodyContains(t, adminBody, "Organizations")
+		requireBodyContains(t, adminBody, org.Name)
+		requireBodyContains(t, adminBody, "aria-label=\"Confirm admin action\"")
+		requireBodyContains(t, adminBody, "data-testid=\"admin-hop-expire-"+strconv.FormatInt(acceptedHop.ID, 10)+"\"")
+		requireBodyContains(t, adminBody, "data-testid=\"admin-hop-delete-"+strconv.FormatInt(openHop.ID, 10)+"\"")
+		requireBodyNotContains(t, adminBody, ">Expire hop</button>")
+		requireBodyNotContains(t, adminBody, ">Delete hop</button>")
+
+		requireStatus(t, ownerActor.Get("/organization/"+org.URLName), http.StatusOK)
+
+		loc := requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "disable_org",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"q", "Admin Org",
+			"reason", "disable for maintenance",
+		)), "/admin")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "success", "Organization disabled.")
+
+		requireStatus(t, ownerActor.Get("/organization/"+org.URLName), http.StatusNotFound)
+		orgsBody := requireStatus(t, ownerActor.Get("/organizations"), http.StatusOK)
+		requireBodyNotContains(t, orgsBody, org.Name)
+
+		myHopshareBody := requireStatus(t, ownerActor.Get("/my-hopshare"), http.StatusOK)
+		requireBodyContains(t, myHopshareBody, "Join an organization to get started!")
+
+		createLoc := requireRedirectPath(t, ownerActor.PostForm("/hops/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"title", "Disabled Org Hop Attempt",
+			"details", "This should fail because the org is disabled.",
+			"estimated_hours", "2",
+			"needed_by_kind", "anytime",
+		)), "/my-hopshare")
+		requireQueryValue(t, createLoc, "error", "Could not create hop.")
+
+		loc = requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "enable_org",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"q", "Admin Org",
+			"reason", "restore access after maintenance",
+		)), "/admin")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "success", "Organization re-enabled.")
+
+		requireStatus(t, ownerActor.Get("/organization/"+org.URLName), http.StatusOK)
+
+		deleteRejectedLoc := requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "delete_hop",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(completedHop.ID, 10),
+			"q", "Admin Org",
+			"reason", "attempt delete completed hop",
+		)), "/admin")
+		requireQueryValue(t, deleteRejectedLoc, "error", "Hop action not allowed for this status.")
+
+		deleteOpenLoc := requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "delete_hop",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(openHop.ID, 10),
+			"q", "Admin Org",
+			"reason", "remove stale open hop",
+		)), "/admin")
+		requireQueryValue(t, deleteOpenLoc, "success", "Hop deleted.")
+
+		if _, err := service.GetHopByID(ctx, db, org.ID, openHop.ID); !errors.Is(err, service.ErrHopNotFound) {
+			t.Fatalf("expected deleted hop to be missing, got %v", err)
+		}
+
+		expireLoc := requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "expire_hop",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(acceptedHop.ID, 10),
+			"q", "Admin Org",
+			"reason", "close lingering accepted hop",
+		)), "/admin")
+		requireQueryValue(t, expireLoc, "success", "Hop expired.")
+
+		expiredHop, err := service.GetHopByID(ctx, db, org.ID, acceptedHop.ID)
+		if err != nil {
+			t.Fatalf("load expired hop: %v", err)
+		}
+		if expiredHop.Status != types.HopStatusExpired {
+			t.Fatalf("expected hop status %q after expire action, got %q", types.HopStatusExpired, expiredHop.Status)
+		}
+
+		reasonRequiredLoc := requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
+			"action", "delete_hop",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(canceledHop.ID, 10),
+			"q", "Admin Org",
+			"reason", "",
+		)), "/admin")
+		requireQueryValue(t, reasonRequiredLoc, "error", "A reason is required for this action.")
 	})
 }
 

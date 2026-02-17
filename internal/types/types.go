@@ -250,3 +250,30 @@ type AdminAuditEvent struct {
 	Metadata      json.RawMessage
 	CreatedAt     time.Time
 }
+
+type AdminOrganizationHop struct {
+	ID             int64
+	OrganizationID int64
+	Title          string
+	Status         string
+	CreatedByName  string
+	CreatedAt      time.Time
+}
+
+type AdminOrganizationDetail struct {
+	Organization        Organization
+	MemberCount         int
+	EnabledMemberCount  int
+	DisabledMemberCount int
+	HopCounts           []AdminHopStatusCount
+	Hops                []AdminOrganizationHop
+}
+
+type AdminOrganizationTabData struct {
+	Query         string
+	Results       []Organization
+	SelectedOrgID int64
+	Selected      *AdminOrganizationDetail
+	SuccessMsg    string
+	ErrorMsg      string
+}
