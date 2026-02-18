@@ -17,6 +17,8 @@ import (
 	"hopshare/web/templates"
 )
 
+const deleteAccountConfirmationPhrase = "I want to leave hopShare"
+
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -161,6 +163,20 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Skills updated."), http.StatusSeeOther)
+		case "delete_account":
+			confirmation := r.FormValue("delete_account_confirmation")
+			if confirmation != deleteAccountConfirmationPhrase {
+				http.Redirect(w, r, "/profile?tab=account&error="+url.QueryEscape("Please type \"I want to leave hopShare\" exactly to confirm account deletion."), http.StatusSeeOther)
+				return
+			}
+			if err := service.SetMemberEnabled(r.Context(), s.db, user.ID, false); err != nil {
+				log.Printf("disable member account %d: %v", user.ID, err)
+				http.Redirect(w, r, "/profile?tab=account&error="+url.QueryEscape("Could not delete account right now."), http.StatusSeeOther)
+				return
+			}
+			s.sessions.RevokeAllForMember(user.ID)
+			s.clearSessionCookie(w, r)
+			http.Redirect(w, r, "/farewell", http.StatusSeeOther)
 		default:
 			http.Error(w, "invalid form", http.StatusBadRequest)
 		}

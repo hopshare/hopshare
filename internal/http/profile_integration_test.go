@@ -23,6 +23,21 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "My Profile")
 	})
 
+	t.Run("PROF-01A GET /profile renders My Account danger zone controls", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		member := createSeededMember(t, ctx, db, "profile_get_account_tab", uniqueTestSuffix())
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		body := requireStatus(t, actor.Get("/profile"), 200)
+		requireBodyContains(t, body, "My Account")
+		requireBodyContains(t, body, "Danger Zone!")
+		requireBodyContains(t, body, "Delete my Account")
+		requireBodyContains(t, body, "I want to leave hopShare")
+	})
+
 	t.Run("PROF-02 POST /profile action=profile updates member details", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -305,6 +320,67 @@ func TestProfileHTTPMatrix(t *testing.T) {
 			Data:        []byte("not an image"),
 		}}), "/profile")
 		requireQueryValue(t, loc, "error", "avatar must be a PNG or JPEG")
+	})
+
+	t.Run("PROF-12A POST /profile action=delete_account requires exact confirmation phrase", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		member := createSeededMember(t, ctx, db, "profile_delete_account_phrase", uniqueTestSuffix())
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
+			"action", "delete_account",
+			"delete_account_confirmation", "i want to leave hopShare",
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "account")
+		requireQueryValue(t, loc, "error", "Please type \"I want to leave hopShare\" exactly to confirm account deletion.")
+
+		stillEnabled, err := service.GetMemberByID(ctx, db, member.Member.ID)
+		if err != nil {
+			t.Fatalf("load member after rejected delete action: %v", err)
+		}
+		if !stillEnabled.Enabled {
+			t.Fatalf("expected member to remain enabled after rejected delete action")
+		}
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
+	})
+
+	t.Run("PROF-12B POST /profile action=delete_account disables account and logs out all sessions", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		member := createSeededMember(t, ctx, db, "profile_delete_account_success", uniqueTestSuffix())
+		server := newHTTPServer(t, db)
+		primaryActor := newTestActor(t, "primary_member", server.URL, member.Member.Username, member.Password)
+		secondaryActor := newTestActor(t, "secondary_member", server.URL, member.Member.Username, member.Password)
+		primaryActor.Login()
+		secondaryActor.Login()
+
+		requireRedirectPath(t, primaryActor.PostForm("/profile", formKV(
+			"action", "delete_account",
+			"delete_account_confirmation", "I want to leave hopShare",
+		)), "/farewell")
+
+		updated, err := service.GetMemberByID(ctx, db, member.Member.ID)
+		if err != nil {
+			t.Fatalf("load member after delete action: %v", err)
+		}
+		if updated.Enabled {
+			t.Fatalf("expected member to be disabled after delete action")
+		}
+
+		farewellBody := requireStatus(t, primaryActor.Get("/farewell"), http.StatusOK)
+		requireBodyContains(t, farewellBody, "Thanks for being part of hopShare.")
+
+		requireRedirectPath(t, primaryActor.Get("/my-hopshare"), "/login")
+		requireRedirectPath(t, secondaryActor.Get("/my-hopshare"), "/login")
+
+		loginBody := requireStatus(t, primaryActor.PostForm("/login", formKV(
+			"username", member.Member.Username,
+			"password", member.Password,
+		)), http.StatusOK)
+		requireBodyContains(t, loginBody, "Invalid username or password.")
 	})
 
 	t.Run("PROF-13 GET /members/avatar shared-org member is visible", func(t *testing.T) {

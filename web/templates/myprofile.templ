@@ -120,7 +120,22 @@ templ SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) {
 }
 
 templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, successMsg string, errorMsg string) {
-	<div class="space-y-6" x-data="{ activeTab: 'details' }">
+	<div
+		class="space-y-6"
+		x-data="{
+			activeTab: 'details',
+			deleteModalOpen: false,
+			deleteConfirmation: '',
+			requiredDeletePhrase: 'I want to leave hopShare',
+			init() {
+				const tab = new URLSearchParams(window.location.search).get('tab');
+				if (tab === 'details' || tab === 'organizations' || tab === 'skills' || tab === 'account') {
+					this.activeTab = tab;
+				}
+			}
+		}"
+		x-on:keydown.escape.window="deleteModalOpen = false; deleteConfirmation = ''"
+	>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
@@ -161,6 +176,14 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 					x-on:click="activeTab = 'skills'"
 				>
 					Skills
+				</button>
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'account' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'account'"
+				>
+					My Account
 				</button>
 			</nav>
 		</div>
@@ -451,6 +474,66 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 					</form>
 				}
 			</section>
+		</div>
+
+		<div x-show="activeTab === 'account'">
+			<section class="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
+				<h2 class="text-lg font-semibold text-red-800">Danger Zone!</h2>
+				<p class="mt-2 text-sm text-red-700">Deleting your account disables your access immediately.</p>
+				<button
+					type="button"
+					class="mt-4 inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800"
+					x-on:click="deleteModalOpen = true; deleteConfirmation = ''"
+				>
+					Delete my Account
+				</button>
+			</section>
+		</div>
+
+		<div
+			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
+			x-show="deleteModalOpen"
+			x-on:click.self="deleteModalOpen = false; deleteConfirmation = ''"
+			style="display: none;"
+		>
+			<div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+				<h3 class="text-lg font-semibold text-slate-900">Confirm account deletion</h3>
+				<p class="mt-2 text-sm text-slate-700">To continue, type this sentence exactly:</p>
+				<p class="mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900">I want to leave hopShare</p>
+				<form method="POST" action="/profile" class="mt-4 space-y-4">
+					@CSRFField()
+					<input type="hidden" name="action" value="delete_account" />
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="delete_account_confirmation">Confirmation phrase</label>
+						<input
+							id="delete_account_confirmation"
+							name="delete_account_confirmation"
+							type="text"
+							required
+							x-model="deleteConfirmation"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+							placeholder="I want to leave hopShare"
+						/>
+					</div>
+					<div class="flex items-center justify-end gap-3">
+						<button
+							type="button"
+							class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
+							x-on:click="deleteModalOpen = false; deleteConfirmation = ''"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							class="inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition"
+							x-bind:class="deleteConfirmation === requiredDeletePhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'"
+							x-bind:disabled="deleteConfirmation !== requiredDeletePhrase"
+						>
+							Submit
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	</div>
 }

@@ -127,6 +127,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/terms", srv.handleTerms, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/privacy", srv.handlePrivacy, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/help", srv.handleHelp, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/farewell", srv.handleFarewell, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/admin", srv.handleAdmin, srv.requireAuth(), srv.requireMethod(http.MethodGet), srv.requireAdmin())
 	srv.register(mux, "/admin/organizations/action", srv.handleAdminOrganizationAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
 	srv.register(mux, "/admin/moderation/action", srv.handleAdminModerationAction, srv.requireAuth(), srv.requireMethod(http.MethodPost), srv.requireAdmin())
@@ -193,6 +194,10 @@ func (s *Server) handleTerms(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.Privacy(s.currentUserEmailPtr(r)))
+}
+
+func (s *Server) handleFarewell(w http.ResponseWriter, r *http.Request) {
+	render(w, r, templates.Farewell(s.currentUserEmailPtr(r)))
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

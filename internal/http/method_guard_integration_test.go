@@ -25,6 +25,7 @@ func TestHTTPMethodGuards(t *testing.T) {
 		{"learn-more", "/learn-more", "POST", "GET"},
 		{"terms", "/terms", "POST", "GET"},
 		{"privacy", "/privacy", "POST", "GET"},
+		{"farewell", "/farewell", "POST", "GET"},
 		{"help", "/help", "POST", "GET"},
 		{"forgot-password", "/forgot-password", "PUT", "GET, POST"},
 		{"reset-password", "/reset-password", "PUT", "GET, POST"},

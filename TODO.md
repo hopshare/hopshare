@@ -27,7 +27,6 @@
 * Header
 
 * My Profile
-    * Need a way to leave hopShare- "Remove my account" that requires you type in something intentional.
     * Need a way to remove an owned Organization- need to think a bit about this one- to ensure it doesn't get abused.
 
 * Hop Detail Page
@@ -37,7 +36,6 @@
 
 * Admin Page
     * Users
-        * User details should show whether or not the User is Verified
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization
