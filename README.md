@@ -40,7 +40,6 @@ Important variables:
 - `HOPSHARE_MAILGUN_DOMAIN` (required for password reset email delivery): Mailgun sending domain.
 - `HOPSHARE_MAILGUN_API_KEY` (required for password reset email delivery): Mailgun API key.
 - `HOPSHARE_MAILGUN_FROM_ADDRESS` (required for password reset email delivery): from address used for reset emails.
-- `HOPSHARE_PASSWORD_RESET_TOKEN_SECRET` (optional): signing key for password reset tokens. If unset, `HOPSHARE_MAILGUN_API_KEY` is used.
 
 ## Running Locally
 1. Export env vars (`source .env` as shown above).

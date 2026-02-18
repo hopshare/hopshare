@@ -51,7 +51,6 @@ func main() {
 		AdminUsernames:           cfg.Admins,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
-		PasswordResetTokenSecret: cfg.PasswordResetTokenSecret,
 	})
 
 	server := &http.Server{

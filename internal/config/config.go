@@ -7,33 +7,31 @@ import (
 
 // Config holds server configuration loaded from environment variables.
 type Config struct {
-	Addr                     string
-	DatabaseURL              string
-	Env                      string
-	Admins                   []string
-	Timezone                 string
-	PublicBaseURL            string
-	MailgunAPIBaseURL        string
-	MailgunDomain            string
-	MailgunAPIKey            string
-	MailgunFromAddress       string
-	PasswordResetTokenSecret string
+	Addr               string
+	DatabaseURL        string
+	Env                string
+	Admins             []string
+	Timezone           string
+	PublicBaseURL      string
+	MailgunAPIBaseURL  string
+	MailgunDomain      string
+	MailgunAPIKey      string
+	MailgunFromAddress string
 }
 
 // Load returns configuration populated from HOPSHARE_* environment variables.
 func Load() Config {
 	return Config{
-		Addr:                     getenv("HOPSHARE_ADDR", ":8080"),
-		DatabaseURL:              getenv("HOPSHARE_DB_URL", ""),
-		Env:                      getenv("HOPSHARE_ENV", "development"),
-		Admins:                   parseAdmins(getenv("HOPSHARE_ADMINS", "")),
-		Timezone:                 loadTimezone(),
-		PublicBaseURL:            getenv("HOPSHARE_PUBLIC_BASE_URL", "http://localhost:8080"),
-		MailgunAPIBaseURL:        getenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
-		MailgunDomain:            getenv("HOPSHARE_MAILGUN_DOMAIN", "hopshare.org"),
-		MailgunAPIKey:            getenv("HOPSHARE_MAILGUN_API_KEY", ""),
-		MailgunFromAddress:       getenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "support@hopshare.org"),
-		PasswordResetTokenSecret: getenv("HOPSHARE_PASSWORD_RESET_TOKEN_SECRET", getenv("HOPSHARE_MAILGUN_API_KEY", "")),
+		Addr:               getenv("HOPSHARE_ADDR", ":8080"),
+		DatabaseURL:        getenv("HOPSHARE_DB_URL", ""),
+		Env:                getenv("HOPSHARE_ENV", "development"),
+		Admins:             parseAdmins(getenv("HOPSHARE_ADMINS", "")),
+		Timezone:           loadTimezone(),
+		PublicBaseURL:      getenv("HOPSHARE_PUBLIC_BASE_URL", "http://localhost:8080"),
+		MailgunAPIBaseURL:  getenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
+		MailgunDomain:      getenv("HOPSHARE_MAILGUN_DOMAIN", "hopshare.org"),
+		MailgunAPIKey:      getenv("HOPSHARE_MAILGUN_API_KEY", ""),
+		MailgunFromAddress: getenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "support@hopshare.org"),
 	}
 }
 

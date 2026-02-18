@@ -333,15 +333,13 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, reuseBody, "Invalid or expired token.")
 	})
 
-	t.Run("AUTH-16B reset-password works across server instances with shared token secret", func(t *testing.T) {
+	t.Run("AUTH-16B reset-password works across server instances with db-backed token storage", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "reset_cross_instance", suffix)
 		resetSender := &recordingPasswordResetEmailSender{}
-		const sharedSecret = "shared-reset-secret"
-
-		forgotServer := newHTTPServerWithPasswordResetEmailSenderAndSecret(t, db, resetSender, sharedSecret)
+		forgotServer := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
 		forgotActor := newTestActor(t, "forgot", forgotServer.URL, "", "")
 		body := requireStatus(t, forgotActor.PostForm("/forgot-password", formKV(
 			"email", member.Member.Email,
@@ -353,7 +351,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 		token := extractResetTokenFromURL(t, resetEmail.ResetURL)
 
-		resetServer := newHTTPServerWithPasswordResetEmailSenderAndSecret(t, db, &recordingPasswordResetEmailSender{}, sharedSecret)
+		resetServer := newHTTPServerWithPasswordResetEmailSender(t, db, &recordingPasswordResetEmailSender{})
 		resetActor := newTestActor(t, "reset", resetServer.URL, "", "")
 		requireRedirectPath(t, resetActor.PostForm("/reset-password", formKV(
 			"token", token,

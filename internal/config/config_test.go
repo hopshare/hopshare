@@ -16,7 +16,6 @@ func TestLoadParsesAdmins(t *testing.T) {
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "mg.example.com")
 	t.Setenv("HOPSHARE_MAILGUN_API_KEY", "key-123")
 	t.Setenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "HopShare <no-reply@example.com>")
-	t.Setenv("HOPSHARE_PASSWORD_RESET_TOKEN_SECRET", "reset-secret-123")
 
 	cfg := Load()
 	if cfg.Addr != ":9090" {
@@ -45,9 +44,6 @@ func TestLoadParsesAdmins(t *testing.T) {
 	}
 	if cfg.MailgunFromAddress != "HopShare <no-reply@example.com>" {
 		t.Fatalf("mailgun from address: got %q want %q", cfg.MailgunFromAddress, "HopShare <no-reply@example.com>")
-	}
-	if cfg.PasswordResetTokenSecret != "reset-secret-123" {
-		t.Fatalf("password reset token secret: got %q want %q", cfg.PasswordResetTokenSecret, "reset-secret-123")
 	}
 
 	wantAdmins := []string{"alice", "bob", "carol"}
@@ -78,7 +74,6 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "")
 	t.Setenv("HOPSHARE_MAILGUN_API_KEY", "")
 	t.Setenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "")
-	t.Setenv("HOPSHARE_PASSWORD_RESET_TOKEN_SECRET", "")
 
 	cfg := Load()
 	if cfg.PublicBaseURL != "http://localhost:8080" {
@@ -95,18 +90,5 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	}
 	if cfg.MailgunFromAddress != "support@hopshare.org" {
 		t.Fatalf("mailgun from address default: got %q want %q", cfg.MailgunFromAddress, "support@hopshare.org")
-	}
-	if cfg.PasswordResetTokenSecret != "" {
-		t.Fatalf("password reset token secret default: got %q want empty", cfg.PasswordResetTokenSecret)
-	}
-}
-
-func TestLoadDefaultsPasswordResetTokenSecretFallsBackToMailgunAPIKey(t *testing.T) {
-	t.Setenv("HOPSHARE_MAILGUN_API_KEY", "mailgun-key")
-	t.Setenv("HOPSHARE_PASSWORD_RESET_TOKEN_SECRET", "")
-
-	cfg := Load()
-	if cfg.PasswordResetTokenSecret != "mailgun-key" {
-		t.Fatalf("password reset token secret fallback: got %q want %q", cfg.PasswordResetTokenSecret, "mailgun-key")
 	}
 }

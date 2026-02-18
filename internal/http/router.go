@@ -2,15 +2,11 @@ package http
 
 import (
 	"context"
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -36,7 +32,6 @@ type Server struct {
 	admins                   *adminSet
 	authRateLimiter          *fixedWindowLimiter
 	passwordResetEmailSender PasswordResetEmailSender
-	passwordResetTokenSecret []byte
 	publicBaseURL            string
 }
 
@@ -56,9 +51,6 @@ const csrfMaxRequestBodyBytes = 21 << 20
 const authRateLimitWindow = time.Minute
 const authRateLimitMaxRequests = 10
 const defaultPublicBaseURL = "http://localhost:8080"
-const defaultPasswordResetTokenSecret = "hopshare-dev-reset-secret"
-const resetTokenSeparator = "."
-const resetTokenValidity = 2 * time.Hour
 
 const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
@@ -70,7 +62,6 @@ type RouterOptions struct {
 	Sessions                 *auth.SessionManager
 	AdminUsernames           []string
 	PasswordResetEmailSender PasswordResetEmailSender
-	PasswordResetTokenSecret string
 	PublicBaseURL            string
 }
 
@@ -106,10 +97,6 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	if passwordResetEmailSender == nil {
 		passwordResetEmailSender = nopPasswordResetEmailSender{}
 	}
-	passwordResetTokenSecret := strings.TrimSpace(opts.PasswordResetTokenSecret)
-	if passwordResetTokenSecret == "" {
-		passwordResetTokenSecret = defaultPasswordResetTokenSecret
-	}
 	publicBaseURL := normalizePublicBaseURL(opts.PublicBaseURL)
 
 	srv := &Server{
@@ -118,7 +105,6 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		admins:                   newAdminSet(opts.AdminUsernames),
 		authRateLimiter:          newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 		passwordResetEmailSender: passwordResetEmailSender,
-		passwordResetTokenSecret: []byte(passwordResetTokenSecret),
 		publicBaseURL:            publicBaseURL,
 	}
 
@@ -418,7 +404,12 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err == nil {
-			token, tokenErr := s.issueResetToken(member)
+			token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
+				MemberID:    member.ID,
+				Purpose:     service.MemberTokenPurposePasswordReset,
+				TTL:         service.DefaultMemberTokenTTL,
+				RequestedIP: requestIPFromRequest(r),
+			})
 			if tokenErr != nil {
 				log.Printf("password reset token issue failed: member_id=%d: %v", member.ID, tokenErr)
 				render(w, r, templates.ForgotPassword(s.currentUserEmailPtr(r), true))
@@ -444,7 +435,7 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), "", "Missing token.", ""))
 			return
 		}
-		if _, ok := s.validateResetToken(r.Context(), token); !ok {
+		if _, err := service.ValidateMemberToken(r.Context(), s.db, service.MemberTokenPurposePasswordReset, token); err != nil {
 			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), "", "Invalid or expired token.", ""))
 			return
 		}
@@ -478,8 +469,8 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		memberID, ok := s.validateResetToken(r.Context(), token)
-		if !ok {
+		memberID, err := service.ConsumeMemberToken(r.Context(), s.db, service.MemberTokenPurposePasswordReset, token)
+		if err != nil {
 			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "Invalid or expired token.", ""))
 			return
 		}
@@ -515,109 +506,6 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func (s *Server) issueResetToken(member types.Member) (string, error) {
-	if member.ID == 0 {
-		return "", fmt.Errorf("missing member id")
-	}
-	if strings.TrimSpace(member.PasswordHash) == "" {
-		return "", fmt.Errorf("missing password hash")
-	}
-
-	expiresAt := time.Now().UTC().Add(resetTokenValidity).Unix()
-	payload := fmt.Sprintf("%d|%d|%s", member.ID, expiresAt, passwordHashFingerprint(member.PasswordHash))
-	signature := s.signResetTokenPayload(payload)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + resetTokenSeparator + base64.RawURLEncoding.EncodeToString(signature), nil
-}
-
-func (s *Server) validateResetToken(ctx context.Context, token string) (int64, bool) {
-	token = strings.TrimSpace(token)
-	if token == "" {
-		return 0, false
-	}
-
-	encodedPayload, encodedSignature, ok := strings.Cut(token, resetTokenSeparator)
-	if !ok || encodedPayload == "" || encodedSignature == "" {
-		return 0, false
-	}
-
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(encodedPayload)
-	if err != nil {
-		return 0, false
-	}
-	signature, err := base64.RawURLEncoding.DecodeString(encodedSignature)
-	if err != nil {
-		return 0, false
-	}
-	expectedSignature := s.signResetTokenPayload(string(payloadBytes))
-	if subtle.ConstantTimeCompare(signature, expectedSignature) != 1 {
-		return 0, false
-	}
-
-	memberID, expiresAtUnix, expectedPasswordFingerprint, ok := parseResetTokenPayload(string(payloadBytes))
-	if !ok {
-		return 0, false
-	}
-	if time.Now().UTC().Unix() > expiresAtUnix {
-		return 0, false
-	}
-
-	member, err := service.GetMemberByID(ctx, s.db, memberID)
-	if err != nil {
-		return 0, false
-	}
-	if passwordHashFingerprint(member.PasswordHash) != expectedPasswordFingerprint {
-		return 0, false
-	}
-	return memberID, true
-}
-
-func parseResetTokenPayload(payload string) (memberID int64, expiresAtUnix int64, passwordFingerprint string, ok bool) {
-	parts := strings.Split(payload, "|")
-	if len(parts) != 3 {
-		return 0, 0, "", false
-	}
-
-	memberID, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil || memberID <= 0 {
-		return 0, 0, "", false
-	}
-	expiresAtUnix, err = strconv.ParseInt(parts[1], 10, 64)
-	if err != nil || expiresAtUnix <= 0 {
-		return 0, 0, "", false
-	}
-	passwordFingerprint = strings.TrimSpace(parts[2])
-	if !isValidHexDigest(passwordFingerprint) {
-		return 0, 0, "", false
-	}
-	return memberID, expiresAtUnix, passwordFingerprint, true
-}
-
-func isValidHexDigest(value string) bool {
-	if len(value) != sha256.Size*2 {
-		return false
-	}
-	for i := 0; i < len(value); i++ {
-		b := value[i]
-		isDigit := b >= '0' && b <= '9'
-		isLowerHex := b >= 'a' && b <= 'f'
-		if !isDigit && !isLowerHex {
-			return false
-		}
-	}
-	return true
-}
-
-func passwordHashFingerprint(passwordHash string) string {
-	sum := sha256.Sum256([]byte(passwordHash))
-	return hex.EncodeToString(sum[:])
-}
-
-func (s *Server) signResetTokenPayload(payload string) []byte {
-	mac := hmac.New(sha256.New, s.passwordResetTokenSecret)
-	_, _ = mac.Write([]byte(payload))
-	return mac.Sum(nil)
 }
 
 func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, successMsg, errorMsg string) {
@@ -957,6 +845,25 @@ func clientIPKey(r *http.Request) string {
 		return remote
 	}
 	return "unknown"
+}
+
+func requestIPFromRequest(r *http.Request) *string {
+	if r == nil {
+		return nil
+	}
+	host, _, err := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
+	if err == nil {
+		if parsed := net.ParseIP(host); parsed != nil {
+			ip := parsed.String()
+			return &ip
+		}
+	}
+	raw := strings.TrimSpace(r.RemoteAddr)
+	if parsed := net.ParseIP(raw); parsed != nil {
+		ip := parsed.String()
+		return &ip
+	}
+	return nil
 }
 
 type adminSet struct {

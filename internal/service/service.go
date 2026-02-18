@@ -23,6 +23,10 @@ var (
 	ErrOrganizationDisabled = errors.New("organization is disabled")
 	ErrAuditReasonRequired  = errors.New("audit reason is required")
 	ErrInvalidAuditMetadata = errors.New("invalid audit metadata")
+	ErrTokenInvalid         = errors.New("token invalid")
+	ErrTokenExpired         = errors.New("token expired")
+	ErrTokenUsed            = errors.New("token already used")
+	ErrTokenPurposeInvalid  = errors.New("token purpose invalid")
 
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")
