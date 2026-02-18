@@ -2,7 +2,9 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds server configuration loaded from environment variables.
@@ -17,6 +19,9 @@ type Config struct {
 	MailgunDomain      string
 	MailgunAPIKey      string
 	MailgunFromAddress string
+	CookieSecure       bool
+	SessionAbsoluteTTL time.Duration
+	SessionIdleTimeout time.Duration
 }
 
 // Load returns configuration populated from HOPSHARE_* environment variables.
@@ -32,6 +37,9 @@ func Load() Config {
 		MailgunDomain:      getenv("HOPSHARE_MAILGUN_DOMAIN", "hopshare.org"),
 		MailgunAPIKey:      getenv("HOPSHARE_MAILGUN_API_KEY", ""),
 		MailgunFromAddress: getenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "support@hopshare.org"),
+		CookieSecure:       getenvBool("HOPSHARE_COOKIE_SECURE", true),
+		SessionAbsoluteTTL: getenvDuration("HOPSHARE_SESSION_ABSOLUTE_TTL", 168*time.Hour),
+		SessionIdleTimeout: getenvDuration("HOPSHARE_SESSION_IDLE_TIMEOUT", 24*time.Hour),
 	}
 }
 
@@ -40,6 +48,33 @@ func getenv(key, fallback string) string {
 		return val
 	}
 	return fallback
+}
+
+func getenvBool(key string, fallback bool) bool {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func getenvDuration(key string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil {
+		return fallback
+	}
+	if parsed < 0 {
+		return 0
+	}
+	return parsed
 }
 
 func parseAdmins(raw string) []string {

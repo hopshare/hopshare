@@ -33,6 +33,7 @@ type Server struct {
 	authRateLimiter          *fixedWindowLimiter
 	passwordResetEmailSender PasswordResetEmailSender
 	publicBaseURL            string
+	cookieSecure             bool
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request)
@@ -64,6 +65,7 @@ type RouterOptions struct {
 	AdminUsernames           []string
 	PasswordResetEmailSender PasswordResetEmailSender
 	PublicBaseURL            string
+	CookieSecure             *bool
 }
 
 // NewRouter wires the base HTTP routes.
@@ -99,6 +101,10 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		passwordResetEmailSender = nopPasswordResetEmailSender{}
 	}
 	publicBaseURL := normalizePublicBaseURL(opts.PublicBaseURL)
+	cookieSecure := true
+	if opts.CookieSecure != nil {
+		cookieSecure = *opts.CookieSecure
+	}
 
 	srv := &Server{
 		db:                       db,
@@ -107,6 +113,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		authRateLimiter:          newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 		passwordResetEmailSender: passwordResetEmailSender,
 		publicBaseURL:            publicBaseURL,
+		cookieSecure:             cookieSecure,
 	}
 
 	mux := http.NewServeMux()
@@ -194,7 +201,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		next = s.postAuthRedirectFromCookie(r)
 	}
 	if next != "" {
-		s.setPostAuthRedirectCookie(w, next)
+		s.setPostAuthRedirectCookie(w, r, next)
 	}
 
 	switch r.Method {
@@ -220,7 +227,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			next = s.postAuthRedirectFromCookie(r)
 		}
 		if next != "" {
-			s.setPostAuthRedirectCookie(w, next)
+			s.setPostAuthRedirectCookie(w, r, next)
 		}
 		username := strings.TrimSpace(r.FormValue("username"))
 		password := r.FormValue("password")
@@ -246,19 +253,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     s.sessions.CookieName(),
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		s.setSessionCookie(w, r, token)
 
 		if err := service.UpdateMemberLastLogin(r.Context(), s.db, member.ID, time.Now().UTC()); err != nil {
 			log.Printf("update last login member=%d: %v", member.ID, err)
 		}
 
-		s.clearPostAuthRedirectCookie(w)
+		s.clearPostAuthRedirectCookie(w, r)
 		redirectTarget := "/my-hopshare"
 		if next != "" {
 			redirectTarget = next
@@ -275,7 +276,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		next = s.postAuthRedirectFromCookie(r)
 	}
 	if next != "" {
-		s.setPostAuthRedirectCookie(w, next)
+		s.setPostAuthRedirectCookie(w, r, next)
 	}
 
 	switch r.Method {
@@ -291,7 +292,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			next = s.postAuthRedirectFromCookie(r)
 		}
 		if next != "" {
-			s.setPostAuthRedirectCookie(w, next)
+			s.setPostAuthRedirectCookie(w, r, next)
 		}
 
 		firstName := strings.TrimSpace(r.FormValue("first_name"))
@@ -399,7 +400,7 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 		next = s.postAuthRedirectFromCookie(r)
 	}
 	if next != "" {
-		s.setPostAuthRedirectCookie(w, next)
+		s.setPostAuthRedirectCookie(w, r, next)
 	}
 	loginHref := "/login"
 	if next != "" {
@@ -558,6 +559,7 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 			render(w, r, templates.ResetPassword(s.currentUserEmailPtr(r), token, "Could not reset password right now.", ""))
 			return
 		}
+		s.sessions.RevokeAllForMember(memberID)
 
 		http.Redirect(w, r, "/login?success=Password+reset+successful%2C+please+log+in.", http.StatusSeeOther)
 	default:
@@ -574,14 +576,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(s.sessions.CookieName())
 	if err == nil {
 		s.sessions.Delete(c.Value)
-		http.SetCookie(w, &http.Cookie{
-			Name:     s.sessions.CookieName(),
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		s.clearSessionCookie(w, r)
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -789,7 +784,11 @@ func (s *Server) withUser() Middleware {
 						ctx := context.WithValue(r.Context(), userContextKey, &member)
 						ctx = context.WithValue(ctx, adminContextKey, s.admins.IsAdmin(member.Username))
 						r = r.WithContext(ctx)
+					} else {
+						s.clearSessionCookie(w, r)
 					}
+				} else {
+					s.clearSessionCookie(w, r)
 				}
 			}
 			next(w, r)
@@ -874,7 +873,7 @@ func (s *Server) rateLimitAuthEndpoint(endpoint string) Middleware {
 func (s *Server) withCSRF() Middleware {
 	return func(next HandlerFunc) HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			token := ensureCSRFCookie(w, r)
+			token := s.ensureCSRFCookie(w, r)
 			r = r.WithContext(context.WithValue(r.Context(), csrfContextKey, token))
 
 			if r.Method == http.MethodPost {
@@ -974,7 +973,7 @@ func (a *adminSet) IsAdmin(username string) bool {
 	return ok
 }
 
-func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
+func (s *Server) ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookieName); err == nil {
 		token := strings.TrimSpace(c.Value)
 		if isValidCSRFToken(token) {
@@ -989,6 +988,7 @@ func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecureForRequest(r),
 	})
 	return token
 }
@@ -1250,7 +1250,7 @@ func (s *Server) postAuthRedirectFromCookie(r *http.Request) string {
 	return sanitizePostAuthRedirect(v)
 }
 
-func (s *Server) setPostAuthRedirectCookie(w http.ResponseWriter, next string) {
+func (s *Server) setPostAuthRedirectCookie(w http.ResponseWriter, r *http.Request, next string) {
 	next = sanitizePostAuthRedirect(next)
 	if next == "" {
 		return
@@ -1262,10 +1262,11 @@ func (s *Server) setPostAuthRedirectCookie(w http.ResponseWriter, next string) {
 		MaxAge:   7 * 24 * 60 * 60,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecureForRequest(r),
 	})
 }
 
-func (s *Server) clearPostAuthRedirectCookie(w http.ResponseWriter) {
+func (s *Server) clearPostAuthRedirectCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     postAuthRedirectCookieName,
 		Value:    "",
@@ -1273,5 +1274,43 @@ func (s *Server) clearPostAuthRedirectCookie(w http.ResponseWriter) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecureForRequest(r),
 	})
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     s.sessions.CookieName(),
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecureForRequest(r),
+	})
+}
+
+func (s *Server) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     s.sessions.CookieName(),
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecureForRequest(r),
+	})
+}
+
+func (s *Server) cookieSecureForRequest(r *http.Request) bool {
+	if !s.cookieSecure {
+		return false
+	}
+	if r == nil {
+		return true
+	}
+	if r.TLS != nil {
+		return true
+	}
+	forwardedProto := strings.TrimSpace(strings.ToLower(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0]))
+	return forwardedProto == "https"
 }

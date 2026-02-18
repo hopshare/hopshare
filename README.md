@@ -36,6 +36,9 @@ Important variables:
 - `HOPSHARE_ADMINS` (optional): comma-separated usernames with admin access. Matching is case-insensitive and spaces are ignored.
 - `HOPSHARE_TIMEZONE` (optional): IANA timezone name used for rendered timestamps (for example `America/New_York`, `UTC`). Invalid values fail startup.
 - `HOPSHARE_PUBLIC_BASE_URL` (optional): absolute base URL used to build password reset links in emails. Default `http://localhost:8080`.
+- `HOPSHARE_COOKIE_SECURE` (optional): when `true`, auth/CSRF/post-auth cookies are marked `Secure`. Default `true` (production-safe). Set `false` only for local HTTP testing.
+- `HOPSHARE_SESSION_ABSOLUTE_TTL` (optional): maximum session lifetime since login (Go duration, default `168h`).
+- `HOPSHARE_SESSION_IDLE_TIMEOUT` (optional): maximum idle session time since last request activity (Go duration, default `24h`).
 - `HOPSHARE_MAILGUN_API_BASE_URL` (optional): Mailgun API base URL. Default `https://api.mailgun.net`.
 - `HOPSHARE_MAILGUN_DOMAIN` (required for password reset email delivery): Mailgun sending domain.
 - `HOPSHARE_MAILGUN_API_KEY` (required for password reset email delivery): Mailgun API key.

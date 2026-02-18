@@ -131,6 +131,18 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Could not update password right now."), http.StatusSeeOther)
 				return
 			}
+			if c, err := r.Cookie(s.sessions.CookieName()); err == nil {
+				if rotatedToken, rotatedMemberID, ok := s.sessions.Rotate(strings.TrimSpace(c.Value)); ok && rotatedMemberID == user.ID {
+					s.setSessionCookie(w, r, rotatedToken)
+				} else {
+					token, tokenErr := s.sessions.Create(user.ID)
+					if tokenErr == nil {
+						s.setSessionCookie(w, r, token)
+					} else {
+						log.Printf("create rotated session member=%d: %v", user.ID, tokenErr)
+					}
+				}
+			}
 
 			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Password updated."), http.StatusSeeOther)
 		case "skills":

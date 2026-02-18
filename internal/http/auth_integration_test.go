@@ -2,12 +2,15 @@ package http_test
 
 import (
 	"net/http"
+	"net/http/cookiejar"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"hopshare/internal/auth"
+	apphttp "hopshare/internal/http"
 	"hopshare/internal/service"
 )
 
@@ -22,6 +25,84 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "Log in")
 		requireBodyNotContains(t, body, "Need a new verification email?")
 		requireBodyNotContains(t, body, "/verify-email/resend")
+	})
+
+	t.Run("AUTH-01A secure-cookie mode sets Secure/HttpOnly/SameSite flags", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_cookie_secure", suffix)
+		cookieSecure := true
+		server := httptest.NewTLSServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+			CookieSecure: &cookieSecure,
+		}))
+		t.Cleanup(server.Close)
+
+		client := server.Client()
+		jar, err := cookiejar.New(nil)
+		if err != nil {
+			t.Fatalf("create cookie jar: %v", err)
+		}
+		client.Jar = jar
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+
+		loginWithNext := server.URL + "/login?next=" + url.QueryEscape("/organization/test-org")
+		getResp, err := client.Get(loginWithNext)
+		if err != nil {
+			t.Fatalf("get login page: %v", err)
+		}
+		requireStatus(t, getResp, http.StatusOK)
+		requireSetCookieAttributes(t, getResp, "hopshare_csrf", "Secure", "HttpOnly", "SameSite=Lax")
+		requireSetCookieAttributes(t, getResp, "hopshare_post_auth_redirect", "Secure", "HttpOnly", "SameSite=Lax")
+
+		baseURL, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatalf("parse server url: %v", err)
+		}
+		csrfToken := ""
+		for _, c := range jar.Cookies(baseURL) {
+			if c.Name == testCSRFCookieName {
+				csrfToken = c.Value
+				break
+			}
+		}
+		if csrfToken == "" {
+			t.Fatalf("expected csrf token in cookie jar")
+		}
+
+		loginResp, err := client.PostForm(server.URL+"/login", formKV(
+			"username", member.Member.Username,
+			"password", member.Password,
+			testCSRFFieldName, csrfToken,
+		))
+		if err != nil {
+			t.Fatalf("post login: %v", err)
+		}
+		requireSetCookieAttributes(t, loginResp, "hopshare_session", "Secure", "HttpOnly", "SameSite=Lax")
+		requireRedirectPath(t, loginResp, "/organization/test-org")
+	})
+
+	t.Run("AUTH-01B secure-cookie mode still allows login over plain HTTP for local dev", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "auth_cookie_secure_http", suffix)
+		cookieSecure := true
+		server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+			CookieSecure: &cookieSecure,
+		}))
+		t.Cleanup(server.Close)
+
+		actor := newTestActor(t, "secure-http-actor", server.URL, member.Member.Username, member.Password)
+		resp := actor.PostForm("/login", formKV(
+			"username", member.Member.Username,
+			"password", member.Password,
+		))
+		requireSetCookieNotContains(t, resp, "hopshare_session", "Secure")
+		requireRedirectPath(t, resp, "/my-hopshare")
+		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
 	})
 
 	t.Run("AUTH-02 POST /login valid credentials redirects to /my-hopshare", func(t *testing.T) {
@@ -278,10 +359,23 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		expiredToken, err := service.IssueMemberToken(ctx, db, service.IssueMemberTokenParams{
 			MemberID: member.ID,
 			Purpose:  service.MemberTokenPurposeEmailVerification,
-			TTL:      -time.Minute,
+			TTL:      time.Hour,
 		})
 		if err != nil {
 			t.Fatalf("issue expired token: %v", err)
+		}
+		expiredTokenID, _, ok := strings.Cut(expiredToken, ".")
+		if !ok || strings.TrimSpace(expiredTokenID) == "" {
+			t.Fatalf("parse expired token id: %q", expiredToken)
+		}
+		if _, err := db.ExecContext(ctx, `
+			UPDATE member_tokens
+			SET created_at = NOW() - INTERVAL '2 minute',
+			    expires_at = NOW() - INTERVAL '1 minute'
+			WHERE token_id = $1
+			  AND purpose = $2
+		`, expiredTokenID, service.MemberTokenPurposeEmailVerification); err != nil {
+			t.Fatalf("expire verification token: %v", err)
 		}
 		expiredLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(expiredToken)), "/login")
 		requireQueryValue(t, expiredLoc, "error", "Invalid or expired verification link.")
@@ -519,6 +613,40 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		newLoginActor.Login()
 	})
 
+	t.Run("AUTH-16C reset-password revokes active sessions for the member", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "reset_revokes_sessions", suffix)
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
+
+		memberActor := newTestActor(t, "member_active_session", server.URL, member.Member.Username, member.Password)
+		memberActor.Login()
+		requireStatus(t, memberActor.Get("/my-hopshare"), http.StatusOK)
+
+		anon := newTestActor(t, "anon_reset_revoke", server.URL, "", "")
+		requireStatus(t, anon.PostForm("/forgot-password", formKV(
+			"email", member.Member.Email,
+		)), http.StatusOK)
+		resetEmail, ok := resetSender.Last()
+		if !ok {
+			t.Fatalf("expected password reset email")
+		}
+		token := extractResetTokenFromURL(t, resetEmail.ResetURL)
+
+		requireRedirectPath(t, anon.PostForm("/reset-password", formKV(
+			"token", token,
+			"new_password", "RevokeSessions123!",
+			"confirm_password", "RevokeSessions123!",
+		)), "/login")
+
+		requireRedirectPath(t, memberActor.Get("/my-hopshare"), "/login")
+
+		newLoginActor := newTestActor(t, "member_after_revoke", server.URL, member.Member.Username, "RevokeSessions123!")
+		newLoginActor.Login()
+	})
+
 	t.Run("AUTH-17 revoke-all sessions invalidates active member sessions", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -677,4 +805,44 @@ func extractVerifyTokenFromURL(t *testing.T, verifyURL string) string {
 		t.Fatalf("could not find verify token in url %q", verifyURL)
 	}
 	return token
+}
+
+func requireSetCookieAttributes(t *testing.T, resp *http.Response, cookieName string, attrs ...string) {
+	t.Helper()
+	setCookies := resp.Header.Values("Set-Cookie")
+	if len(setCookies) == 0 {
+		t.Fatalf("expected Set-Cookie headers for %q", cookieName)
+	}
+	prefix := cookieName + "="
+	for _, header := range setCookies {
+		if !strings.HasPrefix(header, prefix) {
+			continue
+		}
+		for _, attr := range attrs {
+			if !strings.Contains(header, attr) {
+				t.Fatalf("cookie %q missing attr %q in %q", cookieName, attr, header)
+			}
+		}
+		return
+	}
+	t.Fatalf("cookie %q not found in Set-Cookie headers: %v", cookieName, setCookies)
+}
+
+func requireSetCookieNotContains(t *testing.T, resp *http.Response, cookieName string, attr string) {
+	t.Helper()
+	setCookies := resp.Header.Values("Set-Cookie")
+	if len(setCookies) == 0 {
+		t.Fatalf("expected Set-Cookie headers for %q", cookieName)
+	}
+	prefix := cookieName + "="
+	for _, header := range setCookies {
+		if !strings.HasPrefix(header, prefix) {
+			continue
+		}
+		if strings.Contains(header, attr) {
+			t.Fatalf("cookie %q unexpectedly contained attr %q in %q", cookieName, attr, header)
+		}
+		return
+	}
+	t.Fatalf("cookie %q not found in Set-Cookie headers: %v", cookieName, setCookies)
 }

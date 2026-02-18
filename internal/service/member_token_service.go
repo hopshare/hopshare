@@ -40,7 +40,7 @@ func IssueMemberToken(ctx context.Context, db *sql.DB, params IssueMemberTokenPa
 	}
 
 	ttl := params.TTL
-	if ttl <= 0 {
+	if ttl == 0 {
 		ttl = DefaultMemberTokenTTL
 	}
 

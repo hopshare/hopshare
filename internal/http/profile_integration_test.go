@@ -1,6 +1,8 @@
 package http_test
 
 import (
+	"net/http"
+	"net/url"
 	"strconv"
 	"testing"
 
@@ -95,6 +97,10 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		server := newHTTPServer(t, db)
 		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
 		actor.Login()
+		oldSessionToken := actor.cookieValue("hopshare_session")
+		if oldSessionToken == "" {
+			t.Fatalf("expected existing session token before password update")
+		}
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
 			"action", "password",
@@ -103,9 +109,28 @@ func TestProfileHTTPMatrix(t *testing.T) {
 			"confirm_password", "UpdatedPassword123!",
 		)), "/profile")
 		requireQueryValue(t, loc, "success", "Password updated.")
+		newSessionToken := actor.cookieValue("hopshare_session")
+		if newSessionToken == "" {
+			t.Fatalf("expected rotated session token after password update")
+		}
+		if newSessionToken == oldSessionToken {
+			t.Fatalf("expected rotated session token to differ from previous token")
+		}
 
 		newActor := newTestActor(t, "member_new_pass", server.URL, member.Member.Username, "UpdatedPassword123!")
 		newActor.Login()
+
+		oldSessionActor := newTestActor(t, "member_old_session", server.URL, "", "")
+		baseURL, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatalf("parse server url: %v", err)
+		}
+		oldSessionActor.client.Jar.SetCookies(baseURL, []*http.Cookie{{
+			Name:  "hopshare_session",
+			Value: oldSessionToken,
+			Path:  "/",
+		}})
+		requireRedirectPath(t, oldSessionActor.Get("/my-hopshare"), "/login")
 	})
 
 	t.Run("PROF-06 POST /profile action=password wrong current password is rejected", func(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"hopshare/internal/auth"
 	"hopshare/internal/config"
 	"hopshare/internal/database"
 	"hopshare/internal/database/migrate"
@@ -47,10 +48,17 @@ func main() {
 		log.Fatalf("configure password reset email sender: %v", err)
 	}
 
+	sessionManager := auth.NewSessionManagerWithConfig(auth.SessionManagerConfig{
+		AbsoluteTTL: cfg.SessionAbsoluteTTL,
+		IdleTimeout: cfg.SessionIdleTimeout,
+	})
+
 	handler := httpserver.NewRouterWithOptions(db, httpserver.RouterOptions{
+		Sessions:                 sessionManager,
 		AdminUsernames:           cfg.Admins,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
+		CookieSecure:             &cfg.CookieSecure,
 	})
 
 	server := &http.Server{

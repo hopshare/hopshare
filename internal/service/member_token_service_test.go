@@ -79,7 +79,8 @@ func TestMemberTokenConsumeExpiredFails(t *testing.T) {
 
 	if _, err := db.ExecContext(ctx, `
 		UPDATE member_tokens
-		SET expires_at = NOW() - INTERVAL '1 minute'
+		SET created_at = NOW() - INTERVAL '2 minute',
+		    expires_at = NOW() - INTERVAL '1 minute'
 		WHERE token_id = $1
 	`, tokenID); err != nil {
 		t.Fatalf("expire token: %v", err)

@@ -49,7 +49,10 @@ func TestHopLifecycleWorkflow_MultiUserHTTP(t *testing.T) {
 	approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, requester.Member.ID)
 	approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, helper.Member.ID)
 
-	server := httptest.NewServer(apphttp.NewRouter(db))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		CookieSecure: &cookieSecure,
+	}))
 	defer server.Close()
 
 	ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
@@ -200,7 +203,10 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, requester.Member.ID)
 	approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, helper.Member.ID)
 
-	server := httptest.NewServer(apphttp.NewRouter(db))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		CookieSecure: &cookieSecure,
+	}))
 	defer server.Close()
 
 	requesterActor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
@@ -328,7 +334,10 @@ func TestHopLifecycleWorkflow_PrivateHopBlocksNonAssociatedCommentAndImage(t *te
 		t.Fatalf("create private hop: %v", err)
 	}
 
-	server := httptest.NewServer(apphttp.NewRouter(db))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		CookieSecure: &cookieSecure,
+	}))
 	defer server.Close()
 
 	outsiderActor := newTestActor(t, "outsider", server.URL, outsider.Member.Username, outsider.Password)

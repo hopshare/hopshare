@@ -3,6 +3,7 @@ package config
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestLoadParsesAdmins(t *testing.T) {
@@ -16,6 +17,9 @@ func TestLoadParsesAdmins(t *testing.T) {
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "mg.example.com")
 	t.Setenv("HOPSHARE_MAILGUN_API_KEY", "key-123")
 	t.Setenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "HopShare <no-reply@example.com>")
+	t.Setenv("HOPSHARE_COOKIE_SECURE", "false")
+	t.Setenv("HOPSHARE_SESSION_ABSOLUTE_TTL", "48h")
+	t.Setenv("HOPSHARE_SESSION_IDLE_TIMEOUT", "90m")
 
 	cfg := Load()
 	if cfg.Addr != ":9090" {
@@ -44,6 +48,15 @@ func TestLoadParsesAdmins(t *testing.T) {
 	}
 	if cfg.MailgunFromAddress != "HopShare <no-reply@example.com>" {
 		t.Fatalf("mailgun from address: got %q want %q", cfg.MailgunFromAddress, "HopShare <no-reply@example.com>")
+	}
+	if cfg.CookieSecure {
+		t.Fatalf("cookie secure: got %v want false", cfg.CookieSecure)
+	}
+	if cfg.SessionAbsoluteTTL != 48*time.Hour {
+		t.Fatalf("session absolute ttl: got %s want %s", cfg.SessionAbsoluteTTL, 48*time.Hour)
+	}
+	if cfg.SessionIdleTimeout != 90*time.Minute {
+		t.Fatalf("session idle timeout: got %s want %s", cfg.SessionIdleTimeout, 90*time.Minute)
 	}
 
 	wantAdmins := []string{"alice", "bob", "carol"}
@@ -74,6 +87,9 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "")
 	t.Setenv("HOPSHARE_MAILGUN_API_KEY", "")
 	t.Setenv("HOPSHARE_MAILGUN_FROM_ADDRESS", "")
+	t.Setenv("HOPSHARE_COOKIE_SECURE", "")
+	t.Setenv("HOPSHARE_SESSION_ABSOLUTE_TTL", "")
+	t.Setenv("HOPSHARE_SESSION_IDLE_TIMEOUT", "")
 
 	cfg := Load()
 	if cfg.PublicBaseURL != "http://localhost:8080" {
@@ -90,5 +106,14 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	}
 	if cfg.MailgunFromAddress != "support@hopshare.org" {
 		t.Fatalf("mailgun from address default: got %q want %q", cfg.MailgunFromAddress, "support@hopshare.org")
+	}
+	if !cfg.CookieSecure {
+		t.Fatalf("cookie secure default: got %v want true", cfg.CookieSecure)
+	}
+	if cfg.SessionAbsoluteTTL != 168*time.Hour {
+		t.Fatalf("session absolute ttl default: got %s want %s", cfg.SessionAbsoluteTTL, 168*time.Hour)
+	}
+	if cfg.SessionIdleTimeout != 24*time.Hour {
+		t.Fatalf("session idle timeout default: got %s want %s", cfg.SessionIdleTimeout, 24*time.Hour)
 	}
 }

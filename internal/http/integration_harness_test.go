@@ -264,6 +264,20 @@ func (a *testActor) csrfToken() string {
 	return ""
 }
 
+func (a *testActor) cookieValue(name string) string {
+	a.t.Helper()
+	base, err := url.Parse(a.baseURL)
+	if err != nil {
+		a.t.Fatalf("%s parse base url %q failed: %v", a.name, a.baseURL, err)
+	}
+	for _, c := range a.client.Jar.Cookies(base) {
+		if c.Name == name && strings.TrimSpace(c.Value) != "" {
+			return c.Value
+		}
+	}
+	return ""
+}
+
 func requireRedirectPath(t *testing.T, resp *http.Response, wantPath string) *url.URL {
 	t.Helper()
 	defer resp.Body.Close()

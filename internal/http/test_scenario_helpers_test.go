@@ -21,30 +21,43 @@ func newTestContext(t *testing.T) (context.Context, context.CancelFunc) {
 
 func newHTTPServer(t *testing.T, db *sql.DB) *httptest.Server {
 	t.Helper()
-	server := httptest.NewServer(apphttp.NewRouter(db))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		CookieSecure: &cookieSecure,
+	}))
 	t.Cleanup(server.Close)
 	return server
 }
 
 func newHTTPServerWithSessions(t *testing.T, db *sql.DB, sessions *auth.SessionManager) *httptest.Server {
 	t.Helper()
-	server := httptest.NewServer(apphttp.NewRouterWithSessions(db, sessions))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		Sessions:     sessions,
+		CookieSecure: &cookieSecure,
+	}))
 	t.Cleanup(server.Close)
 	return server
 }
 
 func newHTTPServerWithAdmins(t *testing.T, db *sql.DB, adminUsernames []string) *httptest.Server {
 	t.Helper()
-	server := httptest.NewServer(apphttp.NewRouterWithSessionsAndAdmins(db, nil, adminUsernames))
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		AdminUsernames: adminUsernames,
+		CookieSecure:   &cookieSecure,
+	}))
 	t.Cleanup(server.Close)
 	return server
 }
 
 func newHTTPServerWithPasswordResetEmailSender(t *testing.T, db *sql.DB, sender apphttp.PasswordResetEmailSender) *httptest.Server {
 	t.Helper()
+	cookieSecure := false
 	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
 		PasswordResetEmailSender: sender,
 		PublicBaseURL:            "https://hopshare.test",
+		CookieSecure:             &cookieSecure,
 	}))
 	t.Cleanup(server.Close)
 	return server
@@ -52,10 +65,12 @@ func newHTTPServerWithPasswordResetEmailSender(t *testing.T, db *sql.DB, sender 
 
 func newHTTPServerWithAdminsAndPasswordResetEmailSender(t *testing.T, db *sql.DB, adminUsernames []string, sender apphttp.PasswordResetEmailSender) *httptest.Server {
 	t.Helper()
+	cookieSecure := false
 	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
 		AdminUsernames:           adminUsernames,
 		PasswordResetEmailSender: sender,
 		PublicBaseURL:            "https://hopshare.test",
+		CookieSecure:             &cookieSecure,
 	}))
 	t.Cleanup(server.Close)
 	return server
