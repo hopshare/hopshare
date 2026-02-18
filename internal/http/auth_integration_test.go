@@ -3,7 +3,6 @@ package http_test
 import (
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -246,28 +245,48 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("AUTH-14 POST /forgot-password known email includes demo reset link", func(t *testing.T) {
+	t.Run("AUTH-14 POST /forgot-password known email returns generic success and sends reset email", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "forgot_known", suffix)
-		server := newHTTPServer(t, db)
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
 		anon := newTestActor(t, "anon", server.URL, "", "")
 		body := requireStatus(t, anon.PostForm("/forgot-password", formKV(
 			"email", member.Member.Email,
 		)), 200)
 		requireBodyContains(t, body, "If an account exists for that email")
-		requireBodyContains(t, body, "/reset-password?token=")
+		requireBodyNotContains(t, body, "/reset-password?token=")
+		if resetSender.Count() != 1 {
+			t.Fatalf("expected one password reset email, got %d", resetSender.Count())
+		}
+		email, ok := resetSender.Last()
+		if !ok {
+			t.Fatalf("expected password reset email")
+		}
+		if email.ToEmail != member.Member.Email {
+			t.Fatalf("password reset email recipient mismatch: got=%q want=%q", email.ToEmail, member.Member.Email)
+		}
+		token := extractResetTokenFromURL(t, email.ResetURL)
+		if token == "" {
+			t.Fatalf("expected reset token in sent email URL")
+		}
 	})
 
-	t.Run("AUTH-15 POST /forgot-password unknown email does not include demo link", func(t *testing.T) {
-		server := newHTTPServer(t, db)
+	t.Run("AUTH-15 POST /forgot-password unknown email returns same generic success and does not send email", func(t *testing.T) {
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
 		anon := newTestActor(t, "anon", server.URL, "", "")
 		body := requireStatus(t, anon.PostForm("/forgot-password", formKV(
 			"email", "unknown_email_"+uniqueTestSuffix()+"@example.com",
 		)), 200)
 		requireBodyContains(t, body, "If an account exists for that email")
+		requireBodyNotContains(t, body, "/reset-password?token=")
 		requireBodyNotContains(t, body, "Demo: use this link now")
+		if resetSender.Count() != 0 {
+			t.Fatalf("expected no password reset email for unknown account, got %d", resetSender.Count())
+		}
 	})
 
 	t.Run("AUTH-16 reset-password token flow updates password and token is single-use", func(t *testing.T) {
@@ -275,16 +294,20 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		defer cancel()
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "reset_flow", suffix)
-		server := newHTTPServer(t, db)
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
 		anon := newTestActor(t, "anon", server.URL, "", "")
 
 		forgotBody := requireStatus(t, anon.PostForm("/forgot-password", formKV(
 			"email", member.Member.Email,
 		)), 200)
-		token := extractResetToken(t, forgotBody)
-		if token == "" {
-			t.Fatalf("expected reset token")
+		requireBodyContains(t, forgotBody, "If an account exists for that email")
+		requireBodyNotContains(t, forgotBody, "/reset-password?token=")
+		email, ok := resetSender.Last()
+		if !ok {
+			t.Fatalf("expected password reset email")
 		}
+		token := extractResetTokenFromURL(t, email.ResetURL)
 
 		requireRedirectPath(t, anon.PostForm("/reset-password", formKV(
 			"token", token,
@@ -308,6 +331,38 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"confirm_password", "AnotherPassword123!",
 		)), 200)
 		requireBodyContains(t, reuseBody, "Invalid or expired token.")
+	})
+
+	t.Run("AUTH-16B reset-password works across server instances with shared token secret", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "reset_cross_instance", suffix)
+		resetSender := &recordingPasswordResetEmailSender{}
+		const sharedSecret = "shared-reset-secret"
+
+		forgotServer := newHTTPServerWithPasswordResetEmailSenderAndSecret(t, db, resetSender, sharedSecret)
+		forgotActor := newTestActor(t, "forgot", forgotServer.URL, "", "")
+		body := requireStatus(t, forgotActor.PostForm("/forgot-password", formKV(
+			"email", member.Member.Email,
+		)), 200)
+		requireBodyContains(t, body, "If an account exists for that email")
+		resetEmail, ok := resetSender.Last()
+		if !ok {
+			t.Fatalf("expected password reset email")
+		}
+		token := extractResetTokenFromURL(t, resetEmail.ResetURL)
+
+		resetServer := newHTTPServerWithPasswordResetEmailSenderAndSecret(t, db, &recordingPasswordResetEmailSender{}, sharedSecret)
+		resetActor := newTestActor(t, "reset", resetServer.URL, "", "")
+		requireRedirectPath(t, resetActor.PostForm("/reset-password", formKV(
+			"token", token,
+			"new_password", "CrossInstancePassword123!",
+			"confirm_password", "CrossInstancePassword123!",
+		)), "/login")
+
+		newLoginActor := newTestActor(t, "member_cross_instance", resetServer.URL, member.Member.Username, "CrossInstancePassword123!")
+		newLoginActor.Login()
 	})
 
 	t.Run("AUTH-17 revoke-all sessions invalidates active member sessions", func(t *testing.T) {
@@ -444,12 +499,15 @@ func formKV(kv ...string) url.Values {
 	return out
 }
 
-func extractResetToken(t *testing.T, body string) string {
+func extractResetTokenFromURL(t *testing.T, resetURL string) string {
 	t.Helper()
-	re := regexp.MustCompile(`/reset-password\?token=([a-f0-9]+)`)
-	match := re.FindStringSubmatch(body)
-	if len(match) != 2 {
-		t.Fatalf("could not find reset token in body %q", body)
+	parsed, err := url.Parse(strings.TrimSpace(resetURL))
+	if err != nil {
+		t.Fatalf("parse reset url %q: %v", resetURL, err)
 	}
-	return strings.TrimSpace(match[1])
+	token := strings.TrimSpace(parsed.Query().Get("token"))
+	if token == "" {
+		t.Fatalf("could not find reset token in url %q", resetURL)
+	}
+	return token
 }

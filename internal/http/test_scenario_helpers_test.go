@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,73 @@ func newHTTPServerWithAdmins(t *testing.T, db *sql.DB, adminUsernames []string) 
 	server := httptest.NewServer(apphttp.NewRouterWithSessionsAndAdmins(db, nil, adminUsernames))
 	t.Cleanup(server.Close)
 	return server
+}
+
+func newHTTPServerWithPasswordResetEmailSender(t *testing.T, db *sql.DB, sender apphttp.PasswordResetEmailSender) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		PasswordResetEmailSender: sender,
+		PublicBaseURL:            "https://hopshare.test",
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func newHTTPServerWithPasswordResetEmailSenderAndSecret(t *testing.T, db *sql.DB, sender apphttp.PasswordResetEmailSender, tokenSecret string) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		PasswordResetEmailSender: sender,
+		PasswordResetTokenSecret: tokenSecret,
+		PublicBaseURL:            "https://hopshare.test",
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func newHTTPServerWithAdminsAndPasswordResetEmailSender(t *testing.T, db *sql.DB, adminUsernames []string, sender apphttp.PasswordResetEmailSender) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		AdminUsernames:           adminUsernames,
+		PasswordResetEmailSender: sender,
+		PublicBaseURL:            "https://hopshare.test",
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+type sentPasswordResetEmail struct {
+	ToEmail  string
+	ResetURL string
+}
+
+type recordingPasswordResetEmailSender struct {
+	mu     sync.Mutex
+	emails []sentPasswordResetEmail
+}
+
+func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context, toEmail, resetURL string) error {
+	s.mu.Lock()
+	s.emails = append(s.emails, sentPasswordResetEmail{
+		ToEmail:  toEmail,
+		ResetURL: resetURL,
+	})
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *recordingPasswordResetEmailSender) Count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.emails)
+}
+
+func (s *recordingPasswordResetEmailSender) Last() (sentPasswordResetEmail, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.emails) == 0 {
+		return sentPasswordResetEmail{}, false
+	}
+	return s.emails[len(s.emails)-1], true
 }
 
 func createOrganizationWithMembers(t *testing.T, ctx context.Context, db *sql.DB, suffix string, roleNames ...string) (types.Organization, map[string]seededMember) {

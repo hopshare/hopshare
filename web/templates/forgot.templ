@@ -1,10 +1,10 @@
 package templates
 
-templ ForgotPassword(userEmail *string, sent bool, demoLink string) {
-	@Base("hopShare | Forgot password", userEmail, ForgotPasswordBody(sent, demoLink))
+templ ForgotPassword(userEmail *string, sent bool) {
+	@Base("hopShare | Forgot password", userEmail, ForgotPasswordBody(sent))
 }
 
-templ ForgotPasswordBody(sent bool, demoLink string) {
+templ ForgotPasswordBody(sent bool) {
 	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Forgot your password?</h1>
@@ -13,9 +13,6 @@ templ ForgotPasswordBody(sent bool, demoLink string) {
 		if sent {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 space-y-2">
 				<p>If an account exists for that email, we’ve sent a password reset link.</p>
-				if demoLink != "" {
-					<p class="text-sm text-emerald-700">Demo: use this link now — <a class="underline" href={ demoLink }>{ demoLink }</a></p>
-				}
 			</div>
 		}
 		<form class="space-y-4" method="POST" action="/forgot-password">

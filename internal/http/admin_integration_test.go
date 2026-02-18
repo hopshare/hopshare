@@ -536,7 +536,8 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("accept target-as-requester hop: %v", err)
 		}
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Username}, resetSender)
 		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
 		adminActor.Login()
 		targetActor := newTestActor(t, "target", server.URL, target.Member.Username, target.Password)
@@ -634,10 +635,13 @@ func TestAdminUsersHTTP(t *testing.T) {
 		forgotBody := requireStatus(t, anon.PostForm("/forgot-password", formKV(
 			"email", target.Member.Email,
 		)), http.StatusOK)
-		token := extractResetToken(t, forgotBody)
-		if token == "" {
-			t.Fatalf("expected reset token for forced-reset user")
+		requireBodyContains(t, forgotBody, "If an account exists for that email")
+		requireBodyNotContains(t, forgotBody, "/reset-password?token=")
+		resetEmail, ok := resetSender.Last()
+		if !ok {
+			t.Fatalf("expected password reset email for forced-reset user")
 		}
+		token := extractResetTokenFromURL(t, resetEmail.ResetURL)
 
 		requireRedirectPath(t, anon.PostForm("/reset-password", formKV(
 			"token", token,

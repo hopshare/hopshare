@@ -37,7 +37,22 @@ func main() {
 		log.Fatalf("apply migrations: %v", err)
 	}
 
-	handler := httpserver.NewRouterWithSessionsAndAdmins(db, nil, cfg.Admins)
+	passwordResetEmailSender, err := httpserver.NewMailgunPasswordResetEmailSender(httpserver.MailgunPasswordResetEmailSenderConfig{
+		APIBaseURL:  cfg.MailgunAPIBaseURL,
+		Domain:      cfg.MailgunDomain,
+		APIKey:      cfg.MailgunAPIKey,
+		FromAddress: cfg.MailgunFromAddress,
+	})
+	if err != nil {
+		log.Fatalf("configure password reset email sender: %v", err)
+	}
+
+	handler := httpserver.NewRouterWithOptions(db, httpserver.RouterOptions{
+		AdminUsernames:           cfg.Admins,
+		PublicBaseURL:            cfg.PublicBaseURL,
+		PasswordResetEmailSender: passwordResetEmailSender,
+		PasswordResetTokenSecret: cfg.PasswordResetTokenSecret,
+	})
 
 	server := &http.Server{
 		Addr:         cfg.Addr,

@@ -19,10 +19,14 @@
 * An Organization Owner can request membership in their own Organization- this should be prevented
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
-* Trying to view a private or non-Organization Hop Detail page shows the message "This page is only available to organization owners." - need to parameterize the unauthorized page message?
+* The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
 
 
 ## Now
+
+* Set up mailgun to send emails to users:
+    * New User sign ups- need to have them confirm their emails.
+    * Forgot Password
 
 * Header
 
@@ -56,9 +60,13 @@
 
 ## Later
 
-* New User sign ups- need to have them confirm their emails. So we need an email service after signing up.
 
-* Make service/ExpireHelpRequests() asynchronous- we should start a goroutine that runs daily to clear these out (not only when the myhpopshare page is rendered).
+
+* Put Hop image uploads behind a feature flag- we should not store them in the database- instead use reliable storage. Not needed right now.
+
+* Make service/ExpireHelpRequests() asynchronous
+    * Ideally we can run the 'hopshare' binary in a 'daemon' mode where it can do these sorts of things.
+    * Coordinating async workers across processes is a pain- let's see what we can do with one process.
 
 * Add in basic monitoring (cron job calling script saving in sqlite):
     * net/http/pprof package (visualize performance)
