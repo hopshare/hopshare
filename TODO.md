@@ -20,6 +20,7 @@
 * Don't show the "Remove" button on the row for the primary Organization Owner when they go to the Manage Organization page
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
+* Deleting a User does not delete their Organization...what do we do here?
 
 
 ## Now
@@ -36,6 +37,8 @@
 
 * Admin Page
     * Users
+    * Organizations
+        * We should let Admins 'inject' new Owners into an Organization if they get abandoned
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization
@@ -72,6 +75,8 @@
     * select count(*) from pg_stat_activity; (database connections)
     * iostat to see iops levels
     * jq against Caddy logs for traffic levels
+
+* How can we use LLMs here? OpenClaw / Telegram idea from Sukumar
 
 
 Font Awesome- https://icon-sets.iconify.design/fa7-regular/page-2.html?keyword=font

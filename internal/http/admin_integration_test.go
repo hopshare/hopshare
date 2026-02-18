@@ -35,6 +35,9 @@ type adminOverviewExpectation struct {
 	UserDisabledCount         int
 	UserVerifiedCount         int
 	UserNotVerifiedCount      int
+	OverrideCount             int
+	OverrideHoursGiven        int
+	OverrideHoursRemoved      int
 	HopStatusCounts           map[string]int
 	TotalHoursExchanged       int
 	TopByHopsCreated          []adminLeaderboardExpectation
@@ -188,6 +191,9 @@ func TestAdminOverviewHTTP(t *testing.T) {
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-verified-count">%d</span>`, expected.UserVerifiedCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-not-verified-count">%d</span>`, expected.UserNotVerifiedCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-total-hours">%d</p>`, expected.TotalHoursExchanged))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-overrides-count">%d</span>`, expected.OverrideCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-overrides-hours-given">%d</span>`, expected.OverrideHoursGiven))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-overrides-hours-removed">%d</span>`, expected.OverrideHoursRemoved))
 
 		hopStatuses := []string{
 			types.HopStatusOpen,
@@ -246,6 +252,24 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 		if err := service.CancelHop(ctx, db, org.ID, canceledHop.ID, owner.Member.ID); err != nil {
 			t.Fatalf("cancel hop %d: %v", canceledHop.ID, err)
 		}
+		if err := service.AdjustMemberHourBalance(ctx, db, service.AdjustMemberHourBalanceParams{
+			OrganizationID: org.ID,
+			MemberID:       owner.Member.ID,
+			AdminMemberID:  admin.Member.ID,
+			HoursDelta:     3,
+			Reason:         "seeded positive override for org tab metrics",
+		}); err != nil {
+			t.Fatalf("seed positive org override: %v", err)
+		}
+		if err := service.AdjustMemberHourBalance(ctx, db, service.AdjustMemberHourBalanceParams{
+			OrganizationID: org.ID,
+			MemberID:       helper.Member.ID,
+			AdminMemberID:  admin.Member.ID,
+			HoursDelta:     -2,
+			Reason:         "seeded negative override for org tab metrics",
+		}); err != nil {
+			t.Fatalf("seed negative org override: %v", err)
+		}
 
 		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
 		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
@@ -261,6 +285,9 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 		requireBodyContains(t, adminBody, "data-testid=\"admin-hop-delete-"+strconv.FormatInt(openHop.ID, 10)+"\"")
 		requireBodyNotContains(t, adminBody, ">Expire hop</button>")
 		requireBodyNotContains(t, adminBody, ">Delete hop</button>")
+		requireBodyContains(t, adminBody, "data-testid=\"admin-org-overrides-count-"+strconv.FormatInt(org.ID, 10)+"\">2</span>")
+		requireBodyContains(t, adminBody, "data-testid=\"admin-org-overrides-given-"+strconv.FormatInt(org.ID, 10)+"\">3</span>")
+		requireBodyContains(t, adminBody, "data-testid=\"admin-org-overrides-removed-"+strconv.FormatInt(org.ID, 10)+"\">2</span>")
 
 		requireStatus(t, ownerActor.Get("/organization/"+org.URLName), http.StatusOK)
 
@@ -1104,6 +1131,16 @@ func queryAdminOverviewExpectation(t *testing.T, ctx context.Context, db *sql.DB
 		FROM members
 	`).Scan(&expected.UserVerifiedCount, &expected.UserNotVerifiedCount); err != nil {
 		t.Fatalf("query user verified/not-verified counts: %v", err)
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN hours_delta > 0 THEN hours_delta ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
+		FROM hour_balance_adjustments
+	`).Scan(&expected.OverrideCount, &expected.OverrideHoursGiven, &expected.OverrideHoursRemoved); err != nil {
+		t.Fatalf("query admin override counts: %v", err)
 	}
 
 	hopRows, err := db.QueryContext(ctx, `

@@ -57,6 +57,16 @@ func AdminAppOverview(ctx context.Context, db *sql.DB, leaderboardLimit int) (ty
 		return types.AdminAppOverview{}, fmt.Errorf("count users by verification state: %w", err)
 	}
 
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN hours_delta > 0 THEN hours_delta ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
+		FROM hour_balance_adjustments
+	`).Scan(&out.HourOverrideCounts.Count, &out.HourOverrideCounts.HoursGiven, &out.HourOverrideCounts.HoursRemoved); err != nil {
+		return types.AdminAppOverview{}, fmt.Errorf("count admin hour overrides: %w", err)
+	}
+
 	hopCountsByStatus, err := adminHopCountsByStatus(ctx, db)
 	if err != nil {
 		return types.AdminAppOverview{}, err

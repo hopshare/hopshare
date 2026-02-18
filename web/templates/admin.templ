@@ -62,13 +62,28 @@ templ AdminAppOverviewTab(overview types.AdminAppOverview) {
 				<h2 class="text-xl font-bold text-slate-900">App-Wide Metrics</h2>
 				<p class="text-sm text-slate-600">Includes enabled and disabled users and organizations.</p>
 			</div>
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
 				@AdminEnabledDisabledCard("Organizations", overview.OrganizationCounts.Enabled, overview.OrganizationCounts.Disabled, "admin-org-enabled-count", "admin-org-disabled-count")
 				@AdminUsersCountCard(overview.UserCounts.Enabled, overview.UserCounts.Disabled, overview.UserVerificationCounts.Verified, overview.UserVerificationCounts.NotVerified)
 				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
 					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total Exchanged Hours</p>
 					<p class="text-3xl font-bold text-slate-900" data-testid="admin-total-hours">{ overview.TotalHoursExchanged }</p>
 					<p class="text-xs text-slate-500">Sum of all completed hop transactions.</p>
+				</div>
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Admin Overrides</p>
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-slate-600">Count</span>
+						<span class="font-semibold text-slate-900" data-testid="admin-overrides-count">{ overview.HourOverrideCounts.Count }</span>
+					</div>
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-slate-600">Hours given</span>
+						<span class="font-semibold text-slate-900" data-testid="admin-overrides-hours-given">{ overview.HourOverrideCounts.HoursGiven }</span>
+					</div>
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-slate-600">Hours removed</span>
+						<span class="font-semibold text-slate-900" data-testid="admin-overrides-hours-removed">{ overview.HourOverrideCounts.HoursRemoved }</span>
+					</div>
 				</div>
 			</div>
 			<div class="rounded-lg border border-slate-200 p-4">
@@ -240,7 +255,7 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 			@AdminEnabledBadge(detail.Organization.Enabled)
 		</div>
 
-		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-3">
 			<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
 				<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Members</p>
 				<div class="flex items-center justify-between text-sm">
@@ -268,6 +283,21 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 						<span class="font-semibold text-slate-900" data-testid={ "admin-org-hops-status-" + statusCount.Status + "-" + strconv.FormatInt(detail.Organization.ID, 10) }>{ statusCount.Count }</span>
 					</div>
 				}
+			</div>
+			<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+				<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Overrides</p>
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-slate-600">Count</span>
+					<span class="font-semibold text-slate-900" data-testid={ "admin-org-overrides-count-" + strconv.FormatInt(detail.Organization.ID, 10) }>{ detail.HourOverrideCounts.Count }</span>
+				</div>
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-slate-600">Hours given</span>
+					<span class="font-semibold text-slate-900" data-testid={ "admin-org-overrides-given-" + strconv.FormatInt(detail.Organization.ID, 10) }>{ detail.HourOverrideCounts.HoursGiven }</span>
+				</div>
+				<div class="flex items-center justify-between text-sm">
+					<span class="text-slate-600">Hours removed</span>
+					<span class="font-semibold text-slate-900" data-testid={ "admin-org-overrides-removed-" + strconv.FormatInt(detail.Organization.ID, 10) }>{ detail.HourOverrideCounts.HoursRemoved }</span>
+				</div>
 			</div>
 		</div>
 

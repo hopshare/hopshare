@@ -256,10 +256,17 @@ func (e AdminOrganizationLeaderboardEntry) TotalUsers() int {
 	return e.EnabledUsers + e.DisabledUsers
 }
 
+type AdminHourOverrideCounts struct {
+	Count        int
+	HoursGiven   int
+	HoursRemoved int
+}
+
 type AdminAppOverview struct {
 	OrganizationCounts      AdminEnabledDisabledCounts
 	UserCounts              AdminEnabledDisabledCounts
 	UserVerificationCounts  AdminVerifiedNotVerifiedCounts
+	HourOverrideCounts      AdminHourOverrideCounts
 	HopsByStatus            []AdminHopStatusCount
 	TotalHoursExchanged     int
 	TopOrgsByHopsCreated    []AdminOrganizationLeaderboardEntry
@@ -326,6 +333,7 @@ type AdminOrganizationDetail struct {
 	MemberCount         int
 	EnabledMemberCount  int
 	DisabledMemberCount int
+	HourOverrideCounts  AdminHourOverrideCounts
 	HopCounts           []AdminHopStatusCount
 	Hops                []AdminOrganizationHop
 }
