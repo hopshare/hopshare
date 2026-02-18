@@ -185,7 +185,7 @@ func SignupSuccessBody(loginHref string) templ.Component {
 			templ_7745c5c3_Var7 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Thanks for reaching out!</h1><p class=\"text-slate-700\">We received your request to join hopShare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!</p><div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Almost done!</h1><p class=\"text-slate-700\">We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.</p><div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

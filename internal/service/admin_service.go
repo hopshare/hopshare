@@ -48,6 +48,15 @@ func AdminAppOverview(ctx context.Context, db *sql.DB, leaderboardLimit int) (ty
 		return types.AdminAppOverview{}, fmt.Errorf("count users by enabled state: %w", err)
 	}
 
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN verified THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN verified THEN 0 ELSE 1 END), 0)
+		FROM members
+	`).Scan(&out.UserVerificationCounts.Verified, &out.UserVerificationCounts.NotVerified); err != nil {
+		return types.AdminAppOverview{}, fmt.Errorf("count users by verification state: %w", err)
+	}
+
 	hopCountsByStatus, err := adminHopCountsByStatus(ctx, db)
 	if err != nil {
 		return types.AdminAppOverview{}, err

@@ -228,6 +228,15 @@ func (c AdminEnabledDisabledCounts) Total() int {
 	return c.Enabled + c.Disabled
 }
 
+type AdminVerifiedNotVerifiedCounts struct {
+	Verified    int
+	NotVerified int
+}
+
+func (c AdminVerifiedNotVerifiedCounts) Total() int {
+	return c.Verified + c.NotVerified
+}
+
 type AdminHopStatusCount struct {
 	Status string
 	Count  int
@@ -250,6 +259,7 @@ func (e AdminOrganizationLeaderboardEntry) TotalUsers() int {
 type AdminAppOverview struct {
 	OrganizationCounts      AdminEnabledDisabledCounts
 	UserCounts              AdminEnabledDisabledCounts
+	UserVerificationCounts  AdminVerifiedNotVerifiedCounts
 	HopsByStatus            []AdminHopStatusCount
 	TotalHoursExchanged     int
 	TopOrgsByHopsCreated    []AdminOrganizationLeaderboardEntry

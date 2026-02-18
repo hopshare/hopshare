@@ -14,6 +14,7 @@ var (
 	ErrMissingOrgName       = errors.New("organization name is required")
 	ErrMissingOrgID         = errors.New("organization id is required")
 	ErrInvalidCredentials   = errors.New("invalid email or password")
+	ErrEmailNotVerified     = errors.New("email not verified")
 	ErrRequestAlreadyExists = errors.New("membership request already exists")
 	ErrAlreadyPrimaryOwner  = errors.New("member already manages an organization")
 	ErrRequestNotFound      = errors.New("membership request not found")

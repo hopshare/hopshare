@@ -12,7 +12,7 @@ import (
 
 const defaultMailgunAPIBaseURL = "https://api.mailgun.net"
 
-// MailgunPasswordResetEmailSenderConfig configures Mailgun password reset emails.
+// MailgunPasswordResetEmailSenderConfig configures Mailgun account emails.
 type MailgunPasswordResetEmailSenderConfig struct {
 	APIBaseURL  string
 	Domain      string
@@ -28,7 +28,7 @@ type mailgunPasswordResetEmailSender struct {
 	httpClient  *http.Client
 }
 
-// NewMailgunPasswordResetEmailSender returns a Mailgun-backed password reset sender.
+// NewMailgunPasswordResetEmailSender returns a Mailgun-backed account email sender.
 func NewMailgunPasswordResetEmailSender(cfg MailgunPasswordResetEmailSenderConfig) (PasswordResetEmailSender, error) {
 	apiBaseURL := strings.TrimSpace(cfg.APIBaseURL)
 	if apiBaseURL == "" {
@@ -67,20 +67,32 @@ func NewMailgunPasswordResetEmailSender(cfg MailgunPasswordResetEmailSenderConfi
 }
 
 func (s *mailgunPasswordResetEmailSender) SendPasswordReset(ctx context.Context, toEmail, resetURL string) error {
+	return s.sendText(ctx, toEmail, "Reset your HopShare password", "We received a request to reset your HopShare password.\n\nUse this link to set a new password:\n"+strings.TrimSpace(resetURL)+"\n\nIf you did not request this, you can ignore this email.")
+}
+
+func (s *mailgunPasswordResetEmailSender) SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error {
+	return s.sendText(ctx, toEmail, "Verify your HopShare email", "Welcome to HopShare.\n\nUse this link to verify your email address:\n"+strings.TrimSpace(verifyURL)+"\n\nIf you did not create this account, you can ignore this email.")
+}
+
+func (s *mailgunPasswordResetEmailSender) sendText(ctx context.Context, toEmail, subject, bodyText string) error {
 	toEmail = strings.TrimSpace(toEmail)
-	resetURL = strings.TrimSpace(resetURL)
+	subject = strings.TrimSpace(subject)
+	bodyText = strings.TrimSpace(bodyText)
 	if toEmail == "" {
-		return fmt.Errorf("reset email recipient is required")
+		return fmt.Errorf("email recipient is required")
 	}
-	if resetURL == "" {
-		return fmt.Errorf("reset url is required")
+	if subject == "" {
+		return fmt.Errorf("email subject is required")
+	}
+	if bodyText == "" {
+		return fmt.Errorf("email body is required")
 	}
 
 	body := url.Values{}
 	body.Set("from", s.fromAddress)
 	body.Set("to", toEmail)
-	body.Set("subject", "Reset your HopShare password")
-	body.Set("text", "We received a request to reset your HopShare password.\n\nUse this link to set a new password:\n"+resetURL+"\n\nIf you did not request this, you can ignore this email.")
+	body.Set("subject", subject)
+	body.Set("text", bodyText)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint, strings.NewReader(body.Encode()))
 	if err != nil {

@@ -24,10 +24,6 @@
 
 ## Now
 
-* Set up mailgun to send emails to users:
-    * New User sign ups- need to have them confirm their emails.
-    * Forgot Password
-
 * Header
 
 * My Profile
@@ -38,6 +34,10 @@
     * Summary section is a little clunky. We can probably tidy this up more...make easier to read
 
 * My HopShare Dashboard
+
+* Admin Page
+    * Users
+        * User details should show whether or not the User is Verified
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization

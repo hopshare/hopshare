@@ -105,9 +105,9 @@ templ SignupSuccess(userEmail *string, loginHref string) {
 
 templ SignupSuccessBody(loginHref string) {
 	<section class="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
-		<h1 class="text-2xl font-bold text-slate-900">Thanks for reaching out!</h1>
+		<h1 class="text-2xl font-bold text-slate-900">Almost done!</h1>
 		<p class="text-slate-700">
-			We received your request to join hopShare! Soon you'll get an email at the address you provided. Click the enclosed link to activate your account and start hopping!
+			We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.
 		</p>
 		<div class="flex gap-3">
 			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href={ loginHref }>Back to login</a>

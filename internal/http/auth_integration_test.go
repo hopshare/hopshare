@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"hopshare/internal/auth"
 	"hopshare/internal/service"
@@ -19,6 +20,8 @@ func TestAuthHTTPMatrix(t *testing.T) {
 
 		body := requireStatus(t, anon.Get("/login"), 200)
 		requireBodyContains(t, body, "Log in")
+		requireBodyNotContains(t, body, "Need a new verification email?")
+		requireBodyNotContains(t, body, "/verify-email/resend")
 	})
 
 	t.Run("AUTH-02 POST /login valid credentials redirects to /my-hopshare", func(t *testing.T) {
@@ -178,6 +181,159 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 		if member.ID == 0 {
 			t.Fatalf("expected signed-up member id")
+		}
+	})
+
+	t.Run("AUTH-10A signup sends verification email and blocks login until verified", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		emailSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, emailSender)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		email := "verify_signup_" + suffix + "@example.com"
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
+			"first_name", "Verify",
+			"last_name", "Signup",
+			"email", email,
+			"password", "Password123!",
+			"preferred_contact_method", "email",
+		)), "/signup-success")
+
+		member, err := service.GetMemberByEmail(ctx, db, email)
+		if err != nil {
+			t.Fatalf("load signed up member: %v", err)
+		}
+		if member.Verified {
+			t.Fatalf("expected newly signed up member to be unverified")
+		}
+		if emailSender.VerificationCount() != 1 {
+			t.Fatalf("expected one verification email, got %d", emailSender.VerificationCount())
+		}
+		verifyEmail, ok := emailSender.LastVerification()
+		if !ok {
+			t.Fatalf("expected verification email")
+		}
+		if verifyEmail.ToEmail != email {
+			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, email)
+		}
+		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
+
+		loginBody := requireStatus(t, anon.PostForm("/login", formKV(
+			"username", member.Username,
+			"password", "Password123!",
+		)), http.StatusOK)
+		requireBodyContains(t, loginBody, "Please verify your email before logging in.")
+
+		verifyLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(verifyToken)), "/login")
+		requireQueryValue(t, verifyLoc, "success", "Email verified. You can now log in.")
+
+		verifiedMember, err := service.GetMemberByID(ctx, db, member.ID)
+		if err != nil {
+			t.Fatalf("reload verified member: %v", err)
+		}
+		if !verifiedMember.Verified {
+			t.Fatalf("expected verified member after verification link")
+		}
+
+		loginActor := newTestActor(t, "verified_member", server.URL, member.Username, "Password123!")
+		loginActor.Login()
+	})
+
+	t.Run("AUTH-10B verification token is one-time and expired tokens fail", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		emailSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, emailSender)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		email := "verify_reuse_" + suffix + "@example.com"
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
+			"first_name", "Verify",
+			"last_name", "Reuse",
+			"email", email,
+			"password", "Password123!",
+			"preferred_contact_method", "email",
+		)), "/signup-success")
+
+		verifyEmail, ok := emailSender.LastVerification()
+		if !ok {
+			t.Fatalf("expected verification email")
+		}
+		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
+
+		requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(verifyToken)), "/login")
+		reuseLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(verifyToken)), "/login")
+		requireQueryValue(t, reuseLoc, "error", "Invalid or expired verification link.")
+
+		member, err := service.GetMemberByEmail(ctx, db, email)
+		if err != nil {
+			t.Fatalf("load signed up member: %v", err)
+		}
+		if err := service.UpdateMemberVerified(ctx, db, member.ID, false); err != nil {
+			t.Fatalf("set member unverified: %v", err)
+		}
+		expiredToken, err := service.IssueMemberToken(ctx, db, service.IssueMemberTokenParams{
+			MemberID: member.ID,
+			Purpose:  service.MemberTokenPurposeEmailVerification,
+			TTL:      -time.Minute,
+		})
+		if err != nil {
+			t.Fatalf("issue expired token: %v", err)
+		}
+		expiredLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(expiredToken)), "/login")
+		requireQueryValue(t, expiredLoc, "error", "Invalid or expired verification link.")
+	})
+
+	t.Run("AUTH-10C POST /verify-email/resend returns generic success and only sends for unverified members", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		emailSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, emailSender)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		email := "verify_resend_" + suffix + "@example.com"
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
+			"first_name", "Verify",
+			"last_name", "Resend",
+			"email", email,
+			"password", "Password123!",
+			"preferred_contact_method", "email",
+		)), "/signup-success")
+		initialCount := emailSender.VerificationCount()
+
+		body := requireStatus(t, anon.PostForm("/verify-email/resend", formKV(
+			"email", email,
+		)), http.StatusOK)
+		requireBodyContains(t, body, "If an account exists and still needs verification")
+		if emailSender.VerificationCount() != initialCount+1 {
+			t.Fatalf("expected verification email resend for unverified member, before=%d after=%d", initialCount, emailSender.VerificationCount())
+		}
+
+		unknownBody := requireStatus(t, anon.PostForm("/verify-email/resend", formKV(
+			"email", "missing_verify_resend_"+suffix+"@example.com",
+		)), http.StatusOK)
+		requireBodyContains(t, unknownBody, "If an account exists and still needs verification")
+		if emailSender.VerificationCount() != initialCount+1 {
+			t.Fatalf("expected verification email count to remain unchanged for unknown member, got %d", emailSender.VerificationCount())
+		}
+
+		member, err := service.GetMemberByEmail(ctx, db, email)
+		if err != nil {
+			t.Fatalf("load member: %v", err)
+		}
+		if err := service.UpdateMemberVerified(ctx, db, member.ID, true); err != nil {
+			t.Fatalf("mark member verified: %v", err)
+		}
+		verifiedBody := requireStatus(t, anon.PostForm("/verify-email/resend", formKV(
+			"email", email,
+		)), http.StatusOK)
+		requireBodyContains(t, verifiedBody, "If an account exists and still needs verification")
+		if emailSender.VerificationCount() != initialCount+1 {
+			t.Fatalf("expected no resend for already verified member, got %d", emailSender.VerificationCount())
 		}
 	})
 
@@ -506,6 +662,19 @@ func extractResetTokenFromURL(t *testing.T, resetURL string) string {
 	token := strings.TrimSpace(parsed.Query().Get("token"))
 	if token == "" {
 		t.Fatalf("could not find reset token in url %q", resetURL)
+	}
+	return token
+}
+
+func extractVerifyTokenFromURL(t *testing.T, verifyURL string) string {
+	t.Helper()
+	parsed, err := url.Parse(strings.TrimSpace(verifyURL))
+	if err != nil {
+		t.Fatalf("parse verify url %q: %v", verifyURL, err)
+	}
+	token := strings.TrimSpace(parsed.Query().Get("token"))
+	if token == "" {
+		t.Fatalf("could not find verify token in url %q", verifyURL)
 	}
 	return token
 }

@@ -56,6 +56,7 @@ const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://c
 
 type PasswordResetEmailSender interface {
 	SendPasswordReset(ctx context.Context, toEmail, resetURL string) error
+	SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error
 }
 
 type RouterOptions struct {
@@ -127,6 +128,8 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/admin/audit/export", srv.handleAdminAuditExport, srv.requireAuth(), srv.requireMethod(http.MethodGet), srv.requireAdmin())
 	srv.register(mux, "/forgot-password", srv.handleForgotPassword, srv.requireMethod(http.MethodGet, http.MethodPost), srv.rateLimitAuthEndpoint("forgot-password"))
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
+	srv.register(mux, "/verify-email", srv.handleVerifyEmail, srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/verify-email/resend", srv.handleVerifyEmailResend, srv.requireMethod(http.MethodPost), srv.rateLimitAuthEndpoint("verify-email-resend"))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/profile", srv.handleProfile, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
@@ -205,7 +208,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		successMsg := r.URL.Query().Get("success")
-		render(w, r, templates.Login(nil, "", successMsg, next))
+		errorMsg := r.URL.Query().Get("error")
+		render(w, r, templates.Login(nil, errorMsg, successMsg, next))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -225,6 +229,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
 				render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+				return
+			}
+			if errors.Is(err, service.ErrEmailNotVerified) {
+				render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next))
 				return
 			}
 			log.Printf("authenticate member: %v", err)
@@ -360,6 +368,21 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", firstName, lastName, username, email, preferredContactMethod, city, state, interests, created.ID)
+		token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
+			MemberID:    created.ID,
+			Purpose:     service.MemberTokenPurposeEmailVerification,
+			TTL:         service.DefaultMemberTokenTTL,
+			RequestedIP: requestIPFromRequest(r),
+		})
+		if tokenErr != nil {
+			log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
+		} else {
+			verifyURL := s.verifyEmailURL(token)
+			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
+				log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
+			}
+		}
+
 		redirectURL := "/signup-success"
 		if next != "" {
 			redirectURL += "?next=" + url.QueryEscape(next)
@@ -383,6 +406,61 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 		loginHref += "?next=" + url.QueryEscape(next)
 	}
 	render(w, r, templates.SignupSuccess(s.currentUserEmailPtr(r), loginHref))
+}
+
+func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		http.Redirect(w, r, "/login?error=Invalid+or+expired+verification+link.", http.StatusSeeOther)
+		return
+	}
+
+	memberID, err := service.ConsumeMemberToken(r.Context(), s.db, service.MemberTokenPurposeEmailVerification, token)
+	if err != nil {
+		http.Redirect(w, r, "/login?error=Invalid+or+expired+verification+link.", http.StatusSeeOther)
+		return
+	}
+	if err := service.UpdateMemberVerified(r.Context(), s.db, memberID, true); err != nil {
+		log.Printf("verify email update failed: member_id=%d: %v", memberID, err)
+		http.Redirect(w, r, "/login?error=Could+not+verify+your+email+right+now.", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/login?success=Email+verified.+You+can+now+log+in.", http.StatusSeeOther)
+}
+
+func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	email := strings.TrimSpace(r.FormValue("email"))
+
+	member, err := service.GetMemberByEmail(r.Context(), s.db, email)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("verify email resend lookup failed: %v", err)
+		http.Error(w, "could not process request", http.StatusInternalServerError)
+		return
+	}
+
+	if err == nil && !member.Verified {
+		token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
+			MemberID:    member.ID,
+			Purpose:     service.MemberTokenPurposeEmailVerification,
+			TTL:         service.DefaultMemberTokenTTL,
+			RequestedIP: requestIPFromRequest(r),
+		})
+		if tokenErr != nil {
+			log.Printf("verify email resend token issue failed: member_id=%d: %v", member.ID, tokenErr)
+		} else {
+			verifyURL := s.verifyEmailURL(token)
+			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
+				log.Printf("verify email resend send failed: member_id=%d: %v", member.ID, sendErr)
+			}
+		}
+	}
+
+	render(w, r, templates.Login(nil, "", "If an account exists and still needs verification, we sent a verification email.", ""))
 }
 
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
@@ -1100,9 +1178,25 @@ func (s *Server) resetPasswordURL(token string) string {
 	return base.ResolveReference(ref).String()
 }
 
+func (s *Server) verifyEmailURL(token string) string {
+	base, err := url.Parse(s.publicBaseURL)
+	if err != nil {
+		base, _ = url.Parse(defaultPublicBaseURL)
+	}
+	ref := &url.URL{Path: "/verify-email"}
+	query := ref.Query()
+	query.Set("token", token)
+	ref.RawQuery = query.Encode()
+	return base.ResolveReference(ref).String()
+}
+
 type nopPasswordResetEmailSender struct{}
 
 func (nopPasswordResetEmailSender) SendPasswordReset(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
+func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ string, _ string) error {
 	return nil
 }
 

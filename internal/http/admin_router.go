@@ -50,6 +50,7 @@ const (
 	adminUserActionDisable            = "disable_user"
 	adminUserActionEnable             = "enable_user"
 	adminUserActionForcePasswordReset = "force_password_reset"
+	adminUserActionSendVerification   = "send_verification_email"
 	adminUserActionRevokeSessions     = "revoke_sessions"
 	adminUserActionAdjustHours        = "adjust_hours"
 
@@ -339,6 +340,38 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 		}
 		auditAction = service.AdminAuditActionUserForcePasswordReset
 		successMessage = "Password reset forced. User must use Forgot Password."
+	case adminUserActionSendVerification:
+		member, err := service.GetMemberByID(r.Context(), s.db, memberID)
+		if err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not load user.")
+			return
+		}
+		auditAction = service.AdminAuditActionUserVerificationEmail
+		if member.Verified {
+			actionMetadata["already_verified"] = true
+			successMessage = "User email is already verified."
+			break
+		}
+
+		token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
+			MemberID:    member.ID,
+			Purpose:     service.MemberTokenPurposeEmailVerification,
+			TTL:         service.DefaultMemberTokenTTL,
+			RequestedIP: requestIPFromRequest(r),
+		})
+		if tokenErr != nil {
+			log.Printf("admin send verification email token issue failed: member_id=%d: %v", member.ID, tokenErr)
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
+			return
+		}
+		verifyURL := s.verifyEmailURL(token)
+		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
+			log.Printf("admin send verification email failed: member_id=%d: %v", member.ID, sendErr)
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
+			return
+		}
+		actionMetadata["verification_email_sent"] = true
+		successMessage = "Verification email sent."
 	case adminUserActionRevokeSessions:
 		if _, err := service.GetMemberByID(r.Context(), s.db, memberID); err != nil {
 			handleAdminUserActionError(w, r, redirectBase, err, "Could not revoke sessions.")

@@ -106,6 +106,9 @@ func AuthenticateMemberByUsername(ctx context.Context, db *sql.DB, username, pas
 	if !member.Enabled {
 		return types.Member{}, ErrInvalidCredentials
 	}
+	if !member.Verified {
+		return types.Member{}, ErrEmailNotVerified
+	}
 	return member, nil
 }
 
@@ -359,6 +362,34 @@ func UpdateMemberPassword(ctx context.Context, db *sql.DB, memberID int64, passw
 		return sql.ErrNoRows
 	}
 
+	return nil
+}
+
+// UpdateMemberVerified updates a member's verified flag.
+func UpdateMemberVerified(ctx context.Context, db *sql.DB, memberID int64, verified bool) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if memberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE members
+		SET verified = $1, updated_at = NOW()
+		WHERE id = $2
+	`, verified, memberID)
+	if err != nil {
+		return fmt.Errorf("update member verified: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update member verified rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
 	return nil
 }
 

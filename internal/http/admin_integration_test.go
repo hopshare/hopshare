@@ -33,6 +33,8 @@ type adminOverviewExpectation struct {
 	OrganizationDisabledCount int
 	UserEnabledCount          int
 	UserDisabledCount         int
+	UserVerifiedCount         int
+	UserNotVerifiedCount      int
 	HopStatusCounts           map[string]int
 	TotalHoursExchanged       int
 	TopByHopsCreated          []adminLeaderboardExpectation
@@ -183,6 +185,8 @@ func TestAdminOverviewHTTP(t *testing.T) {
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-org-disabled-count">%d</span>`, expected.OrganizationDisabledCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-enabled-count">%d</span>`, expected.UserEnabledCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-disabled-count">%d</span>`, expected.UserDisabledCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-verified-count">%d</span>`, expected.UserVerifiedCount))
+		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-user-not-verified-count">%d</span>`, expected.UserNotVerifiedCount))
 		requireBodyContains(t, body, fmt.Sprintf(`data-testid="admin-total-hours">%d</p>`, expected.TotalHoursExchanged))
 
 		hopStatuses := []string{
@@ -547,6 +551,8 @@ func TestAdminUsersHTTP(t *testing.T) {
 		requireBodyContains(t, userTabBody, "Users")
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-result-%d"`, target.Member.ID))
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-detail-%d"`, target.Member.ID))
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-send-verification-%d"`, target.Member.ID))
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-verified-%d">Verified</span>`, target.Member.ID))
 
 		beforeDisableAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDisable)
 		disableLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
@@ -693,6 +699,57 @@ func TestAdminUsersHTTP(t *testing.T) {
 		}
 		if adjustmentCount == 0 {
 			t.Fatalf("expected at least one hour adjustment ledger row")
+		}
+	})
+
+	t.Run("ADMIN-04A users tab send verification email action is available for unverified users", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_users_verify_admin", suffix)
+		target := createSeededMember(t, ctx, db, "admin_users_verify_target", suffix)
+		if err := service.UpdateMemberVerified(ctx, db, target.Member.ID, false); err != nil {
+			t.Fatalf("mark target unverified: %v", err)
+		}
+
+		resetSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Username}, resetSender)
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor.Login()
+
+		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Username)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-send-verification-%d"`, target.Member.ID))
+		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-verified-%d">Not Verified</span>`, target.Member.ID))
+
+		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserVerificationEmail)
+		beforeEmailCount := resetSender.VerificationCount()
+		sendLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "send_verification_email",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Username,
+			"reason", "requested by user support",
+		)), "/admin")
+		requireQueryValue(t, sendLoc, "success", "Verification email sent.")
+
+		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserVerificationEmail)
+		if afterAuditCount != beforeAuditCount+1 {
+			t.Fatalf("expected one verification-email audit event, before=%d after=%d", beforeAuditCount, afterAuditCount)
+		}
+		if resetSender.VerificationCount() != beforeEmailCount+1 {
+			t.Fatalf("expected one verification email, before=%d after=%d", beforeEmailCount, resetSender.VerificationCount())
+		}
+
+		verifyEmail, ok := resetSender.LastVerification()
+		if !ok {
+			t.Fatalf("expected verification email")
+		}
+		if verifyEmail.ToEmail != target.Member.Email {
+			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, target.Member.Email)
+		}
+		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
+		if verifyToken == "" {
+			t.Fatalf("expected non-empty verification token")
 		}
 	})
 }
@@ -1038,6 +1095,15 @@ func queryAdminOverviewExpectation(t *testing.T, ctx context.Context, db *sql.DB
 		FROM members
 	`).Scan(&expected.UserEnabledCount, &expected.UserDisabledCount); err != nil {
 		t.Fatalf("query user enabled/disabled counts: %v", err)
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN verified THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN verified THEN 0 ELSE 1 END), 0)
+		FROM members
+	`).Scan(&expected.UserVerifiedCount, &expected.UserNotVerifiedCount); err != nil {
+		t.Fatalf("query user verified/not-verified counts: %v", err)
 	}
 
 	hopRows, err := db.QueryContext(ctx, `

@@ -23,6 +23,7 @@ const (
 	AdminAuditActionUserDisable             = "admin.user.disable"
 	AdminAuditActionUserEnable              = "admin.user.enable"
 	AdminAuditActionUserForcePasswordReset  = "admin.user.password.force_reset"
+	AdminAuditActionUserVerificationEmail   = "admin.user.email_verification.send"
 	AdminAuditActionUserRevokeSessions      = "admin.user.sessions.revoke"
 	AdminAuditActionUserBalanceAdjust       = "admin.user.balance.adjust"
 	AdminAuditActionMessageSend             = "admin.message.send"

@@ -77,8 +77,53 @@ func TestMailgunPasswordResetEmailSenderSendsRequest(t *testing.T) {
 	if captured.form.Get("from") != "HopShare <no-reply@example.com>" {
 		t.Fatalf("from: got %q want %q", captured.form.Get("from"), "HopShare <no-reply@example.com>")
 	}
+	if captured.form.Get("subject") != "Reset your HopShare password" {
+		t.Fatalf("subject: got %q want %q", captured.form.Get("subject"), "Reset your HopShare password")
+	}
 	if !strings.Contains(captured.form.Get("text"), resetURL) {
 		t.Fatalf("mail body did not contain reset url")
+	}
+}
+
+func TestMailgunPasswordResetEmailSenderSendsVerificationRequest(t *testing.T) {
+	var captured url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		if err := r.Body.Close(); err != nil {
+			t.Fatalf("close request body: %v", err)
+		}
+		captured, err = url.ParseQuery(string(body))
+		if err != nil {
+			t.Fatalf("parse request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	sender, err := NewMailgunPasswordResetEmailSender(MailgunPasswordResetEmailSenderConfig{
+		APIBaseURL:  srv.URL,
+		Domain:      "mg.example.com",
+		APIKey:      "key-test",
+		FromAddress: "HopShare <no-reply@example.com>",
+		HTTPClient:  srv.Client(),
+	})
+	if err != nil {
+		t.Fatalf("build sender: %v", err)
+	}
+
+	verifyURL := "https://hopshare.test/verify-email?token=abc123"
+	if err := sender.SendEmailVerification(context.Background(), "person@example.com", verifyURL); err != nil {
+		t.Fatalf("send verification email: %v", err)
+	}
+
+	if captured.Get("subject") != "Verify your HopShare email" {
+		t.Fatalf("subject: got %q want %q", captured.Get("subject"), "Verify your HopShare email")
+	}
+	if !strings.Contains(captured.Get("text"), verifyURL) {
+		t.Fatalf("mail body did not contain verification url")
 	}
 }
 

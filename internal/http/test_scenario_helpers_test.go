@@ -66,16 +66,32 @@ type sentPasswordResetEmail struct {
 	ResetURL string
 }
 
+type sentVerificationEmail struct {
+	ToEmail   string
+	VerifyURL string
+}
+
 type recordingPasswordResetEmailSender struct {
-	mu     sync.Mutex
-	emails []sentPasswordResetEmail
+	mu                 sync.Mutex
+	resetEmails        []sentPasswordResetEmail
+	verificationEmails []sentVerificationEmail
 }
 
 func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context, toEmail, resetURL string) error {
 	s.mu.Lock()
-	s.emails = append(s.emails, sentPasswordResetEmail{
+	s.resetEmails = append(s.resetEmails, sentPasswordResetEmail{
 		ToEmail:  toEmail,
 		ResetURL: resetURL,
+	})
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Context, toEmail, verifyURL string) error {
+	s.mu.Lock()
+	s.verificationEmails = append(s.verificationEmails, sentVerificationEmail{
+		ToEmail:   toEmail,
+		VerifyURL: verifyURL,
 	})
 	s.mu.Unlock()
 	return nil
@@ -84,16 +100,31 @@ func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context,
 func (s *recordingPasswordResetEmailSender) Count() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.emails)
+	return len(s.resetEmails)
 }
 
 func (s *recordingPasswordResetEmailSender) Last() (sentPasswordResetEmail, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.emails) == 0 {
+	if len(s.resetEmails) == 0 {
 		return sentPasswordResetEmail{}, false
 	}
-	return s.emails[len(s.emails)-1], true
+	return s.resetEmails[len(s.resetEmails)-1], true
+}
+
+func (s *recordingPasswordResetEmailSender) VerificationCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.verificationEmails)
+}
+
+func (s *recordingPasswordResetEmailSender) LastVerification() (sentVerificationEmail, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.verificationEmails) == 0 {
+		return sentVerificationEmail{}, false
+	}
+	return s.verificationEmails[len(s.verificationEmails)-1], true
 }
 
 func createOrganizationWithMembers(t *testing.T, ctx context.Context, db *sql.DB, suffix string, roleNames ...string) (types.Organization, map[string]seededMember) {
