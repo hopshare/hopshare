@@ -51,10 +51,19 @@ jobs:
       - name: Install Podman
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman qemu-user-static
+          sudo apt-get install -y podman qemu-user-static binfmt-support
 
       - name: Enable arm64 emulation
-        run: sudo update-binfmts --enable qemu-aarch64
+        run: |
+          if ! command -v update-binfmts >/dev/null 2>&1; then
+            echo "update-binfmts is not installed."
+            exit 1
+          fi
+          if ! sudo update-binfmts --display qemu-aarch64 >/dev/null 2>&1; then
+            echo "qemu-aarch64 binfmt entry is missing."
+            exit 1
+          fi
+          sudo update-binfmts --enable qemu-aarch64
 
       - name: Build multi-arch image with Podman
         env:
