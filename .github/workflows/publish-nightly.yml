@@ -51,10 +51,20 @@ jobs:
       - name: Install Podman
         run: |
           sudo apt-get update
-          sudo apt-get install -y podman
+          sudo apt-get install -y podman qemu-user-static
 
-      - name: Build image with Podman
-        run: podman build -f Containerfile -t hopshare-nightly:${GITHUB_SHA} .
+      - name: Enable arm64 emulation
+        run: sudo update-binfmts --enable qemu-aarch64
+
+      - name: Build multi-arch image with Podman
+        env:
+          MANIFEST_REF: localhost/hopshare-nightly:${{ github.sha }}-multi
+        run: |
+          podman build \
+            --platform linux/amd64,linux/arm64 \
+            --manifest "${MANIFEST_REF}" \
+            -f Containerfile \
+            .
 
       - name: Log in to Quay
         env:
@@ -68,6 +78,8 @@ jobs:
           echo "${QUAY_PASSWORD}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
       - name: Publish nightly tags
+        env:
+          MANIFEST_REF: localhost/hopshare-nightly:${{ github.sha }}-multi
         run: |
           set -euo pipefail
           timestamp="$(date -u +%Y%m%d-%H%M)"
@@ -76,7 +88,6 @@ jobs:
 
           for tag in ${tags}; do
             image="${IMAGE_REPO}:${tag}"
-            podman tag "hopshare-nightly:${GITHUB_SHA}" "${image}"
-            podman push "${image}"
+            podman manifest push --all "${MANIFEST_REF}" "docker://${image}"
             echo "Published ${image}"
           done

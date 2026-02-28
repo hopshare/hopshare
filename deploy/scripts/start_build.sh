@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 POD_NAME="${POD_NAME:-hopshare}"
-APP_IMAGE="${APP_IMAGE:-quay.io/hopshare/hopshare:nightly}"
+APP_IMAGE="${APP_IMAGE:-hopshare:local}"
 APP_CONTAINER="${APP_CONTAINER:-hopshare-app}"
 DB_CONTAINER="${DB_CONTAINER:-hopshare-db}"
 
@@ -34,8 +34,8 @@ fi
 
 mkdir -p "${DB_DATA_DIR}"
 
-echo "Pulling ${APP_IMAGE}..."
-podman pull "${APP_IMAGE}" >/dev/null
+echo "Building ${APP_IMAGE} from ${REPO_ROOT}/Containerfile..."
+podman build -t "${APP_IMAGE}" -f "${REPO_ROOT}/Containerfile" "${REPO_ROOT}"
 
 cleanup_on_error() {
 	echo "Startup failed. Cleaning up pod resources..."
