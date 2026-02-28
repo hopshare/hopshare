@@ -311,6 +311,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			t.Fatalf("verification email username mismatch: got=%q want=%q", verifyEmail.Username, member.Username)
 		}
 		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
+		if verifyToken == "" {
+			t.Fatalf("expected non-empty verification token")
+		}
 
 		loginBody := requireStatus(t, anon.PostForm("/login", formKV(
 			"username", member.Username,
@@ -318,7 +321,11 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		)), http.StatusOK)
 		requireBodyContains(t, loginBody, "Please verify your email before logging in.")
 
-		verifyLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(verifyToken)), "/login")
+		verifyURL, err := url.Parse(verifyEmail.VerifyURL)
+		if err != nil {
+			t.Fatalf("parse verification url: %v", err)
+		}
+		verifyLoc := requireRedirectPath(t, anon.Get(verifyURL.RequestURI()), "/login")
 		requireQueryValue(t, verifyLoc, "success", "Email verified. You can now log in.")
 		requireQueryValue(t, verifyLoc, "username", member.Username)
 		prefilledLoginBody := requireStatus(t, anon.Get(verifyLoc.RequestURI()), http.StatusOK)
