@@ -58,7 +58,7 @@ const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://c
 
 type PasswordResetEmailSender interface {
 	SendPasswordReset(ctx context.Context, toEmail, resetURL string) error
-	SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error
+	SendEmailVerification(ctx context.Context, toEmail, username, verifyURL string) error
 }
 
 type RouterOptions struct {
@@ -209,6 +209,7 @@ func (s *Server) handleFarewell(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	next := sanitizePostAuthRedirect(r.URL.Query().Get("next"))
+	username := sanitizeLoginUsername(r.URL.Query().Get("username"))
 	if next == "" {
 		next = s.postAuthRedirectFromCookie(r)
 	}
@@ -228,7 +229,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		successMsg := r.URL.Query().Get("success")
 		errorMsg := r.URL.Query().Get("error")
-		render(w, r, templates.Login(nil, errorMsg, successMsg, next))
+		render(w, r, templates.Login(nil, errorMsg, successMsg, next, username))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -241,25 +242,25 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if next != "" {
 			s.setPostAuthRedirectCookie(w, r, next)
 		}
-		username := strings.TrimSpace(r.FormValue("username"))
+		username = strings.TrimSpace(r.FormValue("username"))
 		password := r.FormValue("password")
 
 		member, err := service.AuthenticateMemberByUsername(r.Context(), s.db, username, password)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
-				render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+				render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
 				return
 			}
 			if errors.Is(err, service.ErrEmailNotVerified) {
 				if s.featureEmail {
-					render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next))
+					render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next, username))
 					return
 				}
 
 				member, err = service.GetMemberByUsername(r.Context(), s.db, username)
 				if err != nil {
 					if errors.Is(err, sql.ErrNoRows) {
-						render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+						render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
 						return
 					}
 					log.Printf("lookup unverified member: %v", err)
@@ -267,7 +268,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if !member.Enabled {
-					render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+					render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
 					return
 				}
 				if err := service.UpdateMemberVerified(r.Context(), s.db, member.ID, true); err != nil {
@@ -412,8 +413,8 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			if tokenErr != nil {
 				log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
 			} else {
-				verifyURL := s.verifyEmailURL(token)
-				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
+				verifyURL := s.verifyEmailURL(token, created.Username)
+				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, created.Username, verifyURL); sendErr != nil {
 					log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
 				}
 			}
@@ -445,34 +446,44 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	username := sanitizeLoginUsername(r.URL.Query().Get("username"))
+	redirectToLogin := func(kind, message string) {
+		query := url.Values{}
+		query.Set(kind, message)
+		if username != "" {
+			query.Set("username", username)
+		}
+		http.Redirect(w, r, "/login?"+query.Encode(), http.StatusSeeOther)
+	}
+
 	if !s.featureEmail {
-		http.Redirect(w, r, "/login?success=Email+verification+is+disabled.+You+can+log+in.", http.StatusSeeOther)
+		redirectToLogin("success", "Email verification is disabled. You can log in.")
 		return
 	}
 
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 	if token == "" {
-		http.Redirect(w, r, "/login?error=Invalid+or+expired+verification+link.", http.StatusSeeOther)
+		redirectToLogin("error", "Invalid or expired verification link.")
 		return
 	}
 
 	memberID, err := service.ConsumeMemberToken(r.Context(), s.db, service.MemberTokenPurposeEmailVerification, token)
 	if err != nil {
-		http.Redirect(w, r, "/login?error=Invalid+or+expired+verification+link.", http.StatusSeeOther)
+		redirectToLogin("error", "Invalid or expired verification link.")
 		return
 	}
 	if err := service.UpdateMemberVerified(r.Context(), s.db, memberID, true); err != nil {
 		log.Printf("verify email update failed: member_id=%d: %v", memberID, err)
-		http.Redirect(w, r, "/login?error=Could+not+verify+your+email+right+now.", http.StatusSeeOther)
+		redirectToLogin("error", "Could not verify your email right now.")
 		return
 	}
 
-	http.Redirect(w, r, "/login?success=Email+verified.+You+can+now+log+in.", http.StatusSeeOther)
+	redirectToLogin("success", "Email verified. You can now log in.")
 }
 
 func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request) {
 	if !s.featureEmail {
-		render(w, r, templates.Login(nil, "", "Email verification is currently disabled.", ""))
+		render(w, r, templates.Login(nil, "", "Email verification is currently disabled.", "", ""))
 		return
 	}
 
@@ -499,14 +510,14 @@ func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request)
 		if tokenErr != nil {
 			log.Printf("verify email resend token issue failed: member_id=%d: %v", member.ID, tokenErr)
 		} else {
-			verifyURL := s.verifyEmailURL(token)
-			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
+			verifyURL := s.verifyEmailURL(token, member.Username)
+			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, member.Username, verifyURL); sendErr != nil {
 				log.Printf("verify email resend send failed: member_id=%d: %v", member.ID, sendErr)
 			}
 		}
 	}
 
-	render(w, r, templates.Login(nil, "", "If an account exists and still needs verification, we sent a verification email.", ""))
+	render(w, r, templates.Login(nil, "", "If an account exists and still needs verification, we sent a verification email.", "", ""))
 }
 
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
@@ -1228,7 +1239,7 @@ func (s *Server) resetPasswordURL(token string) string {
 	return base.ResolveReference(ref).String()
 }
 
-func (s *Server) verifyEmailURL(token string) string {
+func (s *Server) verifyEmailURL(token, username string) string {
 	base, err := url.Parse(s.publicBaseURL)
 	if err != nil {
 		base, _ = url.Parse(defaultPublicBaseURL)
@@ -1236,6 +1247,9 @@ func (s *Server) verifyEmailURL(token string) string {
 	ref := &url.URL{Path: "/verify-email"}
 	query := ref.Query()
 	query.Set("token", token)
+	if username = sanitizeLoginUsername(username); username != "" {
+		query.Set("username", username)
+	}
 	ref.RawQuery = query.Encode()
 	return base.ResolveReference(ref).String()
 }
@@ -1246,7 +1260,7 @@ func (nopPasswordResetEmailSender) SendPasswordReset(_ context.Context, _ string
 	return nil
 }
 
-func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ string, _ string) error {
+func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ string, _ string, _ string) error {
 	return nil
 }
 
@@ -1286,6 +1300,17 @@ func sanitizePostAuthRedirect(raw string) string {
 		return ""
 	}
 	return "/organization/" + clean
+}
+
+func sanitizeLoginUsername(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > 64 {
+		return ""
+	}
+	if strings.ContainsAny(raw, "\r\n") {
+		return ""
+	}
+	return raw
 }
 
 func (s *Server) postAuthRedirectFromCookie(r *http.Request) string {

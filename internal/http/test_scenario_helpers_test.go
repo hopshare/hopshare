@@ -96,6 +96,7 @@ type sentPasswordResetEmail struct {
 
 type sentVerificationEmail struct {
 	ToEmail   string
+	Username  string
 	VerifyURL string
 }
 
@@ -115,10 +116,11 @@ func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context,
 	return nil
 }
 
-func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Context, toEmail, verifyURL string) error {
+func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Context, toEmail, username, verifyURL string) error {
 	s.mu.Lock()
 	s.verificationEmails = append(s.verificationEmails, sentVerificationEmail{
 		ToEmail:   toEmail,
+		Username:  username,
 		VerifyURL: verifyURL,
 	})
 	s.mu.Unlock()

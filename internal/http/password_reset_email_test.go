@@ -115,12 +115,16 @@ func TestMailgunPasswordResetEmailSenderSendsVerificationRequest(t *testing.T) {
 	}
 
 	verifyURL := "https://hopshare.test/verify-email?token=abc123"
-	if err := sender.SendEmailVerification(context.Background(), "person@example.com", verifyURL); err != nil {
+	username := "new_joiner_123"
+	if err := sender.SendEmailVerification(context.Background(), "person@example.com", username, verifyURL); err != nil {
 		t.Fatalf("send verification email: %v", err)
 	}
 
 	if captured.Get("subject") != "Verify your HopShare email" {
 		t.Fatalf("subject: got %q want %q", captured.Get("subject"), "Verify your HopShare email")
+	}
+	if !strings.Contains(captured.Get("text"), "Your hopShare username is "+username) {
+		t.Fatalf("mail body did not contain username reminder")
 	}
 	if !strings.Contains(captured.Get("text"), verifyURL) {
 		t.Fatalf("mail body did not contain verification url")

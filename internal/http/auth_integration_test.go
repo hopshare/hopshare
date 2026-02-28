@@ -27,6 +27,14 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		requireBodyNotContains(t, body, "/verify-email/resend")
 	})
 
+	t.Run("AUTH-01C GET /login with username query pre-fills username field", func(t *testing.T) {
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		prefill := "login_prefill_user"
+		body := requireStatus(t, anon.Get("/login?username="+url.QueryEscape(prefill)), http.StatusOK)
+		requireBodyContains(t, body, `name="username" value="`+prefill+`"`)
+	})
+
 	t.Run("AUTH-01A secure-cookie mode sets Secure/HttpOnly/SameSite flags", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -299,6 +307,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		if verifyEmail.ToEmail != email {
 			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, email)
 		}
+		if verifyEmail.Username != member.Username {
+			t.Fatalf("verification email username mismatch: got=%q want=%q", verifyEmail.Username, member.Username)
+		}
 		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
 
 		loginBody := requireStatus(t, anon.PostForm("/login", formKV(
@@ -309,6 +320,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 
 		verifyLoc := requireRedirectPath(t, anon.Get("/verify-email?token="+url.QueryEscape(verifyToken)), "/login")
 		requireQueryValue(t, verifyLoc, "success", "Email verified. You can now log in.")
+		requireQueryValue(t, verifyLoc, "username", member.Username)
+		prefilledLoginBody := requireStatus(t, anon.Get(verifyLoc.RequestURI()), http.StatusOK)
+		requireBodyContains(t, prefilledLoginBody, `name="username" value="`+member.Username+`"`)
 
 		verifiedMember, err := service.GetMemberByID(ctx, db, member.ID)
 		if err != nil {

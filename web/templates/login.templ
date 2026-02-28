@@ -2,11 +2,11 @@ package templates
 
 import "net/url"
 
-templ Login(userEmail *string, errorMsg string, successMsg string, next string) {
-	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next))
+templ Login(userEmail *string, errorMsg string, successMsg string, next string, username string) {
+	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next, username))
 }
 
-templ LoginBody(errorMsg string, successMsg string, next string) {
+templ LoginBody(errorMsg string, successMsg string, next string, username string) {
 	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Log in</h1>
@@ -25,7 +25,7 @@ templ LoginBody(errorMsg string, successMsg string, next string) {
 			}
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="username">Username</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="username" name="username" required />
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="username" name="username" value={ username } required />
 			</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="password">Password</label>

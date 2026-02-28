@@ -22,8 +22,8 @@
 * The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
 * Deleting a User does not delete their Organization...what do we do here?
 * When signing up with an existing email address we get the generic error "We could not process your request right now. Please try again.". We should say "That email address is already taken, please try another one."
-* The account verification email should provide the username, and pre-populate the form with it.
 * Move to a static tailwind CSS- don't pull dynamically
+* Add a file size limit on org/user avatar pictures (2MB)
 
 
 ## Now

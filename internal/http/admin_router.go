@@ -364,8 +364,8 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return
 		}
-		verifyURL := s.verifyEmailURL(token)
-		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
+		verifyURL := s.verifyEmailURL(token, member.Username)
+		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, member.Username, verifyURL); sendErr != nil {
 			log.Printf("admin send verification email failed: member_id=%d: %v", member.ID, sendErr)
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return

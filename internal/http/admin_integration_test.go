@@ -774,6 +774,9 @@ func TestAdminUsersHTTP(t *testing.T) {
 		if verifyEmail.ToEmail != target.Member.Email {
 			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, target.Member.Email)
 		}
+		if verifyEmail.Username != target.Member.Username {
+			t.Fatalf("verification email username mismatch: got=%q want=%q", verifyEmail.Username, target.Member.Username)
+		}
 		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
 		if verifyToken == "" {
 			t.Fatalf("expected non-empty verification token")
