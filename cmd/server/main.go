@@ -51,10 +51,13 @@ func main() {
 		}
 	}
 
-	sessionManager := auth.NewSessionManagerWithConfig(auth.SessionManagerConfig{
+	sessionManager, err := auth.NewPostgresSessionManager(db, auth.SessionManagerConfig{
 		AbsoluteTTL: cfg.SessionAbsoluteTTL,
 		IdleTimeout: cfg.SessionIdleTimeout,
 	})
+	if err != nil {
+		log.Fatalf("configure session manager: %v", err)
+	}
 
 	handler := httpserver.NewRouterWithOptions(db, httpserver.RouterOptions{
 		Sessions:                 sessionManager,

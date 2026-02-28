@@ -28,7 +28,7 @@ import (
 // Server bundles dependencies for HTTP handlers.
 type Server struct {
 	db                       *sql.DB
-	sessions                 *auth.SessionManager
+	sessions                 auth.SessionStore
 	admins                   *adminSet
 	authRateLimiter          *fixedWindowLimiter
 	passwordResetEmailSender PasswordResetEmailSender
@@ -62,7 +62,7 @@ type PasswordResetEmailSender interface {
 }
 
 type RouterOptions struct {
-	Sessions                 *auth.SessionManager
+	Sessions                 auth.SessionStore
 	AdminUsernames           []string
 	PasswordResetEmailSender PasswordResetEmailSender
 	FeatureEmail             *bool
@@ -77,7 +77,7 @@ func NewRouter(db *sql.DB) http.Handler {
 
 // NewRouterWithSessions wires routes with an optional injected session manager.
 // Passing nil uses the default in-memory session manager.
-func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handler {
+func NewRouterWithSessions(db *sql.DB, sessions auth.SessionStore) http.Handler {
 	return NewRouterWithOptions(db, RouterOptions{
 		Sessions: sessions,
 	})
@@ -85,7 +85,7 @@ func NewRouterWithSessions(db *sql.DB, sessions *auth.SessionManager) http.Handl
 
 // NewRouterWithSessionsAndAdmins wires routes with optional injected session manager
 // and admin usernames. Admin usernames are normalized to lowercase and deduplicated.
-func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions *auth.SessionManager, adminUsernames []string) http.Handler {
+func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions auth.SessionStore, adminUsernames []string) http.Handler {
 	return NewRouterWithOptions(db, RouterOptions{
 		Sessions:       sessions,
 		AdminUsernames: adminUsernames,

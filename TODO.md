@@ -21,6 +21,9 @@
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
 * Deleting a User does not delete their Organization...what do we do here?
+* When signing up with an existing email address we get the generic error "We could not process your request right now. Please try again.". We should say "That email address is already taken, please try another one."
+* The account verification email should provide the username, and pre-populate the form with it.
+* Move to a static tailwind CSS- don't pull dynamically
 
 
 ## Now
@@ -32,7 +35,9 @@
 * Get this thing hosted - build out the ci/cd automation
     * Share with Pamela
 
-* Set up email accounts
+* Set up incoming email accounts on hopshare.org
+
+* /healthz endpoint should actually determine health- currently just returns 200
 
 * Header
 
@@ -79,6 +84,9 @@
 * Make service/ExpireHelpRequests() asynchronous
     * Ideally we can run the 'hopshare' binary in a 'daemon' mode where it can do these sorts of things.
     * Coordinating async workers across processes is a pain- let's see what we can do with one process.
+
+    * We also need a way to remove expired rows in the member_sessions table (e.g. user logs in, never does anything else).
+    * Perhaps a more generic async 'worker' concept?
 
 * Add in basic monitoring (cron job calling script saving in sqlite):
     * net/http/pprof package (visualize performance)
