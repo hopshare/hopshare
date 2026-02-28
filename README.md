@@ -35,14 +35,15 @@ Important variables:
 - `HOPSHARE_ENV` (optional): environment label (for example `development`).
 - `HOPSHARE_ADMINS` (optional): comma-separated usernames with admin access. Matching is case-insensitive and spaces are ignored.
 - `HOPSHARE_TIMEZONE` (optional): IANA timezone name used for rendered timestamps (for example `America/New_York`, `UTC`). Invalid values fail startup.
+- `FEATURE_EMAIL` (optional): enable email-centric flows (`true`/`false`, default `true`). When `false`, email verification is not required for new signups and Mailgun config is optional.
 - `HOPSHARE_PUBLIC_BASE_URL` (optional): absolute base URL used to build password reset links in emails. Default `http://localhost:8080`.
 - `HOPSHARE_COOKIE_SECURE` (optional): when `true`, auth/CSRF/post-auth cookies are marked `Secure`. Default `true` (production-safe). Set `false` only for local HTTP testing.
 - `HOPSHARE_SESSION_ABSOLUTE_TTL` (optional): maximum session lifetime since login (Go duration, default `168h`).
 - `HOPSHARE_SESSION_IDLE_TIMEOUT` (optional): maximum idle session time since last request activity (Go duration, default `24h`).
 - `HOPSHARE_MAILGUN_API_BASE_URL` (optional): Mailgun API base URL. Default `https://api.mailgun.net`.
-- `HOPSHARE_MAILGUN_DOMAIN` (required for password reset email delivery): Mailgun sending domain.
-- `HOPSHARE_MAILGUN_API_KEY` (required for password reset email delivery): Mailgun API key.
-- `HOPSHARE_MAILGUN_FROM_ADDRESS` (required for password reset email delivery): from address used for reset emails.
+- `HOPSHARE_MAILGUN_DOMAIN` (required when `FEATURE_EMAIL=true`): Mailgun sending domain.
+- `HOPSHARE_MAILGUN_API_KEY` (required when `FEATURE_EMAIL=true`): Mailgun API key.
+- `HOPSHARE_MAILGUN_FROM_ADDRESS` (required when `FEATURE_EMAIL=true`): from address used for reset emails.
 
 ## Running Locally
 1. Export env vars (`source .env` as shown above).

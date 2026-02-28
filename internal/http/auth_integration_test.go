@@ -322,6 +322,38 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		loginActor.Login()
 	})
 
+	t.Run("AUTH-10A1 signup with feature email disabled logs in without verification", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		emailSender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithFeatureEmailAndPasswordResetEmailSender(t, db, false, emailSender)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+
+		email := "feature_email_off_" + suffix + "@example.com"
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
+			"first_name", "Feature",
+			"last_name", "Disabled",
+			"email", email,
+			"password", "Password123!",
+			"preferred_contact_method", "email",
+		)), "/signup-success")
+
+		member, err := service.GetMemberByEmail(ctx, db, email)
+		if err != nil {
+			t.Fatalf("load signed up member: %v", err)
+		}
+		if !member.Verified {
+			t.Fatalf("expected newly signed up member to be verified when feature email is disabled")
+		}
+		if emailSender.VerificationCount() != 0 {
+			t.Fatalf("expected no verification email when feature email is disabled, got %d", emailSender.VerificationCount())
+		}
+
+		loginActor := newTestActor(t, "feature_disabled_member", server.URL, member.Username, "Password123!")
+		loginActor.Login()
+	})
+
 	t.Run("AUTH-10B verification token is one-time and expired tokens fail", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()

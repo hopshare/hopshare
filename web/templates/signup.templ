@@ -99,16 +99,23 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 	</section>
 }
 
-templ SignupSuccess(userEmail *string, loginHref string) {
-	@Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref))
+templ SignupSuccess(userEmail *string, loginHref string, requireEmailVerification bool) {
+	@Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref, requireEmailVerification))
 }
 
-templ SignupSuccessBody(loginHref string) {
+templ SignupSuccessBody(loginHref string, requireEmailVerification bool) {
 	<section class="max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
-		<h1 class="text-2xl font-bold text-slate-900">Almost done!</h1>
-		<p class="text-slate-700">
-			We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.
-		</p>
+		if requireEmailVerification {
+			<h1 class="text-2xl font-bold text-slate-900">Almost done!</h1>
+			<p class="text-slate-700">
+				We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.
+			</p>
+		} else {
+			<h1 class="text-2xl font-bold text-slate-900">Account created</h1>
+			<p class="text-slate-700">
+				Your account is ready and you can log in now.
+			</p>
+		}
 		<div class="flex gap-3">
 			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href={ loginHref }>Back to login</a>
 			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/">Return home</a>

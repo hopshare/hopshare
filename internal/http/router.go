@@ -32,6 +32,7 @@ type Server struct {
 	admins                   *adminSet
 	authRateLimiter          *fixedWindowLimiter
 	passwordResetEmailSender PasswordResetEmailSender
+	featureEmail             bool
 	publicBaseURL            string
 	cookieSecure             bool
 }
@@ -64,6 +65,7 @@ type RouterOptions struct {
 	Sessions                 *auth.SessionManager
 	AdminUsernames           []string
 	PasswordResetEmailSender PasswordResetEmailSender
+	FeatureEmail             *bool
 	PublicBaseURL            string
 	CookieSecure             *bool
 }
@@ -100,6 +102,10 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	if passwordResetEmailSender == nil {
 		passwordResetEmailSender = nopPasswordResetEmailSender{}
 	}
+	featureEmail := true
+	if opts.FeatureEmail != nil {
+		featureEmail = *opts.FeatureEmail
+	}
 	publicBaseURL := normalizePublicBaseURL(opts.PublicBaseURL)
 	cookieSecure := true
 	if opts.CookieSecure != nil {
@@ -112,6 +118,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		admins:                   newAdminSet(opts.AdminUsernames),
 		authRateLimiter:          newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 		passwordResetEmailSender: passwordResetEmailSender,
+		featureEmail:             featureEmail,
 		publicBaseURL:            publicBaseURL,
 		cookieSecure:             cookieSecure,
 	}
@@ -244,12 +251,33 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if errors.Is(err, service.ErrEmailNotVerified) {
-				render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next))
+				if s.featureEmail {
+					render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next))
+					return
+				}
+
+				member, err = service.GetMemberByUsername(r.Context(), s.db, username)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+						return
+					}
+					log.Printf("lookup unverified member: %v", err)
+					http.Error(w, "could not log in", http.StatusInternalServerError)
+					return
+				}
+				if !member.Enabled {
+					render(w, r, templates.Login(nil, "Invalid username or password.", "", next))
+					return
+				}
+				if err := service.UpdateMemberVerified(r.Context(), s.db, member.ID, true); err != nil {
+					log.Printf("auto-verify member=%d: %v", member.ID, err)
+				}
+			} else {
+				log.Printf("authenticate member: %v", err)
+				http.Error(w, "could not log in", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("authenticate member: %v", err)
-			http.Error(w, "could not log in", http.StatusInternalServerError)
-			return
 		}
 
 		token, err := s.sessions.Create(member.ID)
@@ -356,7 +384,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 				State:                  strPtr(state),
 				Interests:              strPtr(interests),
 				Enabled:                true,
-				Verified:               false,
+				Verified:               !s.featureEmail,
 			}
 
 			created, createErr = service.CreateMember(r.Context(), s.db, member)
@@ -374,18 +402,20 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", firstName, lastName, username, email, preferredContactMethod, city, state, interests, created.ID)
-		token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
-			MemberID:    created.ID,
-			Purpose:     service.MemberTokenPurposeEmailVerification,
-			TTL:         service.DefaultMemberTokenTTL,
-			RequestedIP: requestIPFromRequest(r),
-		})
-		if tokenErr != nil {
-			log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
-		} else {
-			verifyURL := s.verifyEmailURL(token)
-			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
-				log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
+		if s.featureEmail {
+			token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
+				MemberID:    created.ID,
+				Purpose:     service.MemberTokenPurposeEmailVerification,
+				TTL:         service.DefaultMemberTokenTTL,
+				RequestedIP: requestIPFromRequest(r),
+			})
+			if tokenErr != nil {
+				log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
+			} else {
+				verifyURL := s.verifyEmailURL(token)
+				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
+					log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
+				}
 			}
 		}
 
@@ -411,10 +441,15 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 	if next != "" {
 		loginHref += "?next=" + url.QueryEscape(next)
 	}
-	render(w, r, templates.SignupSuccess(s.currentUserEmailPtr(r), loginHref))
+	render(w, r, templates.SignupSuccess(s.currentUserEmailPtr(r), loginHref, s.featureEmail))
 }
 
 func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	if !s.featureEmail {
+		http.Redirect(w, r, "/login?success=Email+verification+is+disabled.+You+can+log+in.", http.StatusSeeOther)
+		return
+	}
+
 	token := strings.TrimSpace(r.URL.Query().Get("token"))
 	if token == "" {
 		http.Redirect(w, r, "/login?error=Invalid+or+expired+verification+link.", http.StatusSeeOther)
@@ -436,6 +471,11 @@ func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request) {
+	if !s.featureEmail {
+		render(w, r, templates.Login(nil, "", "Email verification is currently disabled.", ""))
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
@@ -474,6 +514,11 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		render(w, r, templates.ForgotPassword(s.currentUserEmailPtr(r), false))
 	case http.MethodPost:
+		if !s.featureEmail {
+			render(w, r, templates.ForgotPassword(s.currentUserEmailPtr(r), true))
+			return
+		}
+
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
 			return

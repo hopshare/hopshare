@@ -16,6 +16,7 @@ DB_NAME="${DB_NAME:-hopshare}"
 DB_USER="${DB_USER:-hopshare}"
 DB_PASSWORD="${DB_PASSWORD:-hopshare}"
 DB_DATA_DIR="${DB_DATA_DIR:-${REPO_ROOT}/deploy/data/postgres}"
+FEATURE_EMAIL="${FEATURE_EMAIL:-false}"
 
 if podman pod exists "${POD_NAME}"; then
 	echo "Pod ${POD_NAME} already exists. Run deploy/scripts/stop.sh first."
@@ -84,6 +85,7 @@ podman run -d \
 	-e HOPSHARE_ENV=production \
 	-e HOPSHARE_ADDR=":8080" \
 	-e HOPSHARE_DB_URL="${DB_URL}" \
+	-e FEATURE_EMAIL="${FEATURE_EMAIL}" \
 	"${APP_IMAGE}" >/dev/null
 
 trap - ERR

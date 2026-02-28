@@ -38,14 +38,17 @@ func main() {
 		log.Fatalf("apply migrations: %v", err)
 	}
 
-	passwordResetEmailSender, err := httpserver.NewMailgunPasswordResetEmailSender(httpserver.MailgunPasswordResetEmailSenderConfig{
-		APIBaseURL:  cfg.MailgunAPIBaseURL,
-		Domain:      cfg.MailgunDomain,
-		APIKey:      cfg.MailgunAPIKey,
-		FromAddress: cfg.MailgunFromAddress,
-	})
-	if err != nil {
-		log.Fatalf("configure password reset email sender: %v", err)
+	var passwordResetEmailSender httpserver.PasswordResetEmailSender
+	if cfg.FeatureEmail {
+		passwordResetEmailSender, err = httpserver.NewMailgunPasswordResetEmailSender(httpserver.MailgunPasswordResetEmailSenderConfig{
+			APIBaseURL:  cfg.MailgunAPIBaseURL,
+			Domain:      cfg.MailgunDomain,
+			APIKey:      cfg.MailgunAPIKey,
+			FromAddress: cfg.MailgunFromAddress,
+		})
+		if err != nil {
+			log.Fatalf("configure password reset email sender: %v", err)
+		}
 	}
 
 	sessionManager := auth.NewSessionManagerWithConfig(auth.SessionManagerConfig{
@@ -56,6 +59,7 @@ func main() {
 	handler := httpserver.NewRouterWithOptions(db, httpserver.RouterOptions{
 		Sessions:                 sessionManager,
 		AdminUsernames:           cfg.Admins,
+		FeatureEmail:             &cfg.FeatureEmail,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
 		CookieSecure:             &cfg.CookieSecure,

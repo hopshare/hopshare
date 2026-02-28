@@ -63,6 +63,19 @@ func newHTTPServerWithPasswordResetEmailSender(t *testing.T, db *sql.DB, sender 
 	return server
 }
 
+func newHTTPServerWithFeatureEmailAndPasswordResetEmailSender(t *testing.T, db *sql.DB, featureEmail bool, sender apphttp.PasswordResetEmailSender) *httptest.Server {
+	t.Helper()
+	cookieSecure := false
+	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+		FeatureEmail:             &featureEmail,
+		PasswordResetEmailSender: sender,
+		PublicBaseURL:            "https://hopshare.test",
+		CookieSecure:             &cookieSecure,
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
 func newHTTPServerWithAdminsAndPasswordResetEmailSender(t *testing.T, db *sql.DB, adminUsernames []string, sender apphttp.PasswordResetEmailSender) *httptest.Server {
 	t.Helper()
 	cookieSecure := false
