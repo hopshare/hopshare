@@ -85,6 +85,7 @@ podman run -d \
 	-e HOPSHARE_ENV=production \
 	-e HOPSHARE_ADDR=":8080" \
 	-e HOPSHARE_DB_URL="${DB_URL}" \
+	-e HOPSHARE_MAILGUN_API_KEY="foobar" \
 	-e FEATURE_EMAIL="${FEATURE_EMAIL}" \
 	"${APP_IMAGE}" >/dev/null
 

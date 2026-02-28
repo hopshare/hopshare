@@ -2,7 +2,10 @@ name: Publish Nightly Image
 
 on:
   schedule:
-    - cron: "0 7 * * *"
+    # GitHub schedules are UTC. These two entries cover 10:00 PM America/New_York
+    # across DST shifts; the precheck below enforces exact local-hour execution.
+    - cron: "0 2 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +16,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check for commits from today (America/New_York) and local 10 PM window
+        id: check
+        env:
+          LOCAL_TIMEZONE: America/New_York
+        run: |
+          latest_commit_date="$(git log -1 --format=%cI)"
+          latest_commit_day_local="$(TZ="${LOCAL_TIMEZONE}" date -d "${latest_commit_date}" +%F)"
+          today_local="$(TZ="${LOCAL_TIMEZONE}" date +%F)"
+          current_hour_local="$(TZ="${LOCAL_TIMEZONE}" date +%H)"
+
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ] && [ "${current_hour_local}" != "22" ]; then
+            echo "should_publish=false" >> "${GITHUB_OUTPUT}"
+            echo "Skipping schedule run outside local 10 PM. Current local hour: ${current_hour_local} (${LOCAL_TIMEZONE})."
+            exit 0
+          fi
+
+          if [ "${latest_commit_day_local}" = "${today_local}" ]; then
+            echo "should_publish=true" >> "${GITHUB_OUTPUT}"
+            echo "Changes detected for ${today_local} (${LOCAL_TIMEZONE})."
+          else
+            echo "should_publish=false" >> "${GITHUB_OUTPUT}"
+            echo "No changes detected for ${today_local} (${LOCAL_TIMEZONE}). Latest commit local day: ${latest_commit_day_local}."
+          fi
+
   publish:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -85,7 +124,7 @@ jobs:
           set -euo pipefail
           timestamp="$(date -u +%Y%m%d-%H%M)"
           short_sha="${GITHUB_SHA::12}"
-          tags="nightly-${timestamp} nightly sha-${short_sha}"
+          tags="nightly-${timestamp} nightly"
 
           for tag in ${tags}; do
             image="${IMAGE_REPO}:${tag}"
