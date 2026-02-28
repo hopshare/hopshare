@@ -126,6 +126,38 @@ Example custom run:
 
 The app is exposed at `http://localhost:${APP_PORT}` and Postgres data persists under `deploy/data/postgres` by default.
 
+## CI/CD (GitHub Actions + Quay)
+This repo includes Podman-based GitHub Actions workflows for CI and image publishing to `quay.io/hopshare/hopshare`.
+
+Workflows:
+- `.github/workflows/ci.yml`
+  - Triggers: pull requests and pushes to `main`.
+  - Runs: `go test ./... -count=1`, `go vet ./...`, `podman build -f Containerfile`.
+- `.github/workflows/publish-nightly.yml`
+  - Triggers: nightly schedule (`0 7 * * *` UTC) and manual `workflow_dispatch`.
+  - Runs tests/vet/build, then pushes:
+    - `nightly-YYYYMMDD-HHMM` (UTC timestamp)
+    - `nightly`
+    - `sha-<12-char-commit>`
+- `.github/workflows/publish-release.yml`
+  - Trigger: GitHub Release published event.
+  - Runs tests/vet/build, then pushes:
+    - exact release tag (example: `v1.2.3`)
+    - version without leading `v` when applicable (example: `1.2.3`)
+    - `latest` for non-prerelease releases only
+
+### Quay Robot Credentials
+Create a Quay robot account with push access to `hopshare/hopshare`, then set these GitHub repository secrets:
+- `QUAY_USERNAME` (example: `hopshare+ci`)
+- `QUAY_PASSWORD` (robot token/password)
+
+The publish workflows fail fast when these secrets are missing.
+
+### Release Flow
+1. Create/push a git tag (usually `vX.Y.Z`).
+2. Create a GitHub Release from that tag.
+3. The release workflow publishes the corresponding image tags to Quay.
+
 ## Admin + Security Notes
 - Admin routes are under `/admin` and require:
   - authenticated user

@@ -25,15 +25,26 @@
 
 ## Now
 
+* Incorporate new UI Elements - images/colors
+    * Adjust base template for graphic sidebar
+    * Test on mobile device
+
+* Get this thing hosted - build out the ci/cd automation
+    * Share with Pamela
+
+* Set up email accounts
+
 * Header
 
 * My Profile
     * Need a way to remove an owned Organization- need to think a bit about this one- to ensure it doesn't get abused.
+    * If the User is not primary owner of their own Organization, give them a button at bottom of "Organizations" tab that lets them create their own Organization. 
 
 * Hop Detail Page
     * Summary section is a little clunky. We can probably tidy this up more...make easier to read
 
 * My HopShare Dashboard
+    * "Change Organization" Setting- should not be a Modal (lets get rid of all the modals btw)- make a new page showing pull down of existing Orgs you belong to, or button taking you to the Search Organizaitions page. Remove the "Manage" button- that should only be accessible from Profile now.
 
 * Admin Page
     * Users
@@ -61,7 +72,7 @@
 
 ## Later
 
-
+* Add in a REST API layer so we can eventually do a small mobile app.
 
 * Put Hop image uploads behind a feature flag- we should not store them in the database- instead use reliable storage. Not needed right now.
 

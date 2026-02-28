@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: hopshare_test
+          POSTGRES_USER: hopshare
+          POSTGRES_PASSWORD: hopshare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hopshare -d hopshare_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      HOPSHARE_DB_URL: postgres://hopshare:hopshare@localhost:5432/hopshare_test?sslmode=disable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test ./... -count=1
+
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image with Podman
+        run: podman build -f Containerfile -t hopshare-ci:${GITHUB_SHA} .

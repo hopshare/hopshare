@@ -1,0 +1,93 @@
+name: Publish Release Image
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: hopshare_test
+          POSTGRES_USER: hopshare
+          POSTGRES_PASSWORD: hopshare
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hopshare -d hopshare_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      HOPSHARE_DB_URL: postgres://hopshare:hopshare@localhost:5432/hopshare_test?sslmode=disable
+      IMAGE_REPO: quay.io/hopshare/hopshare
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test ./... -count=1
+
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Install Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image with Podman
+        run: podman build -f Containerfile -t hopshare-release:${GITHUB_SHA} .
+
+      - name: Log in to Quay
+        env:
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+        run: |
+          if [ -z "${QUAY_USERNAME}" ] || [ -z "${QUAY_PASSWORD}" ]; then
+            echo "QUAY_USERNAME and QUAY_PASSWORD secrets are required."
+            exit 1
+          fi
+          echo "${QUAY_PASSWORD}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
+
+      - name: Publish release tags
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "Release tag is empty."
+            exit 1
+          fi
+
+          semver_tag="${RELEASE_TAG#v}"
+          tags="${RELEASE_TAG}"
+          if [ "${semver_tag}" != "${RELEASE_TAG}" ]; then
+            tags="${tags} ${semver_tag}"
+          fi
+
+          if [ "${IS_PRERELEASE}" = "false" ]; then
+            tags="${tags} latest"
+          fi
+
+          for tag in ${tags}; do
+            image="${IMAGE_REPO}:${tag}"
+            podman tag "hopshare-release:${GITHUB_SHA}" "${image}"
+            podman push "${image}"
+            echo "Published ${image}"
+          done
