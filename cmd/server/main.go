@@ -63,6 +63,7 @@ func main() {
 		Sessions:                 sessionManager,
 		AdminUsernames:           cfg.Admins,
 		FeatureEmail:             &cfg.FeatureEmail,
+		FeatureHopPictures:       &cfg.FeatureHopPictures,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
 		CookieSecure:             &cfg.CookieSecure,

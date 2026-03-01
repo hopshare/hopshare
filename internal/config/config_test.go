@@ -13,6 +13,7 @@ func TestLoadParsesAdmins(t *testing.T) {
 	t.Setenv("HOPSHARE_ADMINS", " Alice ,bob,ALICE,, carol ")
 	t.Setenv("HOPSHARE_TIMEZONE", "America/New_York")
 	t.Setenv("FEATURE_EMAIL", "false")
+	t.Setenv("FEATURE_HOP_PICTURES", "true")
 	t.Setenv("HOPSHARE_PUBLIC_BASE_URL", "https://hopshare.example.com")
 	t.Setenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net")
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "mg.example.com")
@@ -37,6 +38,9 @@ func TestLoadParsesAdmins(t *testing.T) {
 	}
 	if cfg.FeatureEmail {
 		t.Fatalf("feature email: got %v want false", cfg.FeatureEmail)
+	}
+	if !cfg.FeatureHopPictures {
+		t.Fatalf("feature hop pictures: got %v want true", cfg.FeatureHopPictures)
 	}
 	if cfg.PublicBaseURL != "https://hopshare.example.com" {
 		t.Fatalf("public base url: got %q want %q", cfg.PublicBaseURL, "https://hopshare.example.com")
@@ -87,6 +91,7 @@ func TestLoadTimezoneDefaultUTC(t *testing.T) {
 
 func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("FEATURE_EMAIL", "")
+	t.Setenv("FEATURE_HOP_PICTURES", "")
 	t.Setenv("HOPSHARE_PUBLIC_BASE_URL", "")
 	t.Setenv("HOPSHARE_MAILGUN_API_BASE_URL", "")
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "")
@@ -99,6 +104,9 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	cfg := Load()
 	if !cfg.FeatureEmail {
 		t.Fatalf("feature email default: got %v want true", cfg.FeatureEmail)
+	}
+	if cfg.FeatureHopPictures {
+		t.Fatalf("feature hop pictures default: got %v want false", cfg.FeatureHopPictures)
 	}
 	if cfg.PublicBaseURL != "http://localhost:8080" {
 		t.Fatalf("public base url default: got %q want %q", cfg.PublicBaseURL, "http://localhost:8080")

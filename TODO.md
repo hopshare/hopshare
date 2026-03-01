@@ -15,7 +15,6 @@
 ## Bugs
 
 * I can create Hops with a due date in the past- they are then automatically expired!
-* We should have a confirmation pop up when you try to Cancel a Hop
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * An Organization Owner can request membership in their own Organization- this should be prevented

@@ -33,6 +33,7 @@ type Server struct {
 	authRateLimiter          *fixedWindowLimiter
 	passwordResetEmailSender PasswordResetEmailSender
 	featureEmail             bool
+	featureHopPictures       bool
 	publicBaseURL            string
 	cookieSecure             bool
 }
@@ -66,6 +67,7 @@ type RouterOptions struct {
 	AdminUsernames           []string
 	PasswordResetEmailSender PasswordResetEmailSender
 	FeatureEmail             *bool
+	FeatureHopPictures       *bool
 	PublicBaseURL            string
 	CookieSecure             *bool
 }
@@ -106,6 +108,10 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	if opts.FeatureEmail != nil {
 		featureEmail = *opts.FeatureEmail
 	}
+	featureHopPictures := false
+	if opts.FeatureHopPictures != nil {
+		featureHopPictures = *opts.FeatureHopPictures
+	}
 	publicBaseURL := normalizePublicBaseURL(opts.PublicBaseURL)
 	cookieSecure := true
 	if opts.CookieSecure != nil {
@@ -119,6 +125,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		authRateLimiter:          newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 		passwordResetEmailSender: passwordResetEmailSender,
 		featureEmail:             featureEmail,
+		featureHopPictures:       featureHopPictures,
 		publicBaseURL:            publicBaseURL,
 		cookieSecure:             cookieSecure,
 	}

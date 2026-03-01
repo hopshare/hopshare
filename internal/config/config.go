@@ -15,6 +15,7 @@ type Config struct {
 	Admins             []string
 	Timezone           string
 	FeatureEmail       bool
+	FeatureHopPictures bool
 	PublicBaseURL      string
 	MailgunAPIBaseURL  string
 	MailgunDomain      string
@@ -34,6 +35,7 @@ func Load() Config {
 		Admins:             parseAdmins(getenv("HOPSHARE_ADMINS", "")),
 		Timezone:           loadTimezone(),
 		FeatureEmail:       getenvBool("FEATURE_EMAIL", true),
+		FeatureHopPictures: getenvBool("FEATURE_HOP_PICTURES", false),
 		PublicBaseURL:      getenv("HOPSHARE_PUBLIC_BASE_URL", "http://localhost:8080"),
 		MailgunAPIBaseURL:  getenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
 		MailgunDomain:      getenv("HOPSHARE_MAILGUN_DOMAIN", "hopshare.org"),

@@ -36,6 +36,7 @@ Important variables:
 - `HOPSHARE_ADMINS` (optional): comma-separated usernames with admin access. Matching is case-insensitive and spaces are ignored.
 - `HOPSHARE_TIMEZONE` (optional): IANA timezone name used for rendered timestamps (for example `America/New_York`, `UTC`). Invalid values fail startup.
 - `FEATURE_EMAIL` (optional): enable email-centric flows (`true`/`false`, default `true`). When `false`, email verification is not required for new signups and Mailgun config is optional.
+- `FEATURE_HOP_PICTURES` (optional): controls the Hop Details Pictures panel (`true`/`false`, default `false`). When `false`, the Pictures panel is hidden.
 - `HOPSHARE_PUBLIC_BASE_URL` (optional): absolute base URL used to build password reset links in emails. Default `http://localhost:8080`.
 - `HOPSHARE_COOKIE_SECURE` (optional): when `true`, auth/CSRF/post-auth cookies are marked `Secure`. Default `true` (production-safe). Set `false` only for local HTTP testing.
 - `HOPSHARE_SESSION_ABSOLUTE_TTL` (optional): maximum session lifetime since login (Go duration, default `168h`).

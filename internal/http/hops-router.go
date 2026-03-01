@@ -205,11 +205,14 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	images, err := service.ListHopImages(r.Context(), s.db, hopID)
-	if err != nil {
-		log.Printf("load hop images %d: %v", hopID, err)
-		http.Error(w, "could not load hop", http.StatusInternalServerError)
-		return
+	var images []types.HopImage
+	if s.featureHopPictures {
+		images, err = service.ListHopImages(r.Context(), s.db, hopID)
+		if err != nil {
+			log.Printf("load hop images %d: %v", hopID, err)
+			http.Error(w, "could not load hop", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
@@ -231,7 +234,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		hasOfferedToHelp = hasPendingOffer
 		canOfferHelp = !hasPendingOffer
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
 }
 
 func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {

@@ -36,11 +36,25 @@ func hopHoursLabel(hours int) string {
 	return strconv.Itoa(hours) + " hours"
 }
 
-func hopPrivacyLabel(hop types.Hop) string {
-	if hop.IsPrivate {
-		return "Private"
+func hopNeededByDateValue(hop types.Hop) string {
+	if hop.NeededByKind == types.HopNeededByAnytime {
+		return "Anytime"
 	}
-	return "Public"
+	if hop.NeededByDate == nil {
+		return "Not specified"
+	}
+	return formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+}
+
+func hopHelperDisplayName(hop types.Hop) string {
+	if hop.AcceptedByName == nil {
+		return "Unknown"
+	}
+	name := strings.TrimSpace(*hop.AcceptedByName)
+	if name == "" {
+		return "Unknown"
+	}
+	return name
 }
 
 func hopDetailsFromValue(showBack bool) string {
@@ -71,11 +85,11 @@ func hopDetailsSelfLink(orgID, hopID int64, showBack bool, view string) string {
 	return link
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canComplete bool, canSetCompletionHours bool, comments []types.HopComment, images []types.HopImage) {
-	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, comments, images))
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, showPictures, comments, images))
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canComplete bool, canSetCompletionHours bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
@@ -110,7 +124,6 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
 							<input type="hidden" name="view" value={ backView } />
 							<div class="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-								<span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hop Visibility:</span>
 								<label class="inline-flex items-center gap-2">
 									<input class="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="radio" name="is_private" value="false" checked?={ !hop.IsPrivate } />
 									<span>Public</span>
@@ -126,84 +139,57 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				<h1 class="text-2xl font-bold text-slate-900">{ hop.Title }</h1>
 			</div>
 
-			<div class="grid gap-6 lg:grid-cols-[2fr_1fr]">
-				<div class="space-y-6">
-					<div class="space-y-2">
-						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Details</h2>
-						if hop.Details != nil && *hop.Details != "" {
-							<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
-						} else {
-							<p class="text-sm text-slate-600">No details provided.</p>
+			<div class="space-y-6">
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+					<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
+						<div class="text-center space-y-2">
+							if hop.AcceptedBy != nil {
+								<img
+									class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+									src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+									alt={ hopHelperDisplayName(hop) + " avatar" }
+								/>
+							} else {
+								<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
+							}
+							<p class="text-xs text-slate-700">{ hopHelperDisplayName(hop) }</p>
+						</div>
+						<div class="flex h-14 items-center justify-center px-1">
+							<p class="text-lg font-semibold text-slate-500 leading-none">helping</p>
+						</div>
+						<div class="text-center space-y-2">
+							<img
+								class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+								src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+								alt={ hop.CreatedByName + " avatar" }
+							/>
+							<p class="text-xs text-slate-700">{ hop.CreatedByName }</p>
+						</div>
+					</div>
+					<div class="mt-4 space-y-1 text-sm text-slate-700">
+						<p><span class="font-semibold text-slate-900">Created:</span> { formatInAppTime(&hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
+						<p><span class="font-semibold text-slate-900">Needed_by:</span> { hopNeededByDateValue(hop) }</p>
+						if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
+							<p><span class="font-semibold text-slate-900">Completed:</span> { formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM") }</p>
+						} else if hop.Status == types.HopStatusCanceled && hop.CanceledAt != nil {
+							<p><span class="font-semibold text-slate-900">Canceled:</span> { formatInAppTime(hop.CanceledAt, "Jan 2, 2006 3:04 PM") }</p>
+						} else if hop.Status == types.HopStatusExpired {
+							if hop.ExpiresAt != nil {
+								<p><span class="font-semibold text-slate-900">Expired:</span> { formatInAppTime(hop.ExpiresAt, "Jan 2, 2006 3:04 PM") }</p>
+							} else {
+								<p><span class="font-semibold text-slate-900">Expired:</span> { formatInAppTime(&hop.UpdatedAt, "Jan 2, 2006 3:04 PM") }</p>
+							}
 						}
 					</div>
-
-					<div class="space-y-3">
-						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">People</h2>
-						<div class="space-y-3">
-							<div class="flex items-center gap-3">
-								<img
-									class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
-									src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-									alt={ hop.CreatedByName + " avatar" }
-								/>
-								<div>
-									<p class="text-xs uppercase text-slate-500">Requested by</p>
-									<p class="text-sm font-semibold text-slate-900">{ hop.CreatedByName }</p>
-								</div>
-							</div>
-							if hop.AcceptedBy != nil && hop.AcceptedByName != nil {
-								<div class="flex items-center gap-3">
-									<img
-										class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
-										src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
-										alt={ *hop.AcceptedByName + " avatar" }
-									/>
-									<div>
-										<p class="text-xs uppercase text-slate-500">Accepted by</p>
-										<p class="text-sm font-semibold text-slate-900">{ *hop.AcceptedByName }</p>
-									</div>
-								</div>
-							}
-						</div>
-					</div>
-
-					if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
-						<div class="space-y-2">
-							<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Completion</h2>
-							<p class="text-sm text-slate-700">
-								Completed { formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM") }
-								if hop.CompletedHours != nil {
-									{ " • " }{ hopHoursLabel(*hop.CompletedHours) }
-								}
-							</p>
-						</div>
-					}
 				</div>
 
-				<div class="space-y-4">
-					<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
-						<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Summary</h2>
-						<div class="flex items-center justify-between text-sm text-slate-700">
-							<span class="text-slate-500">Estimated</span>
-							<span class="font-semibold">{ hopHoursLabel(hop.EstimatedHours) }</span>
-						</div>
-						<div class="flex items-center justify-between text-sm text-slate-700">
-							<span class="text-slate-500">Created</span>
-							<span class="font-semibold">{ formatInAppTime(hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</span>
-						</div>
-						<div class="flex items-center justify-between text-sm text-slate-700">
-							<span class="text-slate-500">Needed by</span>
-							<span class="font-semibold">{ hopNeededByLabel(hop) }</span>
-						</div>
-						<div class="flex items-center justify-between text-sm text-slate-700">
-							<span class="text-slate-500">Visibility</span>
-							<span class="font-semibold">{ hopPrivacyLabel(hop) }</span>
-						</div>
-						<div class="flex items-center justify-between text-sm text-slate-700">
-							<span class="text-slate-500">Status</span>
-							@StatusPill(hop.Status)
-						</div>
-					</div>
+				<div class="space-y-2">
+					<h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wide">Details</h2>
+					if hop.Details != nil && *hop.Details != "" {
+						<p class="text-sm text-slate-700 whitespace-pre-line">{ *hop.Details }</p>
+					} else {
+						<p class="text-sm text-slate-600">No details provided.</p>
+					}
 				</div>
 			</div>
 		</section>
@@ -241,104 +227,106 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			</section>
 		}
 
-		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-5" x-data={ "{" +
-			"open: false," +
-			"index: 0," +
-			"images: [" +
-			func() string {
-				var out string
-				for i, img := range images {
-					if i > 0 {
-						out += ","
-					}
-					out += "{id:" + strconv.FormatInt(img.ID, 10) + ",url:'/hops/image?image_id=" + strconv.FormatInt(img.ID, 10) + "'}"
-				}
-				return out
-			}() +
-			"]," +
-			"openAt(i){this.index=i;this.open=true;}," +
-			"next(){if(this.images.length){this.index=(this.index+1)%this.images.length}}," +
-			"prev(){if(this.images.length){this.index=(this.index+this.images.length-1)%this.images.length}}" +
-			"}" }>
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<h2 class="text-lg font-bold text-slate-900">Pictures</h2>
-					<p class="text-sm text-slate-600">Share progress or outcomes with photos.</p>
-				</div>
-				if canUpload {
-					<form method="POST" action="/hops/images/upload" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-						@CSRFField()
-						<input type="hidden" name="org_id" value={ org.ID } />
-						<input type="hidden" name="hop_id" value={ hop.ID } />
-						<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
-						<input type="hidden" name="view" value={ backView } />
-						<input class="w-full sm:w-auto text-sm" type="file" name="image" accept="image/*" required />
-						<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Upload</button>
-					</form>
-				}
-			</div>
-
-			if len(images) == 0 {
-				<p class="text-sm text-slate-600">No pictures yet.</p>
-			} else {
-				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+		if showPictures {
+			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-5" x-data={ "{" +
+				"open: false," +
+				"index: 0," +
+				"images: [" +
+				func() string {
+					var out string
 					for i, img := range images {
-						<div class="space-y-2">
-							<button type="button" class="block w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50" x-on:click={ "openAt(" + strconv.Itoa(i) + ")" }>
-								<img
-									class="h-28 w-full object-cover"
-									src={ "/hops/image?image_id=" + strconv.FormatInt(img.ID, 10) }
-									alt="Hop photo"
-								/>
-							</button>
-							<div class="flex items-center gap-3">
-								if canUpload {
-									<form method="POST" action="/hops/images/delete">
+						if i > 0 {
+							out += ","
+						}
+						out += "{id:" + strconv.FormatInt(img.ID, 10) + ",url:'/hops/image?image_id=" + strconv.FormatInt(img.ID, 10) + "'}"
+					}
+					return out
+				}() +
+				"]," +
+				"openAt(i){this.index=i;this.open=true;}," +
+				"next(){if(this.images.length){this.index=(this.index+1)%this.images.length}}," +
+				"prev(){if(this.images.length){this.index=(this.index+this.images.length-1)%this.images.length}}" +
+				"}" }>
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h2 class="text-lg font-bold text-slate-900">Pictures</h2>
+						<p class="text-sm text-slate-600">Share progress or outcomes with photos.</p>
+					</div>
+					if canUpload {
+						<form method="POST" action="/hops/images/upload" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+							@CSRFField()
+							<input type="hidden" name="org_id" value={ org.ID } />
+							<input type="hidden" name="hop_id" value={ hop.ID } />
+							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+							<input type="hidden" name="view" value={ backView } />
+							<input class="w-full sm:w-auto text-sm" type="file" name="image" accept="image/*" required />
+							<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Upload</button>
+						</form>
+					}
+				</div>
+
+				if len(images) == 0 {
+					<p class="text-sm text-slate-600">No pictures yet.</p>
+				} else {
+					<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+						for i, img := range images {
+							<div class="space-y-2">
+								<button type="button" class="block w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50" x-on:click={ "openAt(" + strconv.Itoa(i) + ")" }>
+									<img
+										class="h-28 w-full object-cover"
+										src={ "/hops/image?image_id=" + strconv.FormatInt(img.ID, 10) }
+										alt="Hop photo"
+									/>
+								</button>
+								<div class="flex items-center gap-3">
+									if canUpload {
+										<form method="POST" action="/hops/images/delete">
+											@CSRFField()
+											<input type="hidden" name="org_id" value={ org.ID } />
+											<input type="hidden" name="hop_id" value={ hop.ID } />
+											<input type="hidden" name="image_id" value={ img.ID } />
+											<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+											<input type="hidden" name="view" value={ backView } />
+											<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
+										</form>
+									}
+									<form method="POST" action="/hops/images/report">
 										@CSRFField()
 										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="hop_id" value={ hop.ID } />
 										<input type="hidden" name="image_id" value={ img.ID } />
 										<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
 										<input type="hidden" name="view" value={ backView } />
-										<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
+										<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this image</button>
 									</form>
-								}
-								<form method="POST" action="/hops/images/report">
-									@CSRFField()
-									<input type="hidden" name="org_id" value={ org.ID } />
-									<input type="hidden" name="hop_id" value={ hop.ID } />
-									<input type="hidden" name="image_id" value={ img.ID } />
-									<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
-									<input type="hidden" name="view" value={ backView } />
-									<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this image</button>
-								</form>
-							</div>
-						</div>
-					}
-				</div>
-			}
-
-			if len(images) > 0 {
-				<div class="fixed inset-0 z-50" x-show="open" x-transition.opacity style="display: none;" x-on:keydown.escape.window="open = false">
-					<div class="absolute inset-0 bg-slate-900/60" x-on:click="open = false"></div>
-					<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-center justify-center">
-						<div class="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-slate-200" role="dialog" aria-modal="true" aria-label="Hop pictures" x-on:click.stop>
-							<div class="p-4 border-b border-slate-200 flex items-center justify-between">
-								<p class="text-sm font-semibold text-slate-700" x-text="'Photo ' + (index + 1) + ' of ' + images.length"></p>
-								<button class="text-slate-500 hover:text-slate-700" type="button" x-on:click="open = false" aria-label="Close">&times;</button>
-							</div>
-							<div class="p-4 flex items-center gap-3">
-								<button class="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="button" x-on:click="prev()">Prev</button>
-								<div class="flex-1 overflow-x-auto">
-									<img class="mx-auto max-h-[70vh] object-contain" x-bind:src="images[index].url" alt="Hop picture" />
 								</div>
-								<button class="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="button" x-on:click="next()">Next</button>
+							</div>
+						}
+					</div>
+				}
+
+				if len(images) > 0 {
+					<div class="fixed inset-0 z-50" x-show="open" x-transition.opacity style="display: none;" x-on:keydown.escape.window="open = false">
+						<div class="absolute inset-0 bg-slate-900/60" x-on:click="open = false"></div>
+						<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-center justify-center">
+							<div class="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-slate-200" role="dialog" aria-modal="true" aria-label="Hop pictures" x-on:click.stop>
+								<div class="p-4 border-b border-slate-200 flex items-center justify-between">
+									<p class="text-sm font-semibold text-slate-700" x-text="'Photo ' + (index + 1) + ' of ' + images.length"></p>
+									<button class="text-slate-500 hover:text-slate-700" type="button" x-on:click="open = false" aria-label="Close">&times;</button>
+								</div>
+								<div class="p-4 flex items-center gap-3">
+									<button class="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="button" x-on:click="prev()">Prev</button>
+									<div class="flex-1 overflow-x-auto">
+										<img class="mx-auto max-h-[70vh] object-contain" x-bind:src="images[index].url" alt="Hop picture" />
+									</div>
+									<button class="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="button" x-on:click="next()">Next</button>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
-			}
-		</section>
+				}
+			</section>
+		}
 
 		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-5">
 			<div class="flex items-center justify-between">
