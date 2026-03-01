@@ -112,6 +112,15 @@ func organizationSkillsBySource(skills []types.Skill, source string) []types.Ski
 	return sortedSkillsByName(out)
 }
 
+func hasPrimaryOwnedOrganization(orgs []types.MemberOrganization) bool {
+	for _, org := range orgs {
+		if org.IsPrimaryOwner {
+			return true
+		}
+	}
+	return false
+}
+
 func MyProfile(email string, member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -174,7 +183,7 @@ func SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) templ.Component 
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(skill.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 114, Col: 137}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 123, Col: 137}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -192,7 +201,7 @@ func SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) templ.Component 
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(skill.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 116, Col: 137}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 125, Col: 137}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -210,7 +219,7 @@ func SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) templ.Component 
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(skill.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 118, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 127, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -257,7 +266,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 140, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 149, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -276,7 +285,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 143, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 152, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -294,7 +303,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 149, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 158, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -307,7 +316,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 149, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 158, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -328,7 +337,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 230, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 239, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -341,7 +350,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 241, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 250, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -354,7 +363,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(member.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 253, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 262, Col: 27}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -367,7 +376,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(member.Username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 264, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 273, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -380,7 +389,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(member.PreferredContact)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 275, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 284, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -393,7 +402,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.City))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 286, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 295, Col: 42}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -406,7 +415,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.State))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 296, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 305, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -442,7 +451,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 396, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 405, Col: 131}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -455,7 +464,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 397, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 406, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -473,7 +482,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 					var templ_7745c5c3_Var20 templ.SafeURL
 					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinURLErrs("/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 401, Col: 155}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 410, Col: 155}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -486,7 +495,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 					var templ_7745c5c3_Var21 string
 					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 401, Col: 168}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 410, Col: 168}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 					if templ_7745c5c3_Err != nil {
@@ -504,7 +513,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 					var templ_7745c5c3_Var22 string
 					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 403, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 412, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 					if templ_7745c5c3_Err != nil {
@@ -535,17 +544,23 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</section></div><div x-show=\"activeTab === 'skills'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Skills</h2><p class=\"mt-1 text-sm text-slate-600\">Select all skills that apply to you.</p>")
+		if !hasPrimaryOwnedOrganization(orgs) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<div class=\"mt-4\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" href=\"/organizations/create\">Create an Organization</a></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</section></div><div x-show=\"activeTab === 'skills'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Skills</h2><p class=\"mt-1 text-sm text-slate-600\">Select all skills that apply to you.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(skills) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<p class=\"mt-4 text-sm text-slate-600\">No skills are available for your account yet.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<p class=\"mt-4 text-sm text-slate-600\">No skills are available for your account yet.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -553,12 +568,12 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<input type=\"hidden\" name=\"action\" value=\"skills\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<input type=\"hidden\" name=\"action\" value=\"skills\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(defaultSkills(skills)) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">Default Skills</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">Default Skills</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -568,26 +583,26 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			for _, source := range organizationSkillSources(skills) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(source)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 438, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 454, Col: 65}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -597,17 +612,17 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save skills</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save skills</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</section></div><div x-show=\"activeTab === 'account'\"><section class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone!</h2><p class=\"mt-2 text-sm text-red-700\">Deleting your account disables your access immediately.</p><button type=\"button\" class=\"mt-4 inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"deleteModalOpen = true; deleteConfirmation = ''\">Delete my Account</button></section></div><div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteModalOpen\" x-on:click.self=\"deleteModalOpen = false; deleteConfirmation = ''\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Confirm account deletion</h3><p class=\"mt-2 text-sm text-slate-700\">To continue, type this sentence exactly:</p><p class=\"mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\">I want to leave hopShare</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</section></div><div x-show=\"activeTab === 'account'\"><section class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone!</h2><p class=\"mt-2 text-sm text-red-700\">Deleting your account disables your access immediately.</p><button type=\"button\" class=\"mt-4 inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"deleteModalOpen = true; deleteConfirmation = ''\">Delete my Account</button></section></div><div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteModalOpen\" x-on:click.self=\"deleteModalOpen = false; deleteConfirmation = ''\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Confirm account deletion</h3><p class=\"mt-2 text-sm text-slate-700\">To continue, type this sentence exactly:</p><p class=\"mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\">I want to leave hopShare</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -615,7 +630,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<input type=\"hidden\" name=\"action\" value=\"delete_account\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_account_confirmation\">Confirmation phrase</label> <input id=\"delete_account_confirmation\" name=\"delete_account_confirmation\" type=\"text\" required x-model=\"deleteConfirmation\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to leave hopShare\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"deleteModalOpen = false; deleteConfirmation = ''\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteConfirmation === requiredDeletePhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteConfirmation !== requiredDeletePhrase\">Submit</button></div></form></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<input type=\"hidden\" name=\"action\" value=\"delete_account\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_account_confirmation\">Confirmation phrase</label> <input id=\"delete_account_confirmation\" name=\"delete_account_confirmation\" type=\"text\" required x-model=\"deleteConfirmation\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to leave hopShare\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"deleteModalOpen = false; deleteConfirmation = ''\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteConfirmation === requiredDeletePhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteConfirmation !== requiredDeletePhrase\">Submit</button></div></form></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

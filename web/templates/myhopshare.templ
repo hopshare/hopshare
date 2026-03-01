@@ -112,13 +112,18 @@ templ MyhopShareNoOrganizations(hasPrimary bool) {
 					Manage my organization
 				</a>
 			} else {
-				<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations/create">
+				<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations">
+					Find an organization
+				</a>
+				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/create">
 					Create an organization
 				</a>
 			}
-			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
-				Find an organization
-			</a>
+			if hasPrimary {
+				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
+					Find an organization
+				</a>
+			}
 		</div>
 	</section>
 }

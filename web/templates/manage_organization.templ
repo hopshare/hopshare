@@ -18,15 +18,15 @@ func skillLines(skills []types.Skill) string {
 	return strings.Join(lines, "\n")
 }
 
-templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, successMsg string, errorMsg string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, successMsg, errorMsg))
+templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, currentMemberID, successMsg, errorMsg))
 }
 
-templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, successMsg string, errorMsg string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, successMsg, errorMsg))
+templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, currentMemberID, successMsg, errorMsg))
 }
 
-templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, successMsg string, errorMsg string) {
+templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data="{ activeTab: 'details' }">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="space-y-1">
@@ -233,14 +233,16 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 											</button>
 										</form>
 									}
-									<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
-										@CSRFField()
-										<input type="hidden" name="member_id" value={ m.MemberID } />
-										<input type="hidden" name="org_id" value={ org.ID } />
-										<button class="inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition" type="submit">
-											Remove
-										</button>
-									</form>
+									if m.MemberID != currentMemberID {
+										<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
+											@CSRFField()
+											<input type="hidden" name="member_id" value={ m.MemberID } />
+											<input type="hidden" name="org_id" value={ org.ID } />
+											<button class="inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition" type="submit">
+												Remove
+											</button>
+										</form>
+									}
 								</div>
 							</div>
 						}

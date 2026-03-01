@@ -104,6 +104,15 @@ func organizationSkillsBySource(skills []types.Skill, source string) []types.Ski
 	return sortedSkillsByName(out)
 }
 
+func hasPrimaryOwnedOrganization(orgs []types.MemberOrganization) bool {
+	for _, org := range orgs {
+		if org.IsPrimaryOwner {
+			return true
+		}
+	}
+	return false
+}
+
 templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, successMsg string, errorMsg string) {
 	@Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, skills, selectedSkillIDs, successMsg, errorMsg))
 }
@@ -408,6 +417,13 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 								}
 							</div>
 						}
+					</div>
+				}
+				if !hasPrimaryOwnedOrganization(orgs) {
+					<div class="mt-4">
+						<a class="inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800" href="/organizations/create">
+							Create an Organization
+						</a>
 					</div>
 				}
 			</section>

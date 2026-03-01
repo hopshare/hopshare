@@ -43,7 +43,6 @@
     * If the User is not primary owner of their own Organization, give them a button at bottom of "Organizations" tab that lets them create their own Organization. 
 
 * Hop Detail Page
-    * Summary section is a little clunky. We can probably tidy this up more...make easier to read
 
 * My HopShare Dashboard
 
@@ -75,7 +74,7 @@
 
 * Add in a REST API layer so we can eventually do a small mobile app for requesting, offering and accepting Hops.
 
-* Put Hop image uploads behind a feature flag- we should not store them in the database- instead use reliable storage. Not needed right now.
+* Hop images should not be stored in the database- instead use reliable external storage. We should use a filesystem instead. Not needed right now.
 
 * Make service/ExpireHelpRequests() asynchronous
     * Ideally we can run the 'hopshare' binary in a 'daemon' mode where it can do these sorts of things.

@@ -403,7 +403,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, successMsg, errorMsg))
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, successMsg, errorMsg))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
@@ -479,7 +479,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			description := strings.TrimSpace(r.FormValue("description"))
 			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", err.Error()))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", err.Error()))
 				return
 			}
 
@@ -493,14 +493,14 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			}
 			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 				log.Printf("update organization %d: %v", org.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not update organization."))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update organization."))
 				return
 			}
 
 			if hasLogo {
 				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
 					log.Printf("set org logo org=%d: %v", org.ID, err)
-					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not upload logo."))
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not upload logo."))
 					return
 				}
 			}
@@ -514,7 +514,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			skillNames := parseSkillLines(r.FormValue("skills_text"))
 			if err := service.ReplaceOrganizationSkills(r.Context(), s.db, org.ID, user.ID, skillNames); err != nil {
 				log.Printf("replace organization skills org=%d actor=%d: %v", org.ID, user.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, "", "Could not update skills."))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update skills."))
 				return
 			}
 			redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization skills updated.")
