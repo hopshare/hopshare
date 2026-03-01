@@ -162,15 +162,14 @@ func createTokenTestMember(t *testing.T, ctx context.Context, db *sql.DB, label 
 	t.Helper()
 	suffix := fmt.Sprintf("%s_%d", label, time.Now().UnixNano())
 	input := types.Member{
-		FirstName:              "Token",
-		LastName:               "Tester",
-		Username:               "token_" + suffix,
-		Email:                  "token_" + suffix + "@example.com",
-		PasswordHash:           "hashed_password",
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       "token_" + suffix + "@example.com",
-		Enabled:                true,
-		Verified:               false,
+		FirstName:        "Token",
+		LastName:         "Tester",
+		Username:         "token_" + suffix,
+		Email:            "token_" + suffix + "@example.com",
+		PasswordHash:     "hashed_password",
+		PreferredContact: "token_" + suffix + "@example.com",
+		Enabled:          true,
+		Verified:         false,
 	}
 
 	member, err := CreateMember(ctx, db, input)

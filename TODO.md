@@ -32,9 +32,6 @@
     * Adjust base template for graphic sidebar
     * Test on mobile device
 
-* Get this thing hosted - build out the ci/cd automation
-    * Share with Pamela
-
 * Set up incoming email accounts on hopshare.org
 
 * /healthz endpoint should actually determine health- currently just returns 200

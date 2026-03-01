@@ -1,14 +1,14 @@
 package templates
 
-templ Signup(userEmail *string, successMsg string, errorMsg string, next string) {
-	@Base("hopShare | Request to join", userEmail, SignupBody(successMsg, errorMsg, next))
+templ Signup(userEmail *string, form SignupForm, successMsg string, errorMsg string, next string) {
+	@Base("hopShare | Request to join", userEmail, SignupBody(form, successMsg, errorMsg, next))
 }
 
-templ SignupBody(successMsg string, errorMsg string, next string) {
+templ SignupBody(form SignupForm, successMsg string, errorMsg string, next string) {
 	<section class="max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Request to join hopShare</h1>
-			<p class="text-slate-600 mt-1">Tell us a bit about you and your community.</p>
+			<p class="text-slate-600 mt-1">Tell us a bit about yourself!</p>
 		</div>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
@@ -20,7 +20,6 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 			password: '',
 			strength: 'Too weak',
 			ok: false,
-			contactMethod: '',
 			update(p) {
 				this.password = p;
 				const hasLength = p.length >= 8;
@@ -28,7 +27,7 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 				const hasLetter = /[A-Za-z]/.test(p);
 				const hasSpecial = /[^A-Za-z0-9]/.test(p);
 				const score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;
-				this.ok = hasLength && score >= 3 && this.contactMethod !== '';
+				this.ok = hasLength && score >= 3;
 				if (this.ok && score === 4) {
 					this.strength = 'Strong';
 				} else if (this.ok) {
@@ -39,7 +38,7 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 					this.strength = 'Too weak';
 				}
 			}
-		}">
+		}" x-init="password = $refs.password.value; update(password)">
 			@CSRFField()
 			if next != "" {
 				<input type="hidden" name="next" value={ next } />
@@ -47,20 +46,20 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="first_name">First name</label>
-					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="first_name" name="first_name" required />
+					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="first_name" name="first_name" required value={ form.FirstName } />
 				</div>
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="last_name">Last name</label>
-					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="last_name" name="last_name" required />
+					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="last_name" name="last_name" required value={ form.LastName } />
 				</div>
 			</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="email">Email</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" required />
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" required value={ form.Email } />
 			</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="password">Create a password</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="password" name="password" required x-on:input="update($event.target.value)" />
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="password" name="password" required value={ form.Password } x-ref="password" x-on:input="update($event.target.value)" />
 				<p class="text-sm text-slate-600 flex items-center gap-2">
 					<span class="font-semibold">Strength:</span>
 					<span x-text="strength"></span>
@@ -68,25 +67,12 @@ templ SignupBody(successMsg string, errorMsg string, next string) {
 				<p class="text-xs text-slate-500">Use at least 8 characters including letters, numbers, and a symbol.</p>
 			</div>
 			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="preferred_contact_method">Preferred contact method</label>
-				<select class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" id="preferred_contact_method" name="preferred_contact_method" required x-on:change="contactMethod = $event.target.value; update(password)">
-					<option value="" disabled selected>Select a contact method</option>
-					<option value="email">Email</option>
-					<option value="phone">Phone</option>
-					<option value="other">Other</option>
-				</select>
-			</div>
-			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="city">City (optional)</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="city" name="city" />
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="city" name="city" value={ form.City } />
 			</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="state">State (optional)</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="state" name="state" />
-			</div>
-			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="interests">Interests (optional)</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="interests" name="interests" />
+				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="state" name="state" value={ form.State } />
 			</div>
 			<button class="inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition"
 				:class="ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'"

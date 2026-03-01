@@ -265,31 +265,6 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 						/>
 					</div>
 					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="preferred_contact_method">Preferred contact method</label>
-						<select
-							class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
-							id="preferred_contact_method"
-							name="preferred_contact_method"
-							required
-						>
-							if member.PreferredContactMethod == types.ContactMethodEmail {
-								<option value="email" selected>Email</option>
-							} else {
-								<option value="email">Email</option>
-							}
-							if member.PreferredContactMethod == types.ContactMethodPhone {
-								<option value="phone" selected>Phone</option>
-							} else {
-								<option value="phone">Phone</option>
-							}
-							if member.PreferredContactMethod == types.ContactMethodOther {
-								<option value="other" selected>Other</option>
-							} else {
-								<option value="other">Other</option>
-							}
-						</select>
-					</div>
-					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="preferred_contact">Preferred contact</label>
 						<input
 							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"

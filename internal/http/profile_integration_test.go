@@ -47,14 +47,13 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
-			"action":                   "profile",
-			"first_name":               "UpdatedFirst",
-			"last_name":                "UpdatedLast",
-			"email":                    member.Member.Email,
-			"preferred_contact_method": "email",
-			"preferred_contact":        member.Member.Email,
-			"city":                     "Portland",
-			"state":                    "OR",
+			"action":            "profile",
+			"first_name":        "UpdatedFirst",
+			"last_name":         "UpdatedLast",
+			"email":             member.Member.Email,
+			"preferred_contact": member.Member.Email,
+			"city":              "Portland",
+			"state":             "OR",
 		}), "/profile")
 		requireQueryValue(t, loc, "success", "Profile updated.")
 
@@ -67,7 +66,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("PROF-03 POST /profile action=profile invalid contact method is rejected", func(t *testing.T) {
+	t.Run("PROF-03 POST /profile action=profile missing preferred contact is rejected", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_invalid_contact", uniqueTestSuffix())
@@ -76,14 +75,13 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
-			"action":                   "profile",
-			"first_name":               "F",
-			"last_name":                "L",
-			"email":                    member.Member.Email,
-			"preferred_contact_method": "pager",
-			"preferred_contact":        "whatever",
+			"action":            "profile",
+			"first_name":        "F",
+			"last_name":         "L",
+			"email":             member.Member.Email,
+			"preferred_contact": "",
 		}), "/profile")
-		requireQueryValue(t, loc, "error", "Please choose a preferred contact method.")
+		requireQueryValue(t, loc, "error", "Name, email, and preferred contact are required.")
 	})
 
 	t.Run("PROF-04 POST /profile action=profile missing fields is rejected", func(t *testing.T) {
@@ -95,14 +93,13 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
-			"action":                   "profile",
-			"first_name":               "",
-			"last_name":                "",
-			"email":                    member.Member.Email,
-			"preferred_contact_method": "email",
-			"preferred_contact":        member.Member.Email,
+			"action":            "profile",
+			"first_name":        "",
+			"last_name":         "",
+			"email":             member.Member.Email,
+			"preferred_contact": member.Member.Email,
 		}), "/profile")
-		requireQueryValue(t, loc, "error", "Name, email, contact method, and preferred contact are required.")
+		requireQueryValue(t, loc, "error", "Name, email, and preferred contact are required.")
 	})
 
 	t.Run("PROF-05 POST /profile action=password success updates password", func(t *testing.T) {
@@ -277,12 +274,11 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
-			"action":                   "profile",
-			"first_name":               member.Member.FirstName,
-			"last_name":                member.Member.LastName,
-			"email":                    member.Member.Email,
-			"preferred_contact_method": "email",
-			"preferred_contact":        member.Member.Email,
+			"action":            "profile",
+			"first_name":        member.Member.FirstName,
+			"last_name":         member.Member.LastName,
+			"email":             member.Member.Email,
+			"preferred_contact": member.Member.Email,
 		}, []multipartFile{{
 			FieldName:   "avatar_file",
 			FileName:    "avatar.png",
@@ -307,12 +303,11 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
-			"action":                   "profile",
-			"first_name":               member.Member.FirstName,
-			"last_name":                member.Member.LastName,
-			"email":                    member.Member.Email,
-			"preferred_contact_method": "email",
-			"preferred_contact":        member.Member.Email,
+			"action":            "profile",
+			"first_name":        member.Member.FirstName,
+			"last_name":         member.Member.LastName,
+			"email":             member.Member.Email,
+			"preferred_contact": member.Member.Email,
 		}, []multipartFile{{
 			FieldName:   "avatar_file",
 			FileName:    "avatar.txt",

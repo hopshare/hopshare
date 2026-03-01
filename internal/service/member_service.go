@@ -29,15 +29,13 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 			username,
 			email,
 			password_hash,
-			preferred_contact_method,
 			preferred_contact,
 			profile_picture_url,
 			city,
 			state,
-			interests,
 			enabled,
 			verified
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at, updated_at`
 
 	row := db.QueryRowContext(
@@ -48,12 +46,10 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 		m.Username,
 		m.Email,
 		m.PasswordHash,
-		m.PreferredContactMethod,
 		m.PreferredContact,
 		m.ProfilePictureURL,
 		m.City,
 		m.State,
-		m.Interests,
 		m.Enabled,
 		m.Verified,
 	)
@@ -66,14 +62,8 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 }
 
 func validateMemberInput(m types.Member) error {
-	if m.FirstName == "" || m.LastName == "" || m.Username == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContactMethod == "" || m.PreferredContact == "" {
+	if m.FirstName == "" || m.LastName == "" || m.Username == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContact == "" {
 		return ErrMissingField
-	}
-
-	switch m.PreferredContactMethod {
-	case types.ContactMethodEmail, types.ContactMethodPhone, types.ContactMethodOther:
-	default:
-		return ErrInvalidContactMethod
 	}
 
 	return nil
@@ -128,14 +118,12 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 			username,
 			email,
 			password_hash,
-			preferred_contact_method,
 			preferred_contact,
 			profile_picture_url,
 			avatar_content_type,
 			(avatar_data IS NOT NULL),
 			city,
 			state,
-			interests,
 			current_organization,
 			enabled,
 			verified,
@@ -157,14 +145,12 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
-		&m.PreferredContactMethod,
 		&m.PreferredContact,
 		&m.ProfilePictureURL,
 		&avatarContentType,
 		&hasAvatar,
 		&m.City,
 		&m.State,
-		&m.Interests,
 		&currentOrg,
 		&m.Enabled,
 		&m.Verified,
@@ -202,14 +188,12 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 			username,
 			email,
 			password_hash,
-			preferred_contact_method,
 			preferred_contact,
 			profile_picture_url,
 			avatar_content_type,
 			(avatar_data IS NOT NULL),
 			city,
 			state,
-			interests,
 			current_organization,
 			enabled,
 			verified,
@@ -231,14 +215,12 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
-		&m.PreferredContactMethod,
 		&m.PreferredContact,
 		&m.ProfilePictureURL,
 		&avatarContentType,
 		&hasAvatar,
 		&m.City,
 		&m.State,
-		&m.Interests,
 		&currentOrg,
 		&m.Enabled,
 		&m.Verified,
@@ -276,14 +258,12 @@ func GetMemberByUsername(ctx context.Context, db *sql.DB, username string) (type
 			username,
 			email,
 			password_hash,
-			preferred_contact_method,
 			preferred_contact,
 			profile_picture_url,
 			avatar_content_type,
 			(avatar_data IS NOT NULL),
 			city,
 			state,
-			interests,
 			current_organization,
 			enabled,
 			verified,
@@ -305,14 +285,12 @@ func GetMemberByUsername(ctx context.Context, db *sql.DB, username string) (type
 		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
-		&m.PreferredContactMethod,
 		&m.PreferredContact,
 		&m.ProfilePictureURL,
 		&avatarContentType,
 		&hasAvatar,
 		&m.City,
 		&m.State,
-		&m.Interests,
 		&currentOrg,
 		&m.Enabled,
 		&m.Verified,
@@ -488,7 +466,7 @@ func usernameExists(ctx context.Context, db *sql.DB, username string) (bool, err
 }
 
 // UpdateMemberProfile updates a member's profile details.
-func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstName, lastName, email, preferredContactMethod, preferredContact, city, state string) error {
+func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstName, lastName, email, preferredContact, city, state string) error {
 	if db == nil {
 		return ErrNilDB
 	}
@@ -498,18 +476,12 @@ func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstN
 	firstName = strings.TrimSpace(firstName)
 	lastName = strings.TrimSpace(lastName)
 	email = strings.TrimSpace(email)
-	preferredContactMethod = strings.TrimSpace(preferredContactMethod)
 	preferredContact = strings.TrimSpace(preferredContact)
 	city = strings.TrimSpace(city)
 	state = strings.TrimSpace(state)
 
-	if firstName == "" || lastName == "" || email == "" || preferredContactMethod == "" || preferredContact == "" {
+	if firstName == "" || lastName == "" || email == "" || preferredContact == "" {
 		return ErrMissingField
-	}
-	switch preferredContactMethod {
-	case types.ContactMethodEmail, types.ContactMethodPhone, types.ContactMethodOther:
-	default:
-		return ErrInvalidContactMethod
 	}
 
 	res, err := db.ExecContext(ctx, `
@@ -517,13 +489,12 @@ func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstN
 		SET first_name = $1,
 			last_name = $2,
 			email = $3,
-			preferred_contact_method = $4,
-			preferred_contact = $5,
-			city = $6,
-			state = $7,
+			preferred_contact = $4,
+			city = $5,
+			state = $6,
 			updated_at = NOW()
-		WHERE id = $8
-	`, firstName, lastName, email, preferredContactMethod, preferredContact, nullableMemberString(city), nullableMemberString(state), memberID)
+		WHERE id = $7
+	`, firstName, lastName, email, preferredContact, nullableMemberString(city), nullableMemberString(state), memberID)
 	if err != nil {
 		return fmt.Errorf("update member profile: %w", err)
 	}

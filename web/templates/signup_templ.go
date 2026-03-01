@@ -8,7 +8,7 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func Signup(userEmail *string, successMsg string, errorMsg string, next string) templ.Component {
+func Signup(userEmail *string, form SignupForm, successMsg string, errorMsg string, next string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,7 @@ func Signup(userEmail *string, successMsg string, errorMsg string, next string) 
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Request to join", userEmail, SignupBody(successMsg, errorMsg, next)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | Request to join", userEmail, SignupBody(form, successMsg, errorMsg, next)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -37,7 +37,7 @@ func Signup(userEmail *string, successMsg string, errorMsg string, next string) 
 	})
 }
 
-func SignupBody(successMsg string, errorMsg string, next string) templ.Component {
+func SignupBody(form SignupForm, successMsg string, errorMsg string, next string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -58,7 +58,7 @@ func SignupBody(successMsg string, errorMsg string, next string) templ.Component
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Request to join hopShare</h1><p class=\"text-slate-600 mt-1\">Tell us a bit about you and your community.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6\"><div><h1 class=\"text-2xl font-bold text-slate-900\">Request to join hopShare</h1><p class=\"text-slate-600 mt-1\">Tell us a bit about yourself!</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -100,7 +100,7 @@ func SignupBody(successMsg string, errorMsg string, next string) templ.Component
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/signup\" x-data=\"{\n\t\t\tpassword: '',\n\t\t\tstrength: 'Too weak',\n\t\t\tok: false,\n\t\t\tcontactMethod: '',\n\t\t\tupdate(p) {\n\t\t\t\tthis.password = p;\n\t\t\t\tconst hasLength = p.length >= 8;\n\t\t\t\tconst hasNumber = /[0-9]/.test(p);\n\t\t\t\tconst hasLetter = /[A-Za-z]/.test(p);\n\t\t\t\tconst hasSpecial = /[^A-Za-z0-9]/.test(p);\n\t\t\t\tconst score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;\n\t\t\t\tthis.ok = hasLength && score >= 3 && this.contactMethod !== '';\n\t\t\t\tif (this.ok && score === 4) {\n\t\t\t\t\tthis.strength = 'Strong';\n\t\t\t\t} else if (this.ok) {\n\t\t\t\t\tthis.strength = 'Good';\n\t\t\t\t} else if (score >= 2) {\n\t\t\t\t\tthis.strength = 'Weak';\n\t\t\t\t} else {\n\t\t\t\t\tthis.strength = 'Too weak';\n\t\t\t\t}\n\t\t\t}\n\t\t}\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/signup\" x-data=\"{\n\t\t\tpassword: '',\n\t\t\tstrength: 'Too weak',\n\t\t\tok: false,\n\t\t\tupdate(p) {\n\t\t\t\tthis.password = p;\n\t\t\t\tconst hasLength = p.length >= 8;\n\t\t\t\tconst hasNumber = /[0-9]/.test(p);\n\t\t\t\tconst hasLetter = /[A-Za-z]/.test(p);\n\t\t\t\tconst hasSpecial = /[^A-Za-z0-9]/.test(p);\n\t\t\t\tconst score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;\n\t\t\t\tthis.ok = hasLength && score >= 3;\n\t\t\t\tif (this.ok && score === 4) {\n\t\t\t\t\tthis.strength = 'Strong';\n\t\t\t\t} else if (this.ok) {\n\t\t\t\t\tthis.strength = 'Good';\n\t\t\t\t} else if (score >= 2) {\n\t\t\t\t\tthis.strength = 'Weak';\n\t\t\t\t} else {\n\t\t\t\t\tthis.strength = 'Too weak';\n\t\t\t\t}\n\t\t\t}\n\t\t}\" x-init=\"password = $refs.password.value; update(password)\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -116,7 +116,7 @@ func SignupBody(successMsg string, errorMsg string, next string) templ.Component
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(next)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 45, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 44, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -127,7 +127,85 @@ func SignupBody(successMsg string, errorMsg string, next string) templ.Component
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"first_name\">First name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"first_name\" name=\"first_name\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"password\">Create a password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"password\" name=\"password\" required x-on:input=\"update($event.target.value)\"><p class=\"text-sm text-slate-600 flex items-center gap-2\"><span class=\"font-semibold\">Strength:</span> <span x-text=\"strength\"></span></p><p class=\"text-xs text-slate-500\">Use at least 8 characters including letters, numbers, and a symbol.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"preferred_contact_method\">Preferred contact method</label> <select class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" id=\"preferred_contact_method\" name=\"preferred_contact_method\" required x-on:change=\"contactMethod = $event.target.value; update(password)\"><option value=\"\" disabled selected>Select a contact method</option> <option value=\"email\">Email</option> <option value=\"phone\">Phone</option> <option value=\"other\">Other</option></select></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"city\">City (optional)</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"city\" name=\"city\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"state\">State (optional)</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"state\" name=\"state\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"interests\">Interests (optional)</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"interests\" name=\"interests\"></div><button class=\"inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition\" :class=\"ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'\" type=\"submit\" :disabled=\"!ok\" :aria-disabled=\"!ok\">Sign Up</button></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"first_name\">First name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"first_name\" name=\"first_name\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(form.FirstName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 49, Col: 200}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(form.LastName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 53, Col: 197}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var8 string
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(form.Email)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 58, Col: 186}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"password\">Create a password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"password\" name=\"password\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var9 string
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(form.Password)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 62, Col: 198}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" x-ref=\"password\" x-on:input=\"update($event.target.value)\"><p class=\"text-sm text-slate-600 flex items-center gap-2\"><span class=\"font-semibold\">Strength:</span> <span x-text=\"strength\"></span></p><p class=\"text-xs text-slate-500\">Use at least 8 characters including letters, numbers, and a symbol.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"city\">City (optional)</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"city\" name=\"city\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 string
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(form.City)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 71, Col: 173}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"state\">State (optional)</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"state\" name=\"state\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(form.State)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 75, Col: 176}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"></div><button class=\"inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition\" :class=\"ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'\" type=\"submit\" :disabled=\"!ok\" :aria-disabled=\"!ok\">Sign Up</button></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -151,9 +229,9 @@ func SignupSuccess(userEmail *string, loginHref string, requireEmailVerification
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var6 == nil {
-			templ_7745c5c3_Var6 = templ.NopComponent
+		templ_7745c5c3_Var12 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var12 == nil {
+			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref, requireEmailVerification)).Render(ctx, templ_7745c5c3_Buffer)
@@ -180,40 +258,40 @@ func SignupSuccessBody(loginHref string, requireEmailVerification bool) templ.Co
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var7 == nil {
-			templ_7745c5c3_Var7 = templ.NopComponent
+		templ_7745c5c3_Var13 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var13 == nil {
+			templ_7745c5c3_Var13 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<section class=\"max-w-xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if requireEmailVerification {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<h1 class=\"text-2xl font-bold text-slate-900\">Almost done!</h1><p class=\"text-slate-700\">We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<h1 class=\"text-2xl font-bold text-slate-900\">Almost done!</h1><p class=\"text-slate-700\">We created your account and sent a verification email to the address you provided. Open that link to verify your email before logging in.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<h1 class=\"text-2xl font-bold text-slate-900\">Account created</h1><p class=\"text-slate-700\">Your account is ready and you can log in now.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<h1 class=\"text-2xl font-bold text-slate-900\">Account created</h1><p class=\"text-slate-700\">Your account is ready and you can log in now.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"flex gap-3\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 templ.SafeURL
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(loginHref)
+		var templ_7745c5c3_Var14 templ.SafeURL
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(loginHref)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 120, Col: 144}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 106, Col: 144}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\">Back to login</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/\">Return home</a></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\">Back to login</a> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"/\">Return home</a></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

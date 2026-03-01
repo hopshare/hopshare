@@ -69,15 +69,14 @@ func TestCreateMember(t *testing.T) {
 	email := fmt.Sprintf("%s@example.com", username)
 
 	input := types.Member{
-		FirstName:              "Test",
-		LastName:               "Member",
-		Username:               username,
-		Email:                  email,
-		PasswordHash:           "hashed_password",
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       email,
-		Enabled:                true,
-		Verified:               true,
+		FirstName:        "Test",
+		LastName:         "Member",
+		Username:         username,
+		Email:            email,
+		PasswordHash:     "hashed_password",
+		PreferredContact: email,
+		Enabled:          true,
+		Verified:         true,
 	}
 
 	member, err := CreateMember(ctx, db, input)
@@ -106,15 +105,14 @@ func TestCreateOrganization(t *testing.T) {
 	memberEmail := fmt.Sprintf("%s@example.com", base)
 
 	memberInput := types.Member{
-		FirstName:              "Owner",
-		LastName:               "Member",
-		Username:               base,
-		Email:                  memberEmail,
-		PasswordHash:           "hashed_password",
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       memberEmail,
-		Enabled:                true,
-		Verified:               true,
+		FirstName:        "Owner",
+		LastName:         "Member",
+		Username:         base,
+		Email:            memberEmail,
+		PasswordHash:     "hashed_password",
+		PreferredContact: memberEmail,
+		Enabled:          true,
+		Verified:         true,
 	}
 
 	member, err := CreateMember(ctx, db, memberInput)

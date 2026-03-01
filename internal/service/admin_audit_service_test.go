@@ -147,15 +147,14 @@ func createAuditTestMember(t *testing.T, ctx context.Context, db *sql.DB, prefix
 	email := username + "@example.com"
 
 	member, err := CreateMember(ctx, db, types.Member{
-		FirstName:              "Audit",
-		LastName:               "Tester",
-		Username:               username,
-		Email:                  email,
-		PasswordHash:           "hashed_password",
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       email,
-		Enabled:                true,
-		Verified:               true,
+		FirstName:        "Audit",
+		LastName:         "Tester",
+		Username:         username,
+		Email:            email,
+		PasswordHash:     "hashed_password",
+		PreferredContact: email,
+		Enabled:          true,
+		Verified:         true,
 	})
 	if err != nil {
 		t.Fatalf("create audit test member: %v", err)

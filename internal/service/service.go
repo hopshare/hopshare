@@ -8,7 +8,6 @@ import (
 
 var (
 	ErrNilDB                = errors.New("db is nil")
-	ErrInvalidContactMethod = errors.New("invalid preferred contact method")
 	ErrMissingField         = errors.New("missing required field")
 	ErrMissingMemberID      = errors.New("member id is required")
 	ErrMissingOrgName       = errors.New("organization name is required")

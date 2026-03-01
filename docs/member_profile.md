@@ -11,7 +11,7 @@ We need a separate "Member Profile" page, selectable from their Name/avatar in t
 * we should have a popover modal here that lets Members update any of their information (except e-mail address), including a password reset (with re-authentication first).
 * eventually we should allow Members to upload a photo (or maybe have a clever way to grab something off one of their social accounts).
 
-## Updating their Skills and Interests
+## Updating their Skills
 
 * Link out to another page for this
 

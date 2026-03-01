@@ -45,15 +45,14 @@ func Load(ctx context.Context, db *sql.DB, memberCount, orgCount int) (Result, e
 		email := fmt.Sprintf("member_%d@example.com", i)
 		username := fmt.Sprintf("member_%d", i)
 		member := types.Member{
-			FirstName:              fmt.Sprintf("Member%d", i),
-			LastName:               "Hopshare",
-			Username:               username,
-			Email:                  email,
-			PasswordHash:           passwordHash,
-			PreferredContactMethod: types.ContactMethodEmail,
-			PreferredContact:       email,
-			Enabled:                true,
-			Verified:               true,
+			FirstName:        fmt.Sprintf("Member%d", i),
+			LastName:         "Hopshare",
+			Username:         username,
+			Email:            email,
+			PasswordHash:     passwordHash,
+			PreferredContact: email,
+			Enabled:          true,
+			Verified:         true,
 		}
 		created, err := service.CreateMember(ctx, db, member)
 		if err != nil {

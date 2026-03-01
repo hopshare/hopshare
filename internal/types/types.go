@@ -6,12 +6,6 @@ import (
 )
 
 const (
-	ContactMethodEmail = "email"
-	ContactMethodPhone = "phone"
-	ContactMethodOther = "other"
-)
-
-const (
 	HopStatusOpen      = "open"
 	HopStatusAccepted  = "accepted"
 	HopStatusCanceled  = "canceled"
@@ -60,26 +54,24 @@ const (
 
 // Member represents a row in the members table.
 type Member struct {
-	ID                     int64
-	FirstName              string
-	LastName               string
-	Username               string
-	Email                  string
-	PasswordHash           string
-	PreferredContactMethod string
-	PreferredContact       string
-	ProfilePictureURL      *string
-	AvatarContentType      *string
-	HasAvatar              bool
-	City                   *string
-	State                  *string
-	Interests              *string
-	CurrentOrganization    *int64
-	Enabled                bool
-	Verified               bool
-	LastLoginAt            *time.Time
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
+	ID                  int64
+	FirstName           string
+	LastName            string
+	Username            string
+	Email               string
+	PasswordHash        string
+	PreferredContact    string
+	ProfilePictureURL   *string
+	AvatarContentType   *string
+	HasAvatar           bool
+	City                *string
+	State               *string
+	CurrentOrganization *int64
+	Enabled             bool
+	Verified            bool
+	LastLoginAt         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // Organization represents a Hopshare organization/tenant.

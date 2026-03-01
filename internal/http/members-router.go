@@ -71,7 +71,6 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			firstName := strings.TrimSpace(r.FormValue("first_name"))
 			lastName := strings.TrimSpace(r.FormValue("last_name"))
 			email := strings.TrimSpace(r.FormValue("email"))
-			preferredContactMethod := strings.TrimSpace(r.FormValue("preferred_contact_method"))
 			preferredContact := strings.TrimSpace(r.FormValue("preferred_contact"))
 			city := strings.TrimSpace(r.FormValue("city"))
 			state := strings.TrimSpace(r.FormValue("state"))
@@ -82,13 +81,11 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := service.UpdateMemberProfile(r.Context(), s.db, user.ID, firstName, lastName, email, preferredContactMethod, preferredContact, city, state); err != nil {
+			if err := service.UpdateMemberProfile(r.Context(), s.db, user.ID, firstName, lastName, email, preferredContact, city, state); err != nil {
 				msg := "Could not update profile."
 				switch {
 				case errors.Is(err, service.ErrMissingField):
-					msg = "Name, email, contact method, and preferred contact are required."
-				case errors.Is(err, service.ErrInvalidContactMethod):
-					msg = "Please choose a preferred contact method."
+					msg = "Name, email, and preferred contact are required."
 				}
 				log.Printf("update member profile %d: %v", user.ID, err)
 				http.Redirect(w, r, "/profile?error="+url.QueryEscape(msg), http.StatusSeeOther)

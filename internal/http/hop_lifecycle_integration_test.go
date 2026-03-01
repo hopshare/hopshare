@@ -389,15 +389,14 @@ func createSeededMember(t *testing.T, ctx context.Context, db *sql.DB, role, suf
 	}
 
 	member, err := service.CreateMember(ctx, db, types.Member{
-		FirstName:              role,
-		LastName:               "Integration",
-		Username:               username,
-		Email:                  email,
-		PasswordHash:           hash,
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       email,
-		Enabled:                true,
-		Verified:               true,
+		FirstName:        role,
+		LastName:         "Integration",
+		Username:         username,
+		Email:            email,
+		PasswordHash:     hash,
+		PreferredContact: email,
+		Enabled:          true,
+		Verified:         true,
 	})
 	if err != nil {
 		t.Fatalf("create %s member: %v", role, err)

@@ -254,10 +254,8 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Success",
 			"email", email,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 			"city", "Austin",
 			"state", "TX",
-			"interests", "reading",
 		)), "/signup-success")
 
 		if next := loc.Query().Get("next"); next != "" {
@@ -287,7 +285,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Signup",
 			"email", email,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 
 		member, err := service.GetMemberByEmail(ctx, db, email)
@@ -357,7 +354,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Disabled",
 			"email", email,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 
 		member, err := service.GetMemberByEmail(ctx, db, email)
@@ -389,7 +385,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Reuse",
 			"email", email,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 
 		verifyEmail, ok := emailSender.LastVerification()
@@ -448,7 +443,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Resend",
 			"email", email,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 		initialCount := emailSender.VerificationCount()
 
@@ -492,22 +486,20 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "",
 			"email", "missing_names@example.com",
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), 200)
 		requireBodyContains(t, body, "Please enter your first and last name.")
 	})
 
-	t.Run("AUTH-12 POST /signup invalid contact method shows validation error", func(t *testing.T) {
+	t.Run("AUTH-12 POST /signup succeeds without contact method", func(t *testing.T) {
+		suffix := uniqueTestSuffix()
 		server := newHTTPServer(t, db)
 		anon := newTestActor(t, "anon", server.URL, "", "")
-		body := requireStatus(t, anon.PostForm("/signup", formKV(
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
 			"first_name", "Invalid",
 			"last_name", "Contact",
-			"email", "invalid_contact@example.com",
+			"email", "invalid_contact_"+suffix+"@example.com",
 			"password", "Password123!",
-			"preferred_contact_method", "pager",
-		)), 200)
-		requireBodyContains(t, body, "Please choose a preferred contact method.")
+		)), "/signup-success")
 	})
 
 	t.Run("AUTH-13 repeated signup base username gets unique username", func(t *testing.T) {
@@ -524,7 +516,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Name",
 			"email", emailA,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 
 		requireRedirectPath(t, anon.PostForm("/signup", formKV(
@@ -532,7 +523,6 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"last_name", "Name",
 			"email", emailB,
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		)), "/signup-success")
 
 		memberA, err := service.GetMemberByEmail(ctx, db, emailA)
@@ -546,6 +536,36 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		if memberA.Username == memberB.Username {
 			t.Fatalf("expected unique usernames, both were %q", memberA.Username)
 		}
+	})
+
+	t.Run("AUTH-13A POST /signup duplicate email shows specific error", func(t *testing.T) {
+		suffix := uniqueTestSuffix()
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		email := "duplicate_signup_email_" + suffix + "@example.com"
+
+		requireRedirectPath(t, anon.PostForm("/signup", formKV(
+			"first_name", "First",
+			"last_name", "Signup",
+			"email", email,
+			"password", "Password123!",
+		)), "/signup-success")
+
+		body := requireStatus(t, anon.PostForm("/signup", formKV(
+			"first_name", "Second",
+			"last_name", "Signup",
+			"email", email,
+			"password", "Password123!",
+			"city", "Albany",
+			"state", "NY",
+		)), http.StatusOK)
+		requireBodyContains(t, body, "That email address is already taken, please try another one.")
+		requireBodyContains(t, body, `name="first_name" required value="Second"`)
+		requireBodyContains(t, body, `name="last_name" required value="Signup"`)
+		requireBodyContains(t, body, `name="email" required value="`+email+`"`)
+		requireBodyContains(t, body, `name="password" required value="Password123!"`)
+		requireBodyContains(t, body, `name="city" value="Albany"`)
+		requireBodyContains(t, body, `name="state" value="NY"`)
 	})
 
 	t.Run("AUTH-14 POST /forgot-password known email returns generic success and sends reset email", func(t *testing.T) {
@@ -787,7 +807,6 @@ func TestAuthRateLimitingHTTP(t *testing.T) {
 				"last_name", "",
 				"email", "ratelimit_signup_"+uniqueTestSuffix()+"@example.com",
 				"password", "Password123!",
-				"preferred_contact_method", "email",
 			))
 			if resp.StatusCode == http.StatusTooManyRequests {
 				t.Fatalf("request %d unexpectedly rate-limited", i+1)
@@ -800,7 +819,6 @@ func TestAuthRateLimitingHTTP(t *testing.T) {
 			"last_name", "",
 			"email", "ratelimit_signup_"+uniqueTestSuffix()+"@example.com",
 			"password", "Password123!",
-			"preferred_contact_method", "email",
 		))
 		requireStatus(t, limited, http.StatusTooManyRequests)
 	})

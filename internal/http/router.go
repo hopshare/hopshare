@@ -315,7 +315,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "", next))
+		render(w, r, templates.Signup(s.currentUserEmailPtr(r), templates.SignupForm{}, "", "", next))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -329,21 +329,23 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			s.setPostAuthRedirectCookie(w, r, next)
 		}
 
-		firstName := strings.TrimSpace(r.FormValue("first_name"))
-		lastName := strings.TrimSpace(r.FormValue("last_name"))
-		email := strings.TrimSpace(r.FormValue("email"))
-		password := r.FormValue("password")
-		preferredContactMethod := strings.TrimSpace(r.FormValue("preferred_contact_method"))
-		city := strings.TrimSpace(r.FormValue("city"))
-		state := strings.TrimSpace(r.FormValue("state"))
-		interests := strings.TrimSpace(r.FormValue("interests"))
+		form := templates.SignupForm{
+			FirstName: strings.TrimSpace(r.FormValue("first_name")),
+			LastName:  strings.TrimSpace(r.FormValue("last_name")),
+			Email:     strings.TrimSpace(r.FormValue("email")),
+			Password:  r.FormValue("password"),
+			City:      strings.TrimSpace(r.FormValue("city")),
+			State:     strings.TrimSpace(r.FormValue("state")),
+		}
+		firstName := form.FirstName
+		lastName := form.LastName
+		email := form.Email
+		password := form.Password
+		city := form.City
+		state := form.State
 
 		if firstName == "" || lastName == "" {
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please enter your first and last name.", next))
-			return
-		}
-		if preferredContactMethod != types.ContactMethodEmail && preferredContactMethod != types.ContactMethodPhone && preferredContactMethod != types.ContactMethodOther {
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "Please choose a preferred contact method.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "Please enter your first and last name.", next))
 			return
 		}
 
@@ -357,7 +359,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		passwordHash, err := service.HashPassword(password)
 		if err != nil {
 			log.Printf("hash password failed: %v", err)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
 			return
 		}
 
@@ -369,23 +371,21 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			username, err = service.EnsureUniqueUsername(r.Context(), s.db, baseUsername)
 			if err != nil {
 				log.Printf("generate username failed: %v", err)
-				render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
 				return
 			}
 
 			member := types.Member{
-				FirstName:              firstName,
-				LastName:               lastName,
-				Username:               username,
-				Email:                  email,
-				PasswordHash:           passwordHash,
-				PreferredContactMethod: preferredContactMethod,
-				PreferredContact:       email,
-				City:                   strPtr(city),
-				State:                  strPtr(state),
-				Interests:              strPtr(interests),
-				Enabled:                true,
-				Verified:               !s.featureEmail,
+				FirstName:        firstName,
+				LastName:         lastName,
+				Username:         username,
+				Email:            email,
+				PasswordHash:     passwordHash,
+				PreferredContact: email,
+				City:             strPtr(city),
+				State:            strPtr(state),
+				Enabled:          true,
+				Verified:         !s.featureEmail,
 			}
 
 			created, createErr = service.CreateMember(r.Context(), s.db, member)
@@ -397,12 +397,16 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if createErr != nil {
+			if isUniqueViolation(createErr, "members_email_key") {
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "That email address is already taken, please try another one.", next))
+				return
+			}
 			log.Printf("create member failed: %v", createErr)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), "", "We could not process your request right now. Please try again.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
 			return
 		}
 
-		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q preferred_contact_method=%q city=%q state=%q interests=%q member_id=%d", firstName, lastName, username, email, preferredContactMethod, city, state, interests, created.ID)
+		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q city=%q state=%q member_id=%d", firstName, lastName, username, email, city, state, created.ID)
 		if s.featureEmail {
 			token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
 				MemberID:    created.ID,

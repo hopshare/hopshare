@@ -154,15 +154,14 @@ func mustCreateMemberForSkillsTest(t *testing.T, ctx context.Context, db *sql.DB
 	base := fmt.Sprintf("skill_%s_%d", prefix, time.Now().UnixNano())
 	email := base + "@example.com"
 	m, err := CreateMember(ctx, db, types.Member{
-		FirstName:              "Skill",
-		LastName:               "Tester",
-		Username:               base,
-		Email:                  email,
-		PasswordHash:           "hashed_password",
-		PreferredContactMethod: types.ContactMethodEmail,
-		PreferredContact:       email,
-		Enabled:                true,
-		Verified:               true,
+		FirstName:        "Skill",
+		LastName:         "Tester",
+		Username:         base,
+		Email:            email,
+		PasswordHash:     "hashed_password",
+		PreferredContact: email,
+		Enabled:          true,
+		Verified:         true,
 	})
 	if err != nil {
 		t.Fatalf("CreateMember returned error: %v", err)

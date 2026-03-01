@@ -7,12 +7,11 @@ Members who sign up to Hopshare must create an account. Each Member account must
 * username
 * password (encrypted)
 * email address
-* preferred contact (email address, phone number, or free text string)
+* preferred contact (free text string)
 
 In addition, a Member's profile can optionally contain
 * profile picture (to be used as an avatar)
 * location (city, state)
-* interests (free text string)
 
 ## Initial Login
 
