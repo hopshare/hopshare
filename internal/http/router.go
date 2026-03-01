@@ -157,6 +157,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/messages/reply", srv.handleReplyMessage, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/messages/action", srv.handleMessageAction, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/request", srv.handleRequestHopPage, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/hops/complete/request", srv.handleCompleteHopPage, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/hops/create", srv.handleCreateHop, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/hops/view", srv.handleHopDetails, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/hops/privacy", srv.handleHopPrivacy, srv.requireAuth(), srv.requireMethod(http.MethodPost))

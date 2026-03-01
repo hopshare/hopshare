@@ -1,0 +1,156 @@
+package templates
+
+import (
+	"net/url"
+	"strconv"
+	"strings"
+
+	"hopshare/internal/types"
+)
+
+func completeHopPageLink(orgID, hopID int64, redirectTo string) string {
+	link := "/hops/complete/request?org_id=" + strconv.FormatInt(orgID, 10) + "&hop_id=" + strconv.FormatInt(hopID, 10)
+	redirectTo = strings.TrimSpace(redirectTo)
+	if redirectTo != "" {
+		link += "&redirect_to=" + url.QueryEscape(redirectTo)
+	}
+	return link
+}
+
+func completionHoursLabel(hours int) string {
+	if hours == 1 {
+		return "1 hour"
+	}
+	return strconv.Itoa(hours) + " hours"
+}
+
+func completionHoursDefault(hours int) int {
+	if hours < 1 || hours > 8 {
+		return 1
+	}
+	return hours
+}
+
+func completionRequesterName(hop types.Hop) string {
+	name := strings.TrimSpace(hop.CreatedByName)
+	if name == "" {
+		return "Requester"
+	}
+	return name
+}
+
+func completionHelperName(hop types.Hop) string {
+	if hop.AcceptedByName == nil {
+		return "Helper"
+	}
+	name := strings.TrimSpace(*hop.AcceptedByName)
+	if name == "" {
+		return "Helper"
+	}
+	return name
+}
+
+func completionContextLine(hop types.Hop, canSetCompletionHours bool) string {
+	title := strings.TrimSpace(hop.Title)
+	if title == "" {
+		title = "this hop"
+	}
+	if canSetCompletionHours {
+		return completionHelperName(hop) + " helped you with: " + title
+	}
+	return "You helped " + completionRequesterName(hop) + " with: " + title
+}
+
+templ CompleteHopPage(email string, org types.Organization, hop types.Hop, canSetCompletionHours bool, redirectTo string, errorMsg string) {
+	@Base("hopShare | Complete a hop", &email, CompleteHopPageBody(org, hop, canSetCompletionHours, redirectTo, errorMsg))
+}
+
+templ CompleteHopPageBody(org types.Organization, hop types.Hop, canSetCompletionHours bool, redirectTo string, errorMsg string) {
+	<div class="space-y-6">
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex items-center gap-3 min-w-0">
+				<img
+					src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+					alt={ org.Name + " logo" }
+					class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+				/>
+				<div class="min-w-0">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
+					<a class="block truncate text-xl font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
+				</div>
+			</div>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ redirectTo }>
+				Back
+			</a>
+		</div>
+
+			<section class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+				<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
+					<h1 class="text-2xl font-bold text-slate-900">Congratulations on completing your Hop!</h1>
+					<div class="pt-2 flex flex-wrap gap-4">
+						<div class="flex items-center">
+							<img
+								class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+								src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+								alt={ completionRequesterName(hop) + " avatar" }
+							/>
+						</div>
+						if hop.AcceptedBy != nil {
+							<div class="flex items-center">
+								<img
+									class="h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200"
+									src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+									alt={ completionHelperName(hop) + " avatar" }
+								/>
+							</div>
+						}
+					</div>
+					<p class="text-lg font-semibold text-slate-900">{ completionContextLine(hop, canSetCompletionHours) }</p>
+				</div>
+
+			<form method="POST" action="/hops/complete">
+				@CSRFField()
+				<input type="hidden" name="org_id" value={ org.ID } />
+				<input type="hidden" name="hop_id" value={ hop.ID } />
+				<input type="hidden" name="redirect_to" value={ redirectTo } />
+					<div class="p-6 sm:p-7 space-y-4">
+					if canSetCompletionHours {
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="complete-hours">
+								This Hop was agreed for { completionHoursLabel(hop.EstimatedHours) }. Please choose how many hours you'd like to give:
+							</label>
+							<select id="complete-hours" name="completed_hours" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+								for i := 1; i <= 8; i++ {
+									<option
+										value={ strconv.Itoa(i) }
+										if i == completionHoursDefault(hop.EstimatedHours) {
+											selected
+										}
+									>
+										{ completionHoursLabel(i) }
+									</option>
+								}
+							</select>
+						</div>
+						}
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="complete-comment">Add a short comment so others can celebrate along with you!</label>
+							<textarea id="complete-comment" name="completion_comment" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" required placeholder="Example: Pat helped me set up my printer in under an hour. Thank you!"></textarea>
+						</div>
+					</div>
+				<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">
+					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+						Mark complete
+					</button>
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href={ redirectTo }>
+						Cancel
+					</a>
+				</div>
+			</form>
+		</section>
+	</div>
+}

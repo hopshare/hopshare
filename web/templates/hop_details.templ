@@ -76,26 +76,7 @@ templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showB
 }
 
 templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canComplete bool, canSetCompletionHours bool, comments []types.HopComment, images []types.HopImage) {
-	<div
-		class="space-y-6"
-		x-data={
-			"{" +
-				"completeModalOpen: false," +
-				"completeHopID: null," +
-				"completeHopTitle: ''," +
-				"completeHours: ''," +
-				"completeCanSetHours: false," +
-				"openComplete(id, title, hours, isRequester) {" +
-				"this.completeHopID = id;" +
-				"this.completeHopTitle = title;" +
-				"this.completeCanSetHours = Boolean(isRequester);" +
-				"this.completeHours = this.completeCanSetHours && hours ? String(hours) : '';" +
-				"this.completeModalOpen = true;" +
-				"}" +
-				"}"
-		}
-		x-on:keydown.escape.window="completeModalOpen = false"
-	>
+	<div class="space-y-6">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
 				<img
@@ -247,17 +228,16 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 		}
 		if canComplete {
 			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
-				<button
+				<a
 					class="inline-flex w-full items-center justify-center rounded-lg bg-sky-700 px-6 py-4 text-xl font-semibold text-white transition hover:bg-sky-800"
-					type="button"
+					href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
 					data-hop-id={ hop.ID }
 					data-hop-title={ hop.Title }
 					data-hop-hours={ hop.EstimatedHours }
 					data-hop-requester={ canSetCompletionHours }
-					x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours), $el.dataset.hopRequester === 'true')"
 				>
 					Mark complete
-				</button>
+				</a>
 			</section>
 		}
 
@@ -415,8 +395,5 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				<p class="text-sm text-slate-500">Comments are limited to members on this hop.</p>
 			}
 		</section>
-		if canComplete {
-			@CompleteModal(org.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView))
-		}
 	</div>
 }

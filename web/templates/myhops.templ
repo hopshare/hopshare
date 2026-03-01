@@ -36,24 +36,7 @@ templ MyHopsBody(
 	successMsg string,
 	errorMsg string,
 ) {
-	<div
-		class="space-y-6"
-		x-data="{
-			completeModalOpen: false,
-			completeHopID: null,
-			completeHopTitle: '',
-			completeHours: '',
-			completeCanSetHours: false,
-			openComplete(id, title, hours, isRequester) {
-				this.completeHopID = id;
-				this.completeHopTitle = title;
-				this.completeCanSetHours = Boolean(isRequester);
-				this.completeHours = this.completeCanSetHours && hours ? String(hours) : '';
-				this.completeModalOpen = true;
-			},
-		}"
-		x-on:keydown.escape.window="completeModalOpen = false"
-	>
+	<div class="space-y-6">
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
@@ -85,7 +68,6 @@ templ MyHopsBody(
 			@MyhopShareNoOrganizations(hasPrimary)
 		} else {
 			@HopListMyHops(currentOrgID, myHops, viewKey, viewTitle, viewDescription, emptyMessage, memberID)
-			@CompleteModal(currentOrgID, "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=" + viewKey)
 		}
 	</div>
 }
@@ -168,17 +150,16 @@ templ MyHopRow(orgID int64, hop types.Hop, viewKey string, memberID int64) {
 					</form>
 				}
 				if hop.Status == types.HopStatusAccepted {
-					<button
+					<a
 						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-3 py-2 hover:bg-sky-800 transition"
-						type="button"
+						href={ completeHopPageLink(orgID, hop.ID, "/my-hops?org_id=" + strconv.FormatInt(orgID, 10) + "&view=" + viewKey) }
 						data-hop-id={ hop.ID }
 						data-hop-title={ hop.Title }
 						data-hop-hours={ hop.EstimatedHours }
 						data-hop-requester={ hop.CreatedBy == memberID }
-						x-on:click="openComplete(Number($el.dataset.hopId), $el.dataset.hopTitle, Number($el.dataset.hopHours), $el.dataset.hopRequester === 'true')"
 					>
 						Mark complete
-					</button>
+					</a>
 				}
 			</div>
 		</div>

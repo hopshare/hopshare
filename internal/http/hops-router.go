@@ -280,6 +280,97 @@ func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.RequestHopPage(user.Email, orgs, currentOrgID, errorMsg))
 }
 
+func (s *Server) handleCompleteHopPage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	hopIDStr := strings.TrimSpace(r.URL.Query().Get("hop_id"))
+	if hopIDStr == "" {
+		http.Error(w, "missing hop id", http.StatusBadRequest)
+		return
+	}
+	hopID, err := strconv.ParseInt(hopIDStr, 10, 64)
+	if err != nil || hopID <= 0 {
+		http.Error(w, "invalid hop id", http.StatusBadRequest)
+		return
+	}
+
+	var orgID int64
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		orgID, err = strconv.ParseInt(orgIDStr, 10, 64)
+		if err != nil || orgID <= 0 {
+			http.Error(w, "invalid organization", http.StatusBadRequest)
+			return
+		}
+	} else {
+		orgID, err = service.HopOrganizationID(r.Context(), s.db, hopID)
+		if err != nil {
+			if errors.Is(err, service.ErrHopNotFound) {
+				http.NotFound(w, r)
+				return
+			}
+			log.Printf("load hop organization %d: %v", hopID, err)
+			http.Error(w, "could not load hop", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	defaultRedirect := "/my-hopshare"
+	if orgID > 0 {
+		defaultRedirect = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	redirectTo := safeRedirectPath(r.URL.Query().Get("redirect_to"), defaultRedirect)
+
+	memberOK, err := service.MemberHasActiveMembership(r.Context(), s.db, user.ID, orgID)
+	if err != nil {
+		log.Printf("check hop completion page membership member=%d org=%d: %v", user.ID, orgID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+	if !memberOK {
+		s.renderUnauthorized(w, r)
+		return
+	}
+
+	hop, err := service.GetHopByID(r.Context(), s.db, orgID, hopID)
+	if err != nil {
+		if errors.Is(err, service.ErrHopNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load hop %d for completion page: %v", hopID, err)
+		http.Error(w, "could not load hop", http.StatusInternalServerError)
+		return
+	}
+
+	isAssociated := hop.CreatedBy == user.ID
+	if !isAssociated && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID {
+		isAssociated = true
+	}
+	if !isAssociated {
+		s.renderUnauthorized(w, r)
+		return
+	}
+	if hop.Status != types.HopStatusAccepted {
+		http.Redirect(w, r, redirectWithMessage(redirectTo, "error", "This hop can no longer be completed."), http.StatusSeeOther)
+		return
+	}
+
+	org, err := service.GetOrganizationByID(r.Context(), s.db, orgID)
+	if err != nil {
+		log.Printf("load organization %d for completion page: %v", orgID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+
+	canSetCompletionHours := hop.CreatedBy == user.ID
+	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
+	render(w, r, templates.CompleteHopPage(user.Email, org, hop, canSetCompletionHours, redirectTo, errorMsg))
+}
+
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
