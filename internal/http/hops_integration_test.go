@@ -31,6 +31,32 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"needed_by_kind", types.HopNeededByAnytime,
 		)), "/my-hopshare")
 		requireQueryValue(t, loc, "success", "Hop created.")
+
+		hops, err := service.ListRequestedHops(ctx, db, org.ID, members["requester"].Member.ID)
+		if err != nil {
+			t.Fatalf("list requested hops: %v", err)
+		}
+		var created *types.Hop
+		for i := range hops {
+			if hops[i].Title == "Create Hop Success "+suffix {
+				created = &hops[i]
+				break
+			}
+		}
+		if created == nil {
+			t.Fatalf("created hop not found in requested list")
+		}
+		if created.NeededByDate != nil {
+			t.Fatalf("expected needed_by_date to be nil for anytime hop, got %v", created.NeededByDate)
+		}
+		if created.ExpiresAt == nil {
+			t.Fatalf("expected expires_at to be set for anytime hop")
+		}
+		want := created.CreatedAt.AddDate(0, 0, 90)
+		diff := created.ExpiresAt.Sub(want)
+		if diff < -2*time.Second || diff > 2*time.Second {
+			t.Fatalf("expected expires_at about 90 days after created_at, created_at=%v expires_at=%v diff=%v", created.CreatedAt, *created.ExpiresAt, diff)
+		}
 	})
 
 	t.Run("HOP-02 create hop invalid inputs are rejected", func(t *testing.T) {
@@ -58,6 +84,35 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"needed_by_date", "bad-date",
 		)), "/my-hopshare")
 		requireQueryValue(t, loc, "error", "Invalid date.")
+
+		loc = requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"title", "Anytime Ignores Date "+suffix,
+			"estimated_hours", "2",
+			"needed_by_kind", types.HopNeededByAnytime,
+			"needed_by_date", "bad-date",
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Hop created.")
+	})
+
+	t.Run("HOP-02b request hop page renders for active members", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
+		server := newHTTPServer(t, db)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester.Login()
+
+		body := requireStatus(t, requester.Get("/hops/request?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		requireBodyContains(t, body, "Request a hop")
+		requireBodyContains(t, body, `action="/hops/create"`)
+		requireBodyContains(t, body, `name="org_id" value="`+strconv.FormatInt(org.ID, 10)+`"`)
+		requireBodyContains(t, body, "Back to My hopShare")
+
+		dashboardBody := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		requireBodyContains(t, dashboardBody, `href="/hops/request?org_id=`+strconv.FormatInt(org.ID, 10)+`"`)
+		requireBodyNotContains(t, dashboardBody, `aria-label="Request a hop"`)
 	})
 
 	t.Run("HOP-03 create hop by non-member fails", func(t *testing.T) {

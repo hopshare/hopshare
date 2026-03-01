@@ -141,7 +141,6 @@ templ MyhopShareDashboard(
 	<div
 		class="space-y-6"
 		x-data="{
-			hopModalOpen: false,
 			completeModalOpen: false,
 			completeHopID: null,
 			completeHopTitle: '',
@@ -155,7 +154,7 @@ templ MyhopShareDashboard(
 				this.completeModalOpen = true;
 			},
 		}"
-		x-on:keydown.escape.window="hopModalOpen = false; completeModalOpen = false"
+		x-on:keydown.escape.window="completeModalOpen = false"
 	>
 		<section class="space-y-6">
 			<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -243,13 +242,12 @@ templ MyhopShareDashboard(
 
 			<section class="rounded-2xl bg-sky-100 p-8">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<button
-						type="button"
-						class="w-full rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-						x-on:click="hopModalOpen = true"
+					<a
+						class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
+						href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 					>
 						Request a Hop
-					</button>
+					</a>
 					<a
 						class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
 						href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
@@ -284,7 +282,6 @@ templ MyhopShareDashboard(
 			</section>
 		</section>
 
-		@HopModal(currentOrgID)
 		@CompleteModal(currentOrgID, "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
 	</div>
 }
@@ -441,20 +438,19 @@ templ CompletedHopRow(hop types.Hop) {
 	</li>
 }
 
-templ MemberStats(stats types.MemberHopStats) {
+templ MemberStats(stats types.MemberHopStats, orgID int64) {
 	<section class="space-y-4">
 		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
 			<div class="space-y-1">
 				<h2 class="text-xl font-bold text-slate-900">Your stats</h2>
 				<p class="text-slate-600">A quick snapshot of your activity.</p>
 			</div>
-			<button
+			<a
 				class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
-				type="button"
-				x-on:click="hopModalOpen = true"
+				href={ "/hops/request?org_id=" + strconv.FormatInt(orgID, 10) }
 			>
 				Request a hop
-			</button>
+			</a>
 		</div>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			@StatCardBalance(stats.BalanceHours)
@@ -649,92 +645,6 @@ templ HopTimingLine(hop types.Hop) {
 			}
 		}
 	</span>
-}
-
-templ HopModal(orgID int64) {
-	<div class="fixed inset-0 z-50" x-show="hopModalOpen" x-transition.opacity style="display: none;">
-		<div class="absolute inset-0 bg-slate-900/50" x-on:click="hopModalOpen = false"></div>
-		<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
-			<div
-				class="w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200"
-				role="dialog"
-				aria-modal="true"
-				aria-label="Request a hop"
-				x-on:click.stop
-			>
-				<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
-					<div class="flex items-start justify-between gap-4">
-						<div>
-							<h2 class="text-xl font-bold text-slate-900">Request a hop</h2>
-							<p class="text-slate-600 leading-relaxed">
-								Tell your organization what you need. Be specific so others can say yes quickly.
-							</p>
-						</div>
-						<button
-							type="button"
-							class="rounded-lg px-2 py-1 text-slate-500 hover:text-slate-700"
-							aria-label="Close"
-							x-on:click="hopModalOpen = false"
-						>
-							&times;
-						</button>
-					</div>
-				</div>
-
-				<form method="POST" action="/hops/create">
-					@CSRFField()
-					<input type="hidden" name="org_id" value={ orgID } />
-					<div class="p-6 sm:p-7 space-y-4">
-						<div class="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3">
-							<div class="space-y-1 sm:col-span-2">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-title">What do you need?</label>
-								<input id="modal-hop-title" name="title" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" placeholder="Example: Help moving a couch" required />
-							</div>
-
-							<div class="space-y-1">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-when-kind">When do you need it?</label>
-								<div class="flex gap-2">
-									<select id="modal-hop-when-kind" name="needed_by_kind" class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-										<option value={ types.HopNeededByOn }>on</option>
-										<option value={ types.HopNeededByAround }>around</option>
-										<option value={ types.HopNeededByNoLaterThan }>no later than</option>
-									</select>
-									<input id="modal-hop-when-date" name="needed_by_date" class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="date" required />
-								</div>
-							</div>
-
-							<div class="space-y-1 sm:justify-self-end">
-								<label class="block text-sm font-semibold text-slate-800" for="modal-hop-hours">How long will it take?</label>
-								<select id="modal-hop-hours" name="estimated_hours" class="w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-									<option value="1">1 hour</option>
-									<option value="2">2 hours</option>
-									<option value="3">3 hours</option>
-									<option value="4">4 hours</option>
-									<option value="5">5 hours</option>
-									<option value="6">6 hours</option>
-									<option value="7">7 hours</option>
-									<option value="8">8 hours</option>
-								</select>
-							</div>
-						</div>
-						<div class="space-y-1">
-							<label class="block text-sm font-semibold text-slate-800" for="modal-hop-details">Details</label>
-							<textarea id="modal-hop-details" name="details" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" placeholder="Share what matters: location, timing, tools, accessibility needs..."></textarea>
-						</div>
-					</div>
-
-					<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">
-						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-							Submit hop
-						</button>
-						<button class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" type="button" x-on:click="hopModalOpen = false">
-							Cancel
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	</div>
 }
 
 templ CompleteModal(orgID int64, redirectTo string) {

@@ -1,0 +1,119 @@
+package templates
+
+import (
+	"strconv"
+
+	"hopshare/internal/types"
+)
+
+templ RequestHopPage(email string, orgs []types.Organization, currentOrgID int64, errorMsg string) {
+	@Base("hopShare | Request a hop", &email, RequestHopPageBody(orgs, currentOrgID, errorMsg))
+}
+
+templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg string) {
+	<div class="space-y-6">
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div class="min-w-0">
+				for _, org := range orgs {
+					if org.ID == currentOrgID {
+						<div class="flex items-center gap-3 min-w-0">
+							<img
+								src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+								alt={ org.Name + " logo" }
+								class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+							/>
+							<div class="min-w-0">
+								<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
+								<a class="block truncate text-xl font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
+							</div>
+						</div>
+					}
+				}
+			</div>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
+				Back to My hopShare
+			</a>
+		</div>
+
+		<section class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+			<div class="p-6 sm:p-7 space-y-2 border-b border-slate-200">
+				<h1 class="text-2xl font-bold text-slate-900">Request a hop</h1>
+				<p class="text-slate-600 leading-relaxed">
+					Tell your organization what you need. Be specific so others can say yes quickly.
+				</p>
+			</div>
+
+			<form method="POST" action="/hops/create" x-data={ "{ neededByKind: '" + types.HopNeededByOn + "' }" }>
+				@CSRFField()
+				<input type="hidden" name="org_id" value={ currentOrgID } />
+				<div class="p-6 sm:p-7 space-y-4">
+					<div class="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3">
+						<div class="space-y-1 sm:col-span-2">
+							<label class="block text-sm font-semibold text-slate-800" for="hop-title">What do you need?</label>
+							<input id="hop-title" name="title" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" placeholder="Example: Help moving a couch" required />
+						</div>
+
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="hop-when-kind">When do you need it?</label>
+							<div class="flex gap-2">
+								<select
+									id="hop-when-kind"
+									name="needed_by_kind"
+									class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+									x-model="neededByKind"
+									x-on:change="if (neededByKind === 'anytime' && $refs.neededByDate) { $refs.neededByDate.value = ''; }"
+								>
+									<option value={ types.HopNeededByAnytime }>Anytime</option>
+									<option value={ types.HopNeededByOn }>on</option>
+									<option value={ types.HopNeededByAround }>around</option>
+									<option value={ types.HopNeededByNoLaterThan }>no later than</option>
+								</select>
+								<input
+									id="hop-when-date"
+									name="needed_by_date"
+									class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:bg-slate-100 disabled:text-slate-500"
+									type="date"
+									required
+									x-ref="neededByDate"
+									x-bind:required="neededByKind !== 'anytime'"
+									x-bind:disabled="neededByKind === 'anytime'"
+								/>
+							</div>
+						</div>
+
+						<div class="space-y-1 sm:justify-self-end">
+							<label class="block text-sm font-semibold text-slate-800" for="hop-hours">How long will it take?</label>
+							<select id="hop-hours" name="estimated_hours" class="w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+								<option value="1">1 hour</option>
+								<option value="2">2 hours</option>
+								<option value="3">3 hours</option>
+								<option value="4">4 hours</option>
+								<option value="5">5 hours</option>
+								<option value="6">6 hours</option>
+								<option value="7">7 hours</option>
+								<option value="8">8 hours</option>
+							</select>
+						</div>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="hop-details">Details</label>
+						<textarea id="hop-details" name="details" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" rows="4" placeholder="Share what matters: location, timing, tools, accessibility needs..."></textarea>
+					</div>
+				</div>
+
+				<div class="p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3">
+					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+						Submit hop
+					</button>
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
+						Cancel
+					</a>
+				</div>
+			</form>
+		</section>
+	</div>
+}

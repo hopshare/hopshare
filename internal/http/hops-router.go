@@ -234,6 +234,52 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canComplete, canSetCompletionHours, comments, images))
 }
 
+func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("load organizations for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
+	}
+
+	var currentOrgID int64
+	var selectedFromQuery bool
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
+			currentOrgID = parsed
+			selectedFromQuery = true
+		}
+	}
+	if currentOrgID == 0 && user.CurrentOrganization != nil {
+		currentOrgID = *user.CurrentOrganization
+	}
+	if len(orgs) > 0 && currentOrgID == 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
+		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
+			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		}
+	}
+
+	if currentOrgID == 0 {
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Join an organization before requesting a hop."), http.StatusSeeOther)
+		return
+	}
+
+	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
+	render(w, r, templates.RequestHopPage(user.Email, orgs, currentOrgID, errorMsg))
+}
+
 func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -250,6 +296,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Invalid organization."), http.StatusSeeOther)
 		return
 	}
+	neededByKind := strings.TrimSpace(r.FormValue("needed_by_kind"))
 
 	estimatedHours, err := strconv.Atoi(strings.TrimSpace(r.FormValue("estimated_hours")))
 	if err != nil {
@@ -258,14 +305,16 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var neededByDate *time.Time
-	dateStr := strings.TrimSpace(r.FormValue("needed_by_date"))
-	if dateStr != "" {
-		t, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
-			return
+	if neededByKind != types.HopNeededByAnytime {
+		dateStr := strings.TrimSpace(r.FormValue("needed_by_date"))
+		if dateStr != "" {
+			t, err := time.Parse("2006-01-02", dateStr)
+			if err != nil {
+				http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
+				return
+			}
+			neededByDate = &t
 		}
-		neededByDate = &t
 	}
 
 	isPrivate := false
@@ -276,7 +325,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		Title:          r.FormValue("title"),
 		Details:        r.FormValue("details"),
 		EstimatedHours: estimatedHours,
-		NeededByKind:   r.FormValue("needed_by_kind"),
+		NeededByKind:   neededByKind,
 		NeededByDate:   neededByDate,
 		IsPrivate:      isPrivate,
 	})

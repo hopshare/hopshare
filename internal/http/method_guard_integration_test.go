@@ -39,6 +39,7 @@ func TestHTTPMethodGuards(t *testing.T) {
 		{"messages-delete", "/messages/delete", "GET", "POST"},
 		{"messages-reply", "/messages/reply", "GET", "POST"},
 		{"messages-action", "/messages/action", "GET", "POST"},
+		{"hops-request", "/hops/request", "POST", "GET"},
 		{"hops-create", "/hops/create", "GET", "POST"},
 		{"hops-view", "/hops/view", "POST", "GET"},
 		{"hops-privacy", "/hops/privacy", "GET", "POST"},

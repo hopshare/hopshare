@@ -14,6 +14,7 @@
 
 ## Bugs
 
+* I can create Hops with a due date in the past- they are then automatically expired!
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * An Organization Owner can request membership in their own Organization- this should be prevented
@@ -21,7 +22,6 @@
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
 * Deleting a User does not delete their Organization...what do we do here?
-* When signing up with an existing email address we get the generic error "We could not process your request right now. Please try again.". We should say "That email address is already taken, please try another one."
 * Move to a static tailwind CSS- don't pull dynamically
 * Add a file size limit on org/user avatar pictures (2MB)
 
@@ -46,7 +46,6 @@
     * Summary section is a little clunky. We can probably tidy this up more...make easier to read
 
 * My HopShare Dashboard
-    * "Change Organization" Setting- should not be a Modal (lets get rid of all the modals btw)- make a new page showing pull down of existing Orgs you belong to, or button taking you to the Search Organizaitions page. Remove the "Manage" button- that should only be accessible from Profile now.
 
 * Admin Page
     * Users

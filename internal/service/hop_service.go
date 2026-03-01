@@ -82,7 +82,7 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 			needed_by_date,
 			expires_at,
 			status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW() + INTERVAL '90 days'), $10)
 		RETURNING id
 	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, p.IsPrivate, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
 		return types.Hop{}, fmt.Errorf("create hop: %w", err)
