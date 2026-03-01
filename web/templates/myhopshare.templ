@@ -141,7 +141,6 @@ templ MyhopShareDashboard(
 	<div
 		class="space-y-6"
 		x-data="{
-			orgModalOpen: false,
 			hopModalOpen: false,
 			completeModalOpen: false,
 			completeHopID: null,
@@ -156,7 +155,7 @@ templ MyhopShareDashboard(
 				this.completeModalOpen = true;
 			},
 		}"
-		x-on:keydown.escape.window="orgModalOpen = false; hopModalOpen = false; completeModalOpen = false"
+		x-on:keydown.escape.window="hopModalOpen = false; completeModalOpen = false"
 	>
 		<section class="space-y-6">
 			<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -178,10 +177,9 @@ templ MyhopShareDashboard(
 							}
 						}
 					</div>
-					<button
-						type="button"
+					<a
 						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:text-sky-800"
-						x-on:click="orgModalOpen = true"
+						href="/my-hopshare/organizations"
 						aria-label="Switch organization"
 						title="Switch organization"
 					>
@@ -189,7 +187,7 @@ templ MyhopShareDashboard(
 							<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
 							<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 						</svg>
-					</button>
+					</a>
 				</div>
 			</section>
 
@@ -287,82 +285,75 @@ templ MyhopShareDashboard(
 		</section>
 
 		@HopModal(currentOrgID)
-		<div class="fixed inset-0 z-50" x-show="orgModalOpen" x-transition.opacity style="display: none;">
-			<div class="absolute inset-0 bg-slate-900/50" x-on:click="orgModalOpen = false"></div>
-			<div class="absolute inset-0 overflow-y-auto p-4 sm:p-8 flex items-start sm:items-center justify-center">
-				<div class="w-full max-w-2xl" role="dialog" aria-modal="true" aria-label="Switch organization" x-on:click.stop>
-					<div class="flex justify-end pb-2">
-						<button
-							type="button"
-							class="rounded-lg px-2 py-1 text-slate-200 hover:text-white"
-							aria-label="Close"
-							x-on:click="orgModalOpen = false"
-						>
-							&times;
-						</button>
-					</div>
-					@OrganizationSwitcher(orgs, currentOrgID, isPrimaryOwnerCurrent, hasPrimary)
-				</div>
-			</div>
-		</div>
 		@CompleteModal(currentOrgID, "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
 	</div>
 }
 
-templ OrganizationSwitcher(orgs []types.Organization, currentOrgID int64, isPrimaryOwnerCurrent bool, hasPrimary bool) {
-	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
-		<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-			<div class="min-w-0">
+templ MyhopShareOrganizations(email string, orgs []types.Organization, currentOrgID int64) {
+	@Base("hopShare | Organization Switcher", &email, MyhopShareOrganizationsBody(orgs, currentOrgID))
+}
+
+templ MyhopShareOrganizationsBody(orgs []types.Organization, currentOrgID int64) {
+	<section class="space-y-4">
+		<a class="inline-flex text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
+		@OrganizationSwitcher(orgs, currentOrgID)
+	</section>
+}
+
+templ OrganizationSwitcher(orgs []types.Organization, currentOrgID int64) {
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-6">
+		if len(orgs) == 0 {
+			<div class="space-y-1">
+				<h1 class="text-2xl font-bold text-slate-900">Organizations</h1>
+				<p class="text-sm text-slate-600">You are not in any organizations yet.</p>
+			</div>
+		} else {
+			<div class="space-y-1">
+				<h1 class="text-2xl font-bold text-slate-900">Switch organizations</h1>
+				<p class="text-sm text-slate-600">Your current organization is</p>
 				for _, org := range orgs {
 					if org.ID == currentOrgID {
 						<div class="flex items-center gap-2 min-w-0">
-							<p class="text-xs font-semibold text-slate-600 whitespace-nowrap">Your current organization is</p>
-							<p class="text-sm font-semibold text-slate-900 truncate">{ org.Name }</p>
 							<img
 								src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
 								alt={ org.Name + " logo" }
 								class="h-6 w-6 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
 							/>
+							<p class="text-base font-semibold text-slate-900 truncate">{ org.Name }</p>
 						</div>
 					}
 				}
 			</div>
+		}
 
-			if len(orgs) > 1 {
-				<form class="flex flex-col sm:flex-row sm:items-end gap-2" method="GET" action="/my-hopshare">
-					<div class="space-y-1">
-						<label class="sr-only" for="org_id">Switch organization</label>
-						<select id="org_id" name="org_id" class="w-full sm:w-64 text-sm rounded-md border border-slate-300 bg-white px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-							for _, org := range orgs {
+		if len(orgs) > 1 {
+			<form class="space-y-4" method="GET" action="/my-hopshare">
+				<fieldset class="space-y-2">
+					<legend class="text-sm font-semibold text-slate-900">Choose a different organization</legend>
+					for _, org := range orgs {
+						<label class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:border-slate-300">
+							<input
+								type="radio"
+								name="org_id"
+								value={ org.ID }
+								class="h-4 w-4 border-slate-300 text-sky-700 focus:ring-sky-500"
 								if org.ID == currentOrgID {
-									<option value={ org.ID } selected>{ org.Name }</option>
-								} else {
-									<option value={ org.ID }>{ org.Name }</option>
+									checked
 								}
-							}
-						</select>
-					</div>
-					<button class="inline-flex justify-center rounded-md bg-sky-700 text-white text-sm font-semibold px-3 py-2 hover:bg-sky-800 transition" type="submit">
-						Switch to
-					</button>
-				</form>
-			}
-		</div>
+							/>
+							<span class="text-sm font-semibold text-slate-900">{ org.Name }</span>
+						</label>
+					}
+				</fieldset>
+				<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+					Switch organization
+				</button>
+			</form>
+		}
 
-		<div class="flex flex-wrap gap-2">
-			if isPrimaryOwnerCurrent {
-				<a class="inline-flex justify-center rounded-md bg-slate-800 text-white text-sm font-semibold px-3 py-1.5 hover:bg-slate-900 transition" href="/organizations/manage">
-					Manage
-				</a>
-			} else if !hasPrimary {
-				<a class="inline-flex justify-center rounded-md bg-sky-700 text-white text-sm font-semibold px-3 py-1.5 hover:bg-sky-800 transition" href="/organizations/create">
-					Create
-				</a>
-			}
-			<a class="inline-flex justify-center rounded-md border border-slate-300 text-slate-800 text-sm font-semibold px-3 py-1.5 hover:border-slate-400 transition" href="/organizations">
-				Search / join
-			</a>
-		</div>
+		<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
+			Find more Organizations...
+		</a>
 	</section>
 }
 

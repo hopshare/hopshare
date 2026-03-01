@@ -956,6 +956,54 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		body := requireStatus(t, member.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
 		requireBodyNotContains(t, body, "Active accepted hop")
 	})
+
+	t.Run("HOP-38 /my-hopshare/organizations shows switch form when member has multiple organizations", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "org_switcher_member", suffix)
+		ownerA := createSeededMember(t, ctx, db, "org_switcher_owner_a", suffix)
+		ownerB := createSeededMember(t, ctx, db, "org_switcher_owner_b", suffix)
+
+		orgA, err := service.CreateOrganization(ctx, db, "Switcher Org A "+suffix, "City", "ST", "Desc", ownerA.Member.ID)
+		if err != nil {
+			t.Fatalf("create orgA: %v", err)
+		}
+		orgB, err := service.CreateOrganization(ctx, db, "Switcher Org B "+suffix, "City", "ST", "Desc", ownerB.Member.ID)
+		if err != nil {
+			t.Fatalf("create orgB: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, orgA.ID, ownerA.Member.ID, member.Member.ID)
+		approveMemberForOrganization(t, ctx, db, orgB.ID, ownerB.Member.ID, member.Member.ID)
+
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		body := requireStatus(t, actor.Get("/my-hopshare/organizations"), 200)
+		requireBodyContains(t, body, "Switch organizations")
+		requireBodyContains(t, body, orgA.Name)
+		requireBodyContains(t, body, orgB.Name)
+		requireBodyContains(t, body, `name="org_id"`)
+		requireBodyContains(t, body, "Find more Organizations...")
+	})
+
+	t.Run("HOP-39 /my-hopshare/organizations hides switch form when member has one organization", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner.Login()
+
+		body := requireStatus(t, owner.Get("/my-hopshare/organizations"), 200)
+		requireBodyContains(t, body, org.Name)
+		requireBodyContains(t, body, "Find more Organizations...")
+		requireBodyNotContains(t, body, `name="org_id"`)
+		requireBodyNotContains(t, body, "Choose a different organization")
+	})
 }
 
 func createAcceptedHopViaOffer(t *testing.T, ctx context.Context, db *sql.DB, orgID, requesterID, helperID int64, title string) types.Hop {
