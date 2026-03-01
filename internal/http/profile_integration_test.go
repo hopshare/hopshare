@@ -17,7 +17,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_get", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/profile"), 200)
 		requireBodyContains(t, body, "My Profile")
@@ -29,7 +29,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_get_account_tab", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		body := requireStatus(t, actor.Get("/profile"), 200)
@@ -44,7 +44,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_update", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
@@ -72,7 +72,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_invalid_contact", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
@@ -90,7 +90,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_missing_fields", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
@@ -108,7 +108,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_password_success", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		oldSessionToken := actor.cookieValue("hopshare_session")
 		if oldSessionToken == "" {
@@ -130,7 +130,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected rotated session token to differ from previous token")
 		}
 
-		newActor := newTestActor(t, "member_new_pass", server.URL, member.Member.Username, "UpdatedPassword123!")
+		newActor := newTestActor(t, "member_new_pass", server.URL, member.Member.Email, "UpdatedPassword123!")
 		newActor.Login()
 
 		oldSessionActor := newTestActor(t, "member_old_session", server.URL, "", "")
@@ -151,7 +151,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_password_wrong_current", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
@@ -168,7 +168,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_password_mismatch", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
@@ -185,7 +185,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_skills_allowed", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		available, err := service.ListAvailableSkillsForMember(ctx, db, member.Member.ID)
@@ -217,7 +217,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_skills_invalid", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
@@ -257,7 +257,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "memberA", server.URL, memberA.Member.Username, memberA.Password)
+		actor := newTestActor(t, "memberA", server.URL, memberA.Member.Email, memberA.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
 			"action", "skills",
@@ -271,7 +271,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_avatar_valid", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
@@ -300,7 +300,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_avatar_invalid", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
@@ -323,7 +323,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_avatar_oversized", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
@@ -346,7 +346,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_delete_account_phrase", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
@@ -371,8 +371,8 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "profile_delete_account_success", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		primaryActor := newTestActor(t, "primary_member", server.URL, member.Member.Username, member.Password)
-		secondaryActor := newTestActor(t, "secondary_member", server.URL, member.Member.Username, member.Password)
+		primaryActor := newTestActor(t, "primary_member", server.URL, member.Member.Email, member.Password)
+		secondaryActor := newTestActor(t, "secondary_member", server.URL, member.Member.Email, member.Password)
 		primaryActor.Login()
 		secondaryActor.Login()
 
@@ -396,10 +396,10 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireRedirectPath(t, secondaryActor.Get("/my-hopshare"), "/login")
 
 		loginBody := requireStatus(t, primaryActor.PostForm("/login", formKV(
-			"username", member.Member.Username,
+			"email", member.Member.Email,
 			"password", member.Password,
 		)), http.StatusOK)
-		requireBodyContains(t, loginBody, "Invalid username or password.")
+		requireBodyContains(t, loginBody, "Invalid email or password.")
 	})
 
 	t.Run("PROF-13 GET /members/avatar shared-org member is visible", func(t *testing.T) {
@@ -410,7 +410,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		_ = org
 
 		server := newHTTPServer(t, db)
-		actorA := newTestActor(t, "member_a", server.URL, members["member_a"].Member.Username, members["member_a"].Password)
+		actorA := newTestActor(t, "member_a", server.URL, members["member_a"].Member.Email, members["member_a"].Password)
 		actorA.Login()
 
 		requireStatus(t, actorA.Get("/members/avatar?member_id="+strconv.FormatInt(members["member_b"].Member.ID, 10)), 200)
@@ -424,7 +424,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		_, membersB := createOrganizationWithMembers(t, ctx, db, suffix+"b", "owner", "member_b")
 
 		server := newHTTPServer(t, db)
-		actorA := newTestActor(t, "member_a", server.URL, membersA["member_a"].Member.Username, membersA["member_a"].Password)
+		actorA := newTestActor(t, "member_a", server.URL, membersA["member_a"].Member.Email, membersA["member_a"].Password)
 		actorA.Login()
 
 		requireStatus(t, actorA.Get("/members/avatar?member_id="+strconv.FormatInt(membersB["member_b"].Member.ID, 10)), 404)

@@ -100,7 +100,7 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/signup\" x-data=\"{\n\t\t\tpassword: '',\n\t\t\tstrength: 'Too weak',\n\t\t\tok: false,\n\t\t\tupdate(p) {\n\t\t\t\tthis.password = p;\n\t\t\t\tconst hasLength = p.length >= 8;\n\t\t\t\tconst hasNumber = /[0-9]/.test(p);\n\t\t\t\tconst hasLetter = /[A-Za-z]/.test(p);\n\t\t\t\tconst hasSpecial = /[^A-Za-z0-9]/.test(p);\n\t\t\t\tconst score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;\n\t\t\t\tthis.ok = hasLength && score >= 3;\n\t\t\t\tif (this.ok && score === 4) {\n\t\t\t\t\tthis.strength = 'Strong';\n\t\t\t\t} else if (this.ok) {\n\t\t\t\t\tthis.strength = 'Good';\n\t\t\t\t} else if (score >= 2) {\n\t\t\t\t\tthis.strength = 'Weak';\n\t\t\t\t} else {\n\t\t\t\t\tthis.strength = 'Too weak';\n\t\t\t\t}\n\t\t\t}\n\t\t}\" x-init=\"password = $refs.password.value; update(password)\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<form class=\"space-y-4\" method=\"POST\" action=\"/signup\" x-data=\"{\n\t\t\tfirstName: '',\n\t\t\tlastName: '',\n\t\t\tpassword: '',\n\t\t\tstrength: 'Too weak',\n\t\t\tok: false,\n\t\t\tupdate(p) {\n\t\t\t\tthis.password = p;\n\t\t\t\tconst hasLength = p.length >= 8;\n\t\t\t\tconst hasNumber = /[0-9]/.test(p);\n\t\t\t\tconst hasLetter = /[A-Za-z]/.test(p);\n\t\t\t\tconst hasSpecial = /[^A-Za-z0-9]/.test(p);\n\t\t\t\tconst score = [hasLength, hasNumber, hasLetter, hasSpecial].filter(Boolean).length;\n\t\t\t\tthis.ok = hasLength && score >= 3;\n\t\t\t\tif (this.ok && score === 4) {\n\t\t\t\t\tthis.strength = 'Strong';\n\t\t\t\t} else if (this.ok) {\n\t\t\t\t\tthis.strength = 'Good';\n\t\t\t\t} else if (score >= 2) {\n\t\t\t\t\tthis.strength = 'Weak';\n\t\t\t\t} else {\n\t\t\t\t\tthis.strength = 'Too weak';\n\t\t\t\t}\n\t\t\t},\n\t\t\tcanSubmit() {\n\t\t\t\treturn this.ok && this.firstName.trim() !== '' && this.lastName.trim() !== '';\n\t\t\t}\n\t\t}\" x-init=\"firstName = $refs.first_name.value; lastName = $refs.last_name.value; password = $refs.password.value; update(password)\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -116,7 +116,7 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(next)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 44, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 49, Col: 49}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -134,33 +134,33 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(form.FirstName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 49, Col: 200}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 54, Col: 200}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" x-ref=\"first_name\" x-on:input=\"firstName = $event.target.value\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(form.LastName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 53, Col: 197}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 58, Col: 197}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" x-ref=\"last_name\" x-on:input=\"lastName = $event.target.value\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(form.Email)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 58, Col: 186}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 63, Col: 186}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -173,7 +173,7 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(form.Password)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 62, Col: 198}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 67, Col: 198}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -186,7 +186,7 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(form.City)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 71, Col: 173}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 76, Col: 173}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -199,13 +199,13 @@ func SignupBody(form SignupForm, successMsg string, errorMsg string, next string
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(form.State)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 75, Col: 176}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 80, Col: 176}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"></div><button class=\"inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition\" :class=\"ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'\" type=\"submit\" :disabled=\"!ok\" :aria-disabled=\"!ok\">Sign Up</button></form></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"></div><button class=\"inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition\" :class=\"canSubmit() ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'\" type=\"submit\" :disabled=\"!canSubmit()\" :aria-disabled=\"!canSubmit()\">Sign Up</button></form></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -285,7 +285,7 @@ func SignupSuccessBody(loginHref string, requireEmailVerification bool) templ.Co
 		var templ_7745c5c3_Var14 templ.SafeURL
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(loginHref)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 106, Col: 144}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/signup.templ`, Line: 111, Col: 144}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {

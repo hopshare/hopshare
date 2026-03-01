@@ -364,8 +364,8 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return
 		}
-		verifyURL := s.verifyEmailURL(token, member.Username)
-		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, member.Username, verifyURL); sendErr != nil {
+		verifyURL := s.verifyEmailURL(token, member.Email)
+		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
 			log.Printf("admin send verification email failed: member_id=%d: %v", member.ID, sendErr)
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return
@@ -528,7 +528,7 @@ func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) 
 			"id",
 			"created_at",
 			"actor_member_id",
-			"actor_username",
+			"actor_email",
 			"actor_name",
 			"action",
 			"target",
@@ -536,7 +536,7 @@ func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) 
 			"organization_id",
 			"organization_name",
 			"user_member_id",
-			"user_username",
+			"user_email",
 			"user_name",
 			"metadata",
 		}); err != nil {
@@ -548,7 +548,7 @@ func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) 
 				strconv.FormatInt(event.ID, 10),
 				event.CreatedAt.UTC().Format(time.RFC3339),
 				strconv.FormatInt(event.ActorMemberID, 10),
-				event.ActorUsername,
+				event.ActorEmail,
 				event.ActorName,
 				event.Action,
 				event.Target,
@@ -556,7 +556,7 @@ func (s *Server) handleAdminAuditExport(w http.ResponseWriter, r *http.Request) 
 				adminAuditOptionalInt64(event.OrganizationID),
 				adminAuditOptionalString(event.OrganizationName),
 				adminAuditOptionalInt64(event.UserMemberID),
-				adminAuditOptionalString(event.UserUsername),
+				adminAuditOptionalString(event.UserEmail),
 				adminAuditOptionalString(event.UserName),
 				string(event.Metadata),
 			}
@@ -705,7 +705,6 @@ func (s *Server) loadAdminMessagesTabData(r *http.Request, actorMemberID int64) 
 			} else if member.ID != actorMemberID {
 				fallback := types.AdminUserSearchResult{
 					MemberID:    member.ID,
-					Username:    member.Username,
 					FirstName:   member.FirstName,
 					LastName:    member.LastName,
 					Email:       member.Email,

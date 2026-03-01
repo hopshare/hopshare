@@ -31,7 +31,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		helper.Login()
 
 		responses := runConcurrently(2, func() *http.Response {
@@ -78,8 +78,8 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		helper1 := newTestActor(t, "helper1", server.URL, members["helper1"].Member.Username, members["helper1"].Password)
-		helper2 := newTestActor(t, "helper2", server.URL, members["helper2"].Member.Username, members["helper2"].Password)
+		helper1 := newTestActor(t, "helper1", server.URL, members["helper1"].Member.Email, members["helper1"].Password)
+		helper2 := newTestActor(t, "helper2", server.URL, members["helper2"].Member.Email, members["helper2"].Password)
 		helper1.Login()
 		helper2.Login()
 
@@ -151,7 +151,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		var wg sync.WaitGroup
@@ -203,7 +203,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		}
 		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		responses := runConcurrently(2, func() *http.Response {
@@ -243,7 +243,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		}
 		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		var wg sync.WaitGroup
@@ -277,8 +277,8 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Race complete cancel "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		owner.Login()
 		helper.Login()
 
@@ -318,8 +318,8 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Race dual complete "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		owner.Login()
 		helper.Login()
 
@@ -362,8 +362,8 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		reqID := requirePendingRequestID(t, ctx, db, org.ID, requester.Member.ID)
 
 		server := newHTTPServer(t, db)
-		owner1 := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		owner2 := newTestActor(t, "owner2", server.URL, members["owner2"].Member.Username, members["owner2"].Password)
+		owner1 := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		owner2 := newTestActor(t, "owner2", server.URL, members["owner2"].Member.Email, members["owner2"].Password)
 		owner1.Login()
 		owner2.Login()
 
@@ -398,7 +398,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 		requester := createSeededMember(t, ctx, db, "race_dup_requester", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
+		actor := newTestActor(t, "requester", server.URL, requester.Member.Email, requester.Password)
 		actor.Login()
 
 		responses := runConcurrently(2, func() *http.Response {
@@ -439,8 +439,8 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		imageID := images[0].ID
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		owner.Login()
 		helper.Login()
 

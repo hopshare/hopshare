@@ -60,12 +60,12 @@ const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://c
 
 type PasswordResetEmailSender interface {
 	SendPasswordReset(ctx context.Context, toEmail, resetURL string) error
-	SendEmailVerification(ctx context.Context, toEmail, username, verifyURL string) error
+	SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error
 }
 
 type RouterOptions struct {
 	Sessions                 auth.SessionStore
-	AdminUsernames           []string
+	AdminEmails              []string
 	PasswordResetEmailSender PasswordResetEmailSender
 	FeatureEmail             *bool
 	FeatureHopPictures       *bool
@@ -88,11 +88,11 @@ func NewRouterWithSessions(db *sql.DB, sessions auth.SessionStore) http.Handler 
 }
 
 // NewRouterWithSessionsAndAdmins wires routes with optional injected session manager
-// and admin usernames. Admin usernames are normalized to lowercase and deduplicated.
-func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions auth.SessionStore, adminUsernames []string) http.Handler {
+// and admin emails. Admin emails are normalized to lowercase and deduplicated.
+func NewRouterWithSessionsAndAdmins(db *sql.DB, sessions auth.SessionStore, adminEmails []string) http.Handler {
 	return NewRouterWithOptions(db, RouterOptions{
-		Sessions:       sessions,
-		AdminUsernames: adminUsernames,
+		Sessions:    sessions,
+		AdminEmails: adminEmails,
 	})
 }
 
@@ -127,7 +127,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv := &Server{
 		db:                       db,
 		sessions:                 sessions,
-		admins:                   newAdminSet(opts.AdminUsernames),
+		admins:                   newAdminSet(opts.AdminEmails),
 		authRateLimiter:          newFixedWindowLimiter(authRateLimitMaxRequests, authRateLimitWindow),
 		passwordResetEmailSender: passwordResetEmailSender,
 		featureEmail:             featureEmail,
@@ -226,7 +226,7 @@ func (s *Server) handleFarewell(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	next := sanitizePostAuthRedirect(r.URL.Query().Get("next"))
-	username := sanitizeLoginUsername(r.URL.Query().Get("username"))
+	email := sanitizeLoginEmail(r.URL.Query().Get("email"))
 	if next == "" {
 		next = s.postAuthRedirectFromCookie(r)
 	}
@@ -246,7 +246,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		successMsg := r.URL.Query().Get("success")
 		errorMsg := r.URL.Query().Get("error")
-		render(w, r, templates.Login(nil, errorMsg, successMsg, next, username))
+		render(w, r, templates.Login(nil, errorMsg, successMsg, next, email))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -259,25 +259,25 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		if next != "" {
 			s.setPostAuthRedirectCookie(w, r, next)
 		}
-		username = strings.TrimSpace(r.FormValue("username"))
+		email = strings.TrimSpace(r.FormValue("email"))
 		password := r.FormValue("password")
 
-		member, err := service.AuthenticateMemberByUsername(r.Context(), s.db, username, password)
+		member, err := service.AuthenticateMemberByEmail(r.Context(), s.db, email, password)
 		if err != nil {
 			if errors.Is(err, service.ErrInvalidCredentials) {
-				render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
+				render(w, r, templates.Login(nil, "Invalid email or password.", "", next, email))
 				return
 			}
 			if errors.Is(err, service.ErrEmailNotVerified) {
 				if s.featureEmail {
-					render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next, username))
+					render(w, r, templates.Login(nil, "Please verify your email before logging in. Check your inbox for a verification link.", "", next, email))
 					return
 				}
 
-				member, err = service.GetMemberByUsername(r.Context(), s.db, username)
+				member, err = service.GetMemberByEmail(r.Context(), s.db, email)
 				if err != nil {
 					if errors.Is(err, sql.ErrNoRows) {
-						render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
+						render(w, r, templates.Login(nil, "Invalid email or password.", "", next, email))
 						return
 					}
 					log.Printf("lookup unverified member: %v", err)
@@ -285,7 +285,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if !member.Enabled {
-					render(w, r, templates.Login(nil, "Invalid username or password.", "", next, username))
+					render(w, r, templates.Login(nil, "Invalid email or password.", "", next, email))
 					return
 				}
 				if err := service.UpdateMemberVerified(r.Context(), s.db, member.ID, true); err != nil {
@@ -380,41 +380,20 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		baseUsername := deriveUsername(strings.TrimSpace(firstName+" "+lastName), email)
-		var created types.Member
-		var username string
-		var createErr error
-		for attempt := 0; attempt < 3; attempt++ {
-			username, err = service.EnsureUniqueUsername(r.Context(), s.db, baseUsername)
-			if err != nil {
-				log.Printf("generate username failed: %v", err)
-				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
-				return
-			}
-
-			member := types.Member{
-				FirstName:        firstName,
-				LastName:         lastName,
-				Username:         username,
-				Email:            email,
-				PasswordHash:     passwordHash,
-				PreferredContact: email,
-				City:             strPtr(city),
-				State:            strPtr(state),
-				Enabled:          true,
-				Verified:         !s.featureEmail,
-			}
-
-			created, createErr = service.CreateMember(r.Context(), s.db, member)
-			if createErr == nil {
-				break
-			}
-			if !isUniqueViolation(createErr, "members_username_key") {
-				break
-			}
+		member := types.Member{
+			FirstName:        firstName,
+			LastName:         lastName,
+			Email:            email,
+			PasswordHash:     passwordHash,
+			PreferredContact: email,
+			City:             strPtr(city),
+			State:            strPtr(state),
+			Enabled:          true,
+			Verified:         !s.featureEmail,
 		}
+		created, createErr := service.CreateMember(r.Context(), s.db, member)
 		if createErr != nil {
-			if isUniqueViolation(createErr, "members_email_key") {
+			if isUniqueViolation(createErr, "members_email_lower_key") || isUniqueViolation(createErr, "members_email_key") {
 				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "That email address is already taken, please try another one.", next))
 				return
 			}
@@ -423,7 +402,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("signup request: first_name=%q last_name=%q username=%q email=%q city=%q state=%q member_id=%d", firstName, lastName, username, email, city, state, created.ID)
+		log.Printf("signup request: first_name=%q last_name=%q email=%q city=%q state=%q member_id=%d", firstName, lastName, email, city, state, created.ID)
 		if s.featureEmail {
 			token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
 				MemberID:    created.ID,
@@ -434,8 +413,8 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			if tokenErr != nil {
 				log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
 			} else {
-				verifyURL := s.verifyEmailURL(token, created.Username)
-				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, created.Username, verifyURL); sendErr != nil {
+				verifyURL := s.verifyEmailURL(token, created.Email)
+				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
 					log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
 				}
 			}
@@ -467,12 +446,12 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
-	username := sanitizeLoginUsername(r.URL.Query().Get("username"))
+	email := sanitizeLoginEmail(r.URL.Query().Get("email"))
 	redirectToLogin := func(kind, message string) {
 		query := url.Values{}
 		query.Set(kind, message)
-		if username != "" {
-			query.Set("username", username)
+		if email != "" {
+			query.Set("email", email)
 		}
 		http.Redirect(w, r, "/login?"+query.Encode(), http.StatusSeeOther)
 	}
@@ -531,8 +510,8 @@ func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request)
 		if tokenErr != nil {
 			log.Printf("verify email resend token issue failed: member_id=%d: %v", member.ID, tokenErr)
 		} else {
-			verifyURL := s.verifyEmailURL(token, member.Username)
-			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, member.Username, verifyURL); sendErr != nil {
+			verifyURL := s.verifyEmailURL(token, member.Email)
+			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
 				log.Printf("verify email resend send failed: member_id=%d: %v", member.ID, sendErr)
 			}
 		}
@@ -905,7 +884,7 @@ func (s *Server) withUser() Middleware {
 				if memberID, ok := s.sessions.Get(c.Value); ok {
 					if member, err := service.GetMemberByID(r.Context(), s.db, memberID); err == nil && member.Enabled {
 						ctx := context.WithValue(r.Context(), userContextKey, &member)
-						ctx = context.WithValue(ctx, adminContextKey, s.admins.IsAdmin(member.Username))
+						ctx = context.WithValue(ctx, adminContextKey, s.admins.IsAdmin(member.Email))
 						r = r.WithContext(ctx)
 					} else {
 						s.clearSessionCookie(w, r)
@@ -1067,32 +1046,32 @@ func requestIPFromRequest(r *http.Request) *string {
 }
 
 type adminSet struct {
-	usernames map[string]struct{}
+	emails map[string]struct{}
 }
 
-func newAdminSet(adminUsernames []string) *adminSet {
+func newAdminSet(adminEmails []string) *adminSet {
 	set := &adminSet{
-		usernames: make(map[string]struct{}, len(adminUsernames)),
+		emails: make(map[string]struct{}, len(adminEmails)),
 	}
-	for _, username := range adminUsernames {
-		normalized := strings.ToLower(strings.TrimSpace(username))
+	for _, email := range adminEmails {
+		normalized := strings.ToLower(strings.TrimSpace(email))
 		if normalized == "" {
 			continue
 		}
-		set.usernames[normalized] = struct{}{}
+		set.emails[normalized] = struct{}{}
 	}
 	return set
 }
 
-func (a *adminSet) IsAdmin(username string) bool {
+func (a *adminSet) IsAdmin(email string) bool {
 	if a == nil {
 		return false
 	}
-	normalized := strings.ToLower(strings.TrimSpace(username))
+	normalized := strings.ToLower(strings.TrimSpace(email))
 	if normalized == "" {
 		return false
 	}
-	_, ok := a.usernames[normalized]
+	_, ok := a.emails[normalized]
 	return ok
 }
 
@@ -1235,9 +1214,6 @@ func memberDisplayName(member *types.Member) string {
 	if full != "" {
 		return full
 	}
-	if member.Username != "" {
-		return member.Username
-	}
 	return member.Email
 }
 
@@ -1253,19 +1229,6 @@ func isUniqueViolation(err error, constraint string) bool {
 		return true
 	}
 	return pqErr.Constraint == constraint
-}
-
-func deriveUsername(name, email string) string {
-	if name != "" {
-		n := strings.ToLower(strings.TrimSpace(name))
-		n = strings.ReplaceAll(n, " ", "_")
-		return n
-	}
-	parts := strings.Split(email, "@")
-	if len(parts) > 0 && parts[0] != "" {
-		return parts[0]
-	}
-	return "user"
 }
 
 func randomToken() string {
@@ -1301,7 +1264,7 @@ func (s *Server) resetPasswordURL(token string) string {
 	return base.ResolveReference(ref).String()
 }
 
-func (s *Server) verifyEmailURL(token, username string) string {
+func (s *Server) verifyEmailURL(token, email string) string {
 	base, err := url.Parse(s.publicBaseURL)
 	if err != nil {
 		base, _ = url.Parse(defaultPublicBaseURL)
@@ -1309,8 +1272,8 @@ func (s *Server) verifyEmailURL(token, username string) string {
 	ref := &url.URL{Path: "/verify-email"}
 	query := ref.Query()
 	query.Set("token", token)
-	if username = sanitizeLoginUsername(username); username != "" {
-		query.Set("username", username)
+	if email = sanitizeLoginEmail(email); email != "" {
+		query.Set("email", email)
 	}
 	ref.RawQuery = query.Encode()
 	return base.ResolveReference(ref).String()
@@ -1322,7 +1285,7 @@ func (nopPasswordResetEmailSender) SendPasswordReset(_ context.Context, _ string
 	return nil
 }
 
-func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ string, _ string, _ string) error {
+func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ string, _ string) error {
 	return nil
 }
 
@@ -1364,15 +1327,15 @@ func sanitizePostAuthRedirect(raw string) string {
 	return "/organization/" + clean
 }
 
-func sanitizeLoginUsername(raw string) string {
+func sanitizeLoginEmail(raw string) string {
 	raw = strings.TrimSpace(raw)
-	if raw == "" || len(raw) > 64 {
+	if raw == "" || len(raw) > 320 {
 		return ""
 	}
 	if strings.ContainsAny(raw, "\r\n") {
 		return ""
 	}
-	return raw
+	return strings.ToLower(raw)
 }
 
 func (s *Server) postAuthRedirectFromCookie(r *http.Request) string {

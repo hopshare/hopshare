@@ -70,11 +70,8 @@ func (s *mailgunPasswordResetEmailSender) SendPasswordReset(ctx context.Context,
 	return s.sendText(ctx, toEmail, "Reset your HopShare password", "We received a request to reset your HopShare password.\n\nUse this link to set a new password:\n"+strings.TrimSpace(resetURL)+"\n\nIf you did not request this, you can ignore this email.")
 }
 
-func (s *mailgunPasswordResetEmailSender) SendEmailVerification(ctx context.Context, toEmail, username, verifyURL string) error {
+func (s *mailgunPasswordResetEmailSender) SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error {
 	message := "Welcome to HopShare.\n\n"
-	if username = strings.TrimSpace(username); username != "" {
-		message += "Your hopShare username is " + username + ". Make sure to use it when logging in.\n\n"
-	}
 	message += "Use this link to verify your email address:\n" + strings.TrimSpace(verifyURL) + "\n\nIf you did not create this account, you can ignore this email."
 	return s.sendText(ctx, toEmail, "Verify your HopShare email", message)
 }

@@ -6,11 +6,11 @@ import (
 	"time"
 )
 
-func TestLoadParsesAdmins(t *testing.T) {
+func TestLoadParsesAdminEmails(t *testing.T) {
 	t.Setenv("HOPSHARE_ADDR", ":9090")
 	t.Setenv("HOPSHARE_DB_URL", "postgres://example")
 	t.Setenv("HOPSHARE_ENV", "test")
-	t.Setenv("HOPSHARE_ADMINS", " Alice ,bob,ALICE,, carol ")
+	t.Setenv("HOPSHARE_ADMIN_EMAILS", " Alice@example.com ,bob@example.com,ALICE@example.com,, carol@example.com ")
 	t.Setenv("HOPSHARE_TIMEZONE", "America/New_York")
 	t.Setenv("FEATURE_EMAIL", "false")
 	t.Setenv("FEATURE_HOP_PICTURES", "true")
@@ -71,17 +71,17 @@ func TestLoadParsesAdmins(t *testing.T) {
 		t.Fatalf("session idle timeout: got %s want %s", cfg.SessionIdleTimeout, 90*time.Minute)
 	}
 
-	wantAdmins := []string{"alice", "bob", "carol"}
-	if !reflect.DeepEqual(cfg.Admins, wantAdmins) {
-		t.Fatalf("admins: got %v want %v", cfg.Admins, wantAdmins)
+	wantAdmins := []string{"alice@example.com", "bob@example.com", "carol@example.com"}
+	if !reflect.DeepEqual(cfg.AdminEmails, wantAdmins) {
+		t.Fatalf("admin emails: got %v want %v", cfg.AdminEmails, wantAdmins)
 	}
 }
 
 func TestLoadWithoutAdmins(t *testing.T) {
-	t.Setenv("HOPSHARE_ADMINS", "")
+	t.Setenv("HOPSHARE_ADMIN_EMAILS", "")
 	cfg := Load()
-	if len(cfg.Admins) != 0 {
-		t.Fatalf("admins: got %v want empty", cfg.Admins)
+	if len(cfg.AdminEmails) != 0 {
+		t.Fatalf("admin emails: got %v want empty", cfg.AdminEmails)
 	}
 }
 

@@ -149,7 +149,6 @@ func createAuditTestMember(t *testing.T, ctx context.Context, db *sql.DB, prefix
 	member, err := CreateMember(ctx, db, types.Member{
 		FirstName:        "Audit",
 		LastName:         "Tester",
-		Username:         username,
 		Email:            email,
 		PasswordHash:     "hashed_password",
 		PreferredContact: email,

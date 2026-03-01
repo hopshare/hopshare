@@ -73,12 +73,12 @@ type testActor struct {
 	t        *testing.T
 	name     string
 	baseURL  string
-	username string
+	email    string
 	password string
 	client   *http.Client
 }
 
-func newTestActor(t *testing.T, name, baseURL, username, password string) *testActor {
+func newTestActor(t *testing.T, name, baseURL, email, password string) *testActor {
 	t.Helper()
 
 	jar, err := cookiejar.New(nil)
@@ -90,7 +90,7 @@ func newTestActor(t *testing.T, name, baseURL, username, password string) *testA
 		t:        t,
 		name:     name,
 		baseURL:  baseURL,
-		username: username,
+		email:    email,
 		password: password,
 		client: &http.Client{
 			Jar: jar,
@@ -112,7 +112,7 @@ func (a *testActor) Login() {
 	a.t.Helper()
 
 	resp := a.PostForm("/login", url.Values{
-		"username": {a.username},
+		"email":    {a.email},
 		"password": {a.password},
 	})
 	requireRedirectPath(a.t, resp, "/my-hopshare")

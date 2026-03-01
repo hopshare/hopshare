@@ -40,12 +40,12 @@ func newHTTPServerWithSessions(t *testing.T, db *sql.DB, sessions *auth.SessionM
 	return server
 }
 
-func newHTTPServerWithAdmins(t *testing.T, db *sql.DB, adminUsernames []string) *httptest.Server {
+func newHTTPServerWithAdmins(t *testing.T, db *sql.DB, adminEmails []string) *httptest.Server {
 	t.Helper()
 	cookieSecure := false
 	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
-		AdminUsernames: adminUsernames,
-		CookieSecure:   &cookieSecure,
+		AdminEmails:  adminEmails,
+		CookieSecure: &cookieSecure,
 	}))
 	t.Cleanup(server.Close)
 	return server
@@ -76,11 +76,11 @@ func newHTTPServerWithFeatureEmailAndPasswordResetEmailSender(t *testing.T, db *
 	return server
 }
 
-func newHTTPServerWithAdminsAndPasswordResetEmailSender(t *testing.T, db *sql.DB, adminUsernames []string, sender apphttp.PasswordResetEmailSender) *httptest.Server {
+func newHTTPServerWithAdminsAndPasswordResetEmailSender(t *testing.T, db *sql.DB, adminEmails []string, sender apphttp.PasswordResetEmailSender) *httptest.Server {
 	t.Helper()
 	cookieSecure := false
 	server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
-		AdminUsernames:           adminUsernames,
+		AdminEmails:              adminEmails,
 		PasswordResetEmailSender: sender,
 		PublicBaseURL:            "https://hopshare.test",
 		CookieSecure:             &cookieSecure,
@@ -96,7 +96,6 @@ type sentPasswordResetEmail struct {
 
 type sentVerificationEmail struct {
 	ToEmail   string
-	Username  string
 	VerifyURL string
 }
 
@@ -116,11 +115,10 @@ func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context,
 	return nil
 }
 
-func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Context, toEmail, username, verifyURL string) error {
+func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Context, toEmail, verifyURL string) error {
 	s.mu.Lock()
 	s.verificationEmails = append(s.verificationEmails, sentVerificationEmail{
 		ToEmail:   toEmail,
-		Username:  username,
 		VerifyURL: verifyURL,
 	})
 	s.mu.Unlock()
@@ -198,7 +196,7 @@ func loginActorsForMembers(t *testing.T, serverURL string, members map[string]se
 
 	actors := make(map[string]*testActor, len(members))
 	for roleName, member := range members {
-		actor := newTestActor(t, roleName, serverURL, member.Member.Username, member.Password)
+		actor := newTestActor(t, roleName, serverURL, member.Member.Email, member.Password)
 		actor.Login()
 		actors[roleName] = actor
 	}

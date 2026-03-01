@@ -589,14 +589,14 @@ templ AdminUsersTab(data types.AdminUsersTabData) {
 			</div>
 			<form method="GET" action="/admin" class="flex flex-col gap-3 sm:flex-row sm:items-center">
 				<input type="hidden" name="tab" value="users" />
-				<input
-					class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-					type="search"
-					name="q"
-					placeholder="Search by username, first name, or last name"
-					value={ data.Query }
-					data-testid="admin-user-search-input"
-				/>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="search"
+						name="q"
+						placeholder="Search by email, first name, or last name"
+						value={ data.Query }
+						data-testid="admin-user-search-input"
+					/>
 				<button
 					type="submit"
 					class="inline-flex items-center justify-center rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800"
@@ -620,10 +620,10 @@ templ AdminUsersTab(data types.AdminUsersTabData) {
 									href={ adminUsersTabURL(result.MemberID, data.Query) }
 									data-testid={ "admin-user-result-" + strconv.FormatInt(result.MemberID, 10) }
 								>
-									<div class="min-w-0">
-										<p class="truncate text-sm font-semibold text-slate-900">{ adminUserDisplayName(result.FirstName, result.LastName, result.Username) }</p>
-										<p class="truncate text-xs text-slate-500">{ "@" + result.Username }</p>
-									</div>
+										<div class="min-w-0">
+											<p class="truncate text-sm font-semibold text-slate-900">{ adminUserDisplayName(result.FirstName, result.LastName, result.Email) }</p>
+											<p class="truncate text-xs text-slate-500">{ result.Email }</p>
+										</div>
 									@AdminEnabledBadge(result.Enabled)
 								</a>
 							</li>
@@ -707,8 +707,8 @@ templ AdminUsersTab(data types.AdminUsersTabData) {
 		<div class="space-y-4" data-testid={ "admin-user-detail-" + strconv.FormatInt(detail.MemberID, 10) }>
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="space-y-1">
-					<h3 class="text-lg font-bold text-slate-900">{ adminUserDisplayName(detail.FirstName, detail.LastName, detail.Username) }</h3>
-					<p class="text-sm text-slate-600">{ "@" + detail.Username }{ " · " }{ detail.Email }</p>
+					<h3 class="text-lg font-bold text-slate-900">{ adminUserDisplayName(detail.FirstName, detail.LastName, detail.Email) }</h3>
+					<p class="text-sm text-slate-600">{ detail.Email }</p>
 					if detail.LastLoginAt != nil {
 						<p class="text-xs text-slate-500">Last login: { formatInAppTime(detail.LastLoginAt, "Jan 2, 2006 3:04 PM") }</p>
 					} else {
@@ -869,14 +869,14 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 			</div>
 			<form method="GET" action="/admin" class="flex flex-col gap-3 sm:flex-row sm:items-center">
 				<input type="hidden" name="tab" value="messages" />
-				<input
-					class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-					type="search"
-					name="q"
-					placeholder="Search by username, first name, or last name"
-					value={ data.Query }
-					data-testid="admin-message-search-input"
-				/>
+					<input
+						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+						type="search"
+						name="q"
+						placeholder="Search by email, first name, or last name"
+						value={ data.Query }
+						data-testid="admin-message-search-input"
+					/>
 				<button
 					type="submit"
 					class="inline-flex items-center justify-center rounded-md bg-sky-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-800"
@@ -900,10 +900,10 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 									href={ adminMessagesTabURL(result.MemberID, data.Query) }
 									data-testid={ "admin-message-result-" + strconv.FormatInt(result.MemberID, 10) }
 								>
-									<div class="min-w-0">
-										<p class="truncate text-sm font-semibold text-slate-900">{ adminUserDisplayName(result.FirstName, result.LastName, result.Username) }</p>
-										<p class="truncate text-xs text-slate-500">{ "@" + result.Username }</p>
-									</div>
+										<div class="min-w-0">
+											<p class="truncate text-sm font-semibold text-slate-900">{ adminUserDisplayName(result.FirstName, result.LastName, result.Email) }</p>
+											<p class="truncate text-xs text-slate-500">{ result.Email }</p>
+										</div>
 									@AdminEnabledBadge(result.Enabled)
 								</a>
 							</li>
@@ -920,8 +920,8 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 				} else {
 					<div class="space-y-4" data-testid={ "admin-message-detail-" + strconv.FormatInt(data.SelectedRecipient.MemberID, 10) }>
 						<div class="space-y-1">
-							<h3 class="text-lg font-bold text-slate-900">{ adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Username) }</h3>
-							<p class="text-sm text-slate-600">{ "@" + data.SelectedRecipient.Username }{ " · " }{ data.SelectedRecipient.Email }</p>
+							<h3 class="text-lg font-bold text-slate-900">{ adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Email) }</h3>
+							<p class="text-sm text-slate-600">{ data.SelectedRecipient.Email }</p>
 						</div>
 
 						<form method="POST" action="/admin/messages/send" class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3" data-testid="admin-message-send-form">
@@ -967,9 +967,9 @@ templ AdminMessagesTab(data types.AdminMessagesTabData) {
 									for _, msg := range data.Conversation {
 										<li class="rounded-md border border-slate-200 p-3 space-y-2" data-testid={ "admin-message-thread-item-" + strconv.FormatInt(msg.ID, 10) }>
 											if msg.RecipientID == data.SelectedRecipient.MemberID {
-												<p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Admin to { adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Username) }</p>
+												<p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Admin to { adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Email) }</p>
 											} else {
-												<p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">{ adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Username) } to Admin</p>
+												<p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">{ adminUserDisplayName(data.SelectedRecipient.FirstName, data.SelectedRecipient.LastName, data.SelectedRecipient.Email) } to Admin</p>
 											}
 											<p class="text-sm font-semibold text-slate-900">{ msg.Subject }</p>
 											<p class="text-sm text-slate-700 whitespace-pre-line">{ msg.Body }</p>
@@ -1005,11 +1005,11 @@ templ AdminAuditTab(data types.AdminAuditTabData) {
 				<label class="space-y-1 text-sm">
 					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Actor</span>
 					<input
-						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-						type="text"
-						name="actor"
-						placeholder="username/name"
-						value={ data.Filter.Actor }
+							class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+							type="text"
+							name="actor"
+							placeholder="email/name"
+							value={ data.Filter.Actor }
 					/>
 				</label>
 				<label class="space-y-1 text-sm">
@@ -1035,11 +1035,11 @@ templ AdminAuditTab(data types.AdminAuditTabData) {
 				<label class="space-y-1 text-sm">
 					<span class="block text-xs font-semibold uppercase tracking-wide text-slate-500">User</span>
 					<input
-						class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-						type="text"
-						name="user"
-						placeholder="username or id"
-						value={ data.Filter.User }
+							class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+							type="text"
+							name="user"
+							placeholder="email or id"
+							value={ data.Filter.User }
 					/>
 				</label>
 				<label class="space-y-1 text-sm">
@@ -1124,10 +1124,10 @@ templ AdminAuditTab(data types.AdminAuditTabData) {
 							for _, event := range data.Events {
 								<tr data-testid={ "admin-audit-event-" + strconv.FormatInt(event.ID, 10) } class="align-top">
 									<td class="px-3 py-2 whitespace-nowrap text-slate-600">{ formatInAppTime(event.CreatedAt, "2006-01-02 15:04:05") }</td>
-									<td class="px-3 py-2 text-slate-700">
-										<p class="font-semibold text-slate-900">{ event.ActorName }</p>
-										<p class="text-xs text-slate-500">{ "@" + event.ActorUsername }</p>
-									</td>
+										<td class="px-3 py-2 text-slate-700">
+											<p class="font-semibold text-slate-900">{ event.ActorName }</p>
+											<p class="text-xs text-slate-500">{ event.ActorEmail }</p>
+										</td>
 									<td class="px-3 py-2 text-slate-700">{ event.Action }</td>
 									<td class="px-3 py-2 text-slate-700">{ event.Target }</td>
 									<td class="px-3 py-2 text-slate-700">{ adminAuditOrgSummary(event) }</td>
@@ -1357,12 +1357,12 @@ func adminModerationStatusBadgeClass(status string) string {
 	}
 }
 
-func adminUserDisplayName(firstName, lastName, username string) string {
+func adminUserDisplayName(firstName, lastName, email string) string {
 	name := strings.TrimSpace(strings.TrimSpace(firstName) + " " + strings.TrimSpace(lastName))
 	if name != "" {
 		return name
 	}
-	return strings.TrimSpace(username)
+	return strings.TrimSpace(email)
 }
 
 func adminOrganizationsActionModalData(query string) string {
@@ -1557,13 +1557,13 @@ func adminAuditOrgSummary(event types.AdminAuditEventView) string {
 
 func adminAuditUserSummary(event types.AdminAuditEventView) string {
 	if event.UserName != nil && strings.TrimSpace(*event.UserName) != "" {
-		if event.UserUsername != nil && strings.TrimSpace(*event.UserUsername) != "" {
-			return *event.UserName + " (@" + *event.UserUsername + ")"
+		if event.UserEmail != nil && strings.TrimSpace(*event.UserEmail) != "" {
+			return *event.UserName + " (" + *event.UserEmail + ")"
 		}
 		return *event.UserName
 	}
-	if event.UserUsername != nil && strings.TrimSpace(*event.UserUsername) != "" {
-		return "@" + *event.UserUsername
+	if event.UserEmail != nil && strings.TrimSpace(*event.UserEmail) != "" {
+		return *event.UserEmail
 	}
 	if event.UserMemberID != nil {
 		return "#" + strconv.FormatInt(*event.UserMemberID, 10)

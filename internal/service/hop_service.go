@@ -486,7 +486,7 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 			h.accepted_by,
 			h.status,
 			h.title,
-			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.username)
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email)
 		FROM hops h
 		JOIN members m ON m.id = h.created_by
 		WHERE h.id = $1 AND h.organization_id = $2
@@ -821,11 +821,11 @@ func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop,
 
 	row := db.QueryRowContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -884,11 +884,11 @@ func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -945,11 +945,11 @@ func ListRequestedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) (
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -996,11 +996,11 @@ func ListHelpedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1048,11 +1048,11 @@ func ListPendingOfferedHops(ctx context.Context, db *sql.DB, orgID, memberID int
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1104,11 +1104,11 @@ func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1155,11 +1155,11 @@ func RecentPendingHops(ctx context.Context, db *sql.DB, orgID int64, limit int) 
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1203,11 +1203,11 @@ func RecentCompletedHops(ctx context.Context, db *sql.DB, orgID int64, limit int
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1251,11 +1251,11 @@ func RecentAcceptedHops(ctx context.Context, db *sql.DB, orgID int64, limit int)
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1300,11 +1300,11 @@ func RecentPublicCompletedHops(ctx context.Context, db *sql.DB, orgID int64, lim
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1350,11 +1350,11 @@ func RecentPublicAcceptedHops(ctx context.Context, db *sql.DB, orgID int64, limi
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1400,11 +1400,11 @@ func RecentPublicPendingHops(ctx context.Context, db *sql.DB, orgID int64, limit
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.username),
+			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
 			r.needed_by_kind, r.needed_by_date, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.username), r.accepted_at,
+			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
@@ -1713,7 +1713,7 @@ func ListHopComments(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopC
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 			c.id, c.hop_id, c.member_id,
-			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.username),
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
 			c.body, c.created_at
 		FROM hop_comments c
 		JOIN members m ON m.id = c.member_id

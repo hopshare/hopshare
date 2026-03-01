@@ -163,23 +163,23 @@ func ListAdminAuditEvents(ctx context.Context, db *sql.DB, p ListAdminAuditEvent
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT
-			a.id,
-			a.actor_member_id,
-			actor.username,
-			actor.first_name,
-			actor.last_name,
+			SELECT
+				a.id,
+				a.actor_member_id,
+				actor.email,
+				actor.first_name,
+				actor.last_name,
 			a.action,
 			a.target,
 			a.reason,
 			a.metadata,
 			a.created_at,
-			derived.org_id,
-			org.name,
-			derived.user_member_id,
-			member_user.username,
-			member_user.first_name,
-			member_user.last_name
+				derived.org_id,
+				org.name,
+				derived.user_member_id,
+				member_user.email,
+				member_user.first_name,
+				member_user.last_name
 		FROM admin_audit_events a
 		JOIN members actor ON actor.id = a.actor_member_id
 		LEFT JOIN LATERAL (
@@ -198,24 +198,24 @@ func ListAdminAuditEvents(ctx context.Context, db *sql.DB, p ListAdminAuditEvent
 				END AS user_member_id
 		) AS derived ON TRUE
 		LEFT JOIN organizations org ON org.id = derived.org_id
-		LEFT JOIN members member_user ON member_user.id = derived.user_member_id
-		WHERE
-			($1 = '' OR LOWER(actor.username) LIKE $2 OR LOWER(actor.first_name) LIKE $2 OR LOWER(actor.last_name) LIKE $2)
-			AND ($3 = '' OR LOWER(a.action) LIKE $4)
-			AND ($5 = '' OR LOWER(a.target) LIKE $6)
+			LEFT JOIN members member_user ON member_user.id = derived.user_member_id
+			WHERE
+				($1 = '' OR LOWER(actor.email) LIKE $2 OR LOWER(actor.first_name) LIKE $2 OR LOWER(actor.last_name) LIKE $2)
+				AND ($3 = '' OR LOWER(a.action) LIKE $4)
+				AND ($5 = '' OR LOWER(a.target) LIKE $6)
 			AND (
 				$7 = ''
 				OR CAST(COALESCE(derived.org_id, 0) AS TEXT) = $7
 				OR LOWER(COALESCE(org.name, '')) LIKE $8
 				OR LOWER(COALESCE(org.url_name, '')) LIKE $8
 			)
-			AND (
-				$9 = ''
-				OR CAST(COALESCE(derived.user_member_id, 0) AS TEXT) = $9
-				OR LOWER(COALESCE(member_user.username, '')) LIKE $10
-				OR LOWER(COALESCE(member_user.first_name, '')) LIKE $10
-				OR LOWER(COALESCE(member_user.last_name, '')) LIKE $10
-			)
+				AND (
+					$9 = ''
+					OR CAST(COALESCE(derived.user_member_id, 0) AS TEXT) = $9
+					OR LOWER(COALESCE(member_user.email, '')) LIKE $10
+					OR LOWER(COALESCE(member_user.first_name, '')) LIKE $10
+					OR LOWER(COALESCE(member_user.last_name, '')) LIKE $10
+				)
 			AND ($11::timestamptz IS NULL OR a.created_at >= $11)
 			AND ($12::timestamptz IS NULL OR a.created_at < $12)
 		ORDER BY a.created_at DESC, a.id DESC
@@ -236,13 +236,13 @@ func ListAdminAuditEvents(ctx context.Context, db *sql.DB, p ListAdminAuditEvent
 		var orgID sql.NullInt64
 		var orgName sql.NullString
 		var userID sql.NullInt64
-		var userUsername sql.NullString
+		var userEmail sql.NullString
 		var userFirstName sql.NullString
 		var userLastName sql.NullString
 		if err := rows.Scan(
 			&row.ID,
 			&row.ActorMemberID,
-			&row.ActorUsername,
+			&row.ActorEmail,
 			&actorFirstName,
 			&actorLastName,
 			&row.Action,
@@ -253,14 +253,14 @@ func ListAdminAuditEvents(ctx context.Context, db *sql.DB, p ListAdminAuditEvent
 			&orgID,
 			&orgName,
 			&userID,
-			&userUsername,
+			&userEmail,
 			&userFirstName,
 			&userLastName,
 		); err != nil {
 			return nil, fmt.Errorf("scan admin audit event: %w", err)
 		}
 
-		row.ActorName = adminAuditDisplayName(actorFirstName, actorLastName, row.ActorUsername)
+		row.ActorName = adminAuditDisplayName(actorFirstName, actorLastName, row.ActorEmail)
 		if reason.Valid {
 			row.Reason = &reason.String
 		}
@@ -277,12 +277,12 @@ func ListAdminAuditEvents(ctx context.Context, db *sql.DB, p ListAdminAuditEvent
 			v := userID.Int64
 			row.UserMemberID = &v
 		}
-		if userUsername.Valid {
-			v := userUsername.String
-			row.UserUsername = &v
+		if userEmail.Valid {
+			v := userEmail.String
+			row.UserEmail = &v
 		}
 		if userID.Valid {
-			name := adminAuditDisplayName(userFirstName.String, userLastName.String, userUsername.String)
+			name := adminAuditDisplayName(userFirstName.String, userLastName.String, userEmail.String)
 			if strings.TrimSpace(name) != "" {
 				row.UserName = &name
 			}

@@ -156,7 +156,6 @@ func mustCreateMemberForSkillsTest(t *testing.T, ctx context.Context, db *sql.DB
 	m, err := CreateMember(ctx, db, types.Member{
 		FirstName:        "Skill",
 		LastName:         "Tester",
-		Username:         base,
 		Email:            email,
 		PasswordHash:     "hashed_password",
 		PreferredContact: email,

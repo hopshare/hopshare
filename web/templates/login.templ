@@ -2,11 +2,11 @@ package templates
 
 import "net/url"
 
-templ Login(userEmail *string, errorMsg string, successMsg string, next string, username string) {
-	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next, username))
+templ Login(userEmail *string, errorMsg string, successMsg string, next string, email string) {
+	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next, email))
 }
 
-templ LoginBody(errorMsg string, successMsg string, next string, username string) {
+templ LoginBody(errorMsg string, successMsg string, next string, email string) {
 	<section class="max-w-lg mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div>
 			<h1 class="text-2xl font-bold text-slate-900">Log in</h1>
@@ -18,15 +18,15 @@ templ LoginBody(errorMsg string, successMsg string, next string, username string
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
-		<form class="space-y-4" method="POST" action="/login">
-			@CSRFField()
+			<form class="space-y-4" method="POST" action="/login">
+				@CSRFField()
 			if next != "" {
 				<input type="hidden" name="next" value={ next } />
 			}
-			<div class="space-y-1">
-				<label class="block text-sm font-semibold text-slate-800" for="username">Username</label>
-				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="username" name="username" value={ username } required />
-			</div>
+				<div class="space-y-1">
+					<label class="block text-sm font-semibold text-slate-800" for="email">Email</label>
+					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="email" id="email" name="email" value={ email } required />
+				</div>
 			<div class="space-y-1">
 				<label class="block text-sm font-semibold text-slate-800" for="password">Password</label>
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="password" id="password" name="password" required />

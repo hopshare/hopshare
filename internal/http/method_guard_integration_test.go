@@ -9,7 +9,7 @@ func TestHTTPMethodGuards(t *testing.T) {
 
 	member := createSeededMember(t, ctx, db, "method_guard_member", uniqueTestSuffix())
 	server := newHTTPServer(t, db)
-	actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+	actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 	actor.Login()
 
 	cases := []struct {

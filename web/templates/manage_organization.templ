@@ -223,11 +223,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				} else {
 					<div class="rounded-lg border border-slate-200 divide-y divide-slate-100">
 						for _, m := range members {
-							<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-								<div>
-									<p class="font-semibold text-slate-900">{ m.Username }</p>
-									<p class="text-xs text-slate-600">Joined { formatInAppTime(m.JoinedAt, "Jan 2, 2006") } • { m.Role }</p>
-								</div>
+								<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+									<div>
+										<p class="font-semibold text-slate-900">{ m.DisplayName }</p>
+										<p class="text-xs text-slate-600">{ m.Email }{ " • Joined " }{ formatInAppTime(m.JoinedAt, "Jan 2, 2006") }{ " • " }{ m.Role }</p>
+									</div>
 								<div class="flex flex-wrap gap-2">
 									if m.Role == "member" {
 										<form method="POST" action="/organizations/manage/member/role" class="inline-flex">

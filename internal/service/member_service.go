@@ -23,28 +23,26 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 	}
 
 	stmt := `
-		INSERT INTO members (
-			first_name,
-			last_name,
-			username,
-			email,
-			password_hash,
-			preferred_contact,
-			profile_picture_url,
-			city,
-			state,
-			enabled,
-			verified
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, created_at, updated_at`
+			INSERT INTO members (
+				first_name,
+				last_name,
+				email,
+				password_hash,
+				preferred_contact,
+				profile_picture_url,
+				city,
+				state,
+				enabled,
+				verified
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			RETURNING id, created_at, updated_at`
 
 	row := db.QueryRowContext(
 		ctx,
 		stmt,
 		m.FirstName,
 		m.LastName,
-		m.Username,
-		m.Email,
+		strings.ToLower(strings.TrimSpace(m.Email)),
 		m.PasswordHash,
 		m.PreferredContact,
 		m.ProfilePictureURL,
@@ -62,7 +60,7 @@ func CreateMember(ctx context.Context, db *sql.DB, m types.Member) (types.Member
 }
 
 func validateMemberInput(m types.Member) error {
-	if m.FirstName == "" || m.LastName == "" || m.Username == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContact == "" {
+	if m.FirstName == "" || m.LastName == "" || m.Email == "" || m.PasswordHash == "" || m.PreferredContact == "" {
 		return ErrMissingField
 	}
 
@@ -78,9 +76,9 @@ func HashPassword(pw string) (string, error) {
 	return string(hashed), nil
 }
 
-// AuthenticateMemberByUsername validates credentials and returns the member record.
-func AuthenticateMemberByUsername(ctx context.Context, db *sql.DB, username, password string) (types.Member, error) {
-	member, err := GetMemberByUsername(ctx, db, username)
+// AuthenticateMemberByEmail validates credentials and returns the member record.
+func AuthenticateMemberByEmail(ctx context.Context, db *sql.DB, email, password string) (types.Member, error) {
+	member, err := GetMemberByEmail(ctx, db, email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return types.Member{}, ErrInvalidCredentials
@@ -112,13 +110,12 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id,
-			first_name,
-			last_name,
-			username,
-			email,
-			password_hash,
-			preferred_contact,
+			SELECT id,
+				first_name,
+				last_name,
+				email,
+				password_hash,
+				preferred_contact,
 			profile_picture_url,
 			avatar_content_type,
 			(avatar_data IS NOT NULL),
@@ -142,7 +139,6 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 		&m.ID,
 		&m.FirstName,
 		&m.LastName,
-		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
 		&m.PreferredContact,
@@ -182,12 +178,11 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id,
-			first_name,
-			last_name,
-			username,
-			email,
-			password_hash,
+			SELECT id,
+				first_name,
+				last_name,
+				email,
+				password_hash,
 			preferred_contact,
 			profile_picture_url,
 			avatar_content_type,
@@ -212,7 +207,6 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.ID,
 		&m.FirstName,
 		&m.LastName,
-		&m.Username,
 		&m.Email,
 		&m.PasswordHash,
 		&m.PreferredContact,
@@ -229,76 +223,6 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 		&m.UpdatedAt,
 	); err != nil {
 		return types.Member{}, fmt.Errorf("get member by email: %w", err)
-	}
-	if currentOrg.Valid {
-		m.CurrentOrganization = &currentOrg.Int64
-	}
-	if avatarContentType.Valid {
-		m.AvatarContentType = &avatarContentType.String
-	}
-	m.HasAvatar = hasAvatar
-
-	return m, nil
-}
-
-// GetMemberByUsername fetches a member by username (case-insensitive).
-func GetMemberByUsername(ctx context.Context, db *sql.DB, username string) (types.Member, error) {
-	if db == nil {
-		return types.Member{}, ErrNilDB
-	}
-	username = strings.TrimSpace(username)
-	if username == "" {
-		return types.Member{}, ErrMissingField
-	}
-
-	row := db.QueryRowContext(ctx, `
-		SELECT id,
-			first_name,
-			last_name,
-			username,
-			email,
-			password_hash,
-			preferred_contact,
-			profile_picture_url,
-			avatar_content_type,
-			(avatar_data IS NOT NULL),
-			city,
-			state,
-			current_organization,
-			enabled,
-			verified,
-			last_login_at,
-			created_at,
-			updated_at
-		FROM members
-		WHERE LOWER(username) = LOWER($1)
-	`, username)
-
-	var m types.Member
-	var currentOrg sql.NullInt64
-	var avatarContentType sql.NullString
-	var hasAvatar bool
-	if err := row.Scan(
-		&m.ID,
-		&m.FirstName,
-		&m.LastName,
-		&m.Username,
-		&m.Email,
-		&m.PasswordHash,
-		&m.PreferredContact,
-		&m.ProfilePictureURL,
-		&avatarContentType,
-		&hasAvatar,
-		&m.City,
-		&m.State,
-		&currentOrg,
-		&m.Enabled,
-		&m.Verified,
-		&m.LastLoginAt,
-		&m.CreatedAt,
-		&m.UpdatedAt,
-	); err != nil {
-		return types.Member{}, fmt.Errorf("get member by username: %w", err)
 	}
 	if currentOrg.Valid {
 		m.CurrentOrganization = &currentOrg.Int64
@@ -428,43 +352,6 @@ func UpdateMemberCurrentOrganization(ctx context.Context, db *sql.DB, memberID, 
 	return nil
 }
 
-// EnsureUniqueUsername returns an available username based on the provided base.
-func EnsureUniqueUsername(ctx context.Context, db *sql.DB, base string) (string, error) {
-	if db == nil {
-		return "", ErrNilDB
-	}
-	base = strings.TrimSpace(base)
-	if base == "" {
-		base = "user"
-	}
-
-	for i := 0; i < 1000; i++ {
-		candidate := base
-		if i > 0 {
-			candidate = fmt.Sprintf("%s_%d", base, i)
-		}
-		exists, err := usernameExists(ctx, db, candidate)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("no available username for base %q", base)
-}
-
-func usernameExists(ctx context.Context, db *sql.DB, username string) (bool, error) {
-	var exists bool
-	if err := db.QueryRowContext(ctx, `
-		SELECT EXISTS (SELECT 1 FROM members WHERE username = $1)
-	`, username).Scan(&exists); err != nil {
-		return false, fmt.Errorf("check username: %w", err)
-	}
-	return exists, nil
-}
-
 // UpdateMemberProfile updates a member's profile details.
 func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstName, lastName, email, preferredContact, city, state string) error {
 	if db == nil {
@@ -475,7 +362,7 @@ func UpdateMemberProfile(ctx context.Context, db *sql.DB, memberID int64, firstN
 	}
 	firstName = strings.TrimSpace(firstName)
 	lastName = strings.TrimSpace(lastName)
-	email = strings.TrimSpace(email)
+	email = strings.ToLower(strings.TrimSpace(email))
 	preferredContact = strings.TrimSpace(preferredContact)
 	city = strings.TrimSpace(city)
 	state = strings.TrimSpace(state)

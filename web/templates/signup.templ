@@ -17,6 +17,8 @@ templ SignupBody(form SignupForm, successMsg string, errorMsg string, next strin
 			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
 		}
 		<form class="space-y-4" method="POST" action="/signup" x-data="{
+			firstName: '',
+			lastName: '',
 			password: '',
 			strength: 'Too weak',
 			ok: false,
@@ -37,8 +39,11 @@ templ SignupBody(form SignupForm, successMsg string, errorMsg string, next strin
 				} else {
 					this.strength = 'Too weak';
 				}
+			},
+			canSubmit() {
+				return this.ok && this.firstName.trim() !== '' && this.lastName.trim() !== '';
 			}
-		}" x-init="password = $refs.password.value; update(password)">
+		}" x-init="firstName = $refs.first_name.value; lastName = $refs.last_name.value; password = $refs.password.value; update(password)">
 			@CSRFField()
 			if next != "" {
 				<input type="hidden" name="next" value={ next } />
@@ -46,11 +51,11 @@ templ SignupBody(form SignupForm, successMsg string, errorMsg string, next strin
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="first_name">First name</label>
-					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="first_name" name="first_name" required value={ form.FirstName } />
+					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="first_name" name="first_name" required value={ form.FirstName } x-ref="first_name" x-on:input="firstName = $event.target.value" />
 				</div>
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="last_name">Last name</label>
-					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="last_name" name="last_name" required value={ form.LastName } />
+					<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="last_name" name="last_name" required value={ form.LastName } x-ref="last_name" x-on:input="lastName = $event.target.value" />
 				</div>
 			</div>
 			<div class="space-y-1">
@@ -75,10 +80,10 @@ templ SignupBody(form SignupForm, successMsg string, errorMsg string, next strin
 				<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="state" name="state" value={ form.State } />
 			</div>
 			<button class="inline-flex justify-center rounded-lg text-white font-semibold px-4 py-2.5 transition"
-				:class="ok ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'"
+				:class="canSubmit() ? 'bg-sky-700 hover:bg-sky-800' : 'bg-slate-300 cursor-not-allowed'"
 				type="submit"
-				:disabled="!ok"
-				:aria-disabled="!ok">
+				:disabled="!canSubmit()"
+				:aria-disabled="!canSubmit()">
 				Sign Up
 			</button>
 		</form>

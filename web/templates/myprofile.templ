@@ -272,19 +272,8 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 							value={ member.Email }
 						/>
 					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="username">Username</label>
-						<input
-							class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-slate-600"
-							type="text"
-							id="username"
-							name="username"
-							readonly
-							value={ member.Username }
-						/>
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="preferred_contact">Preferred contact</label>
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-slate-800" for="preferred_contact">Preferred contact</label>
 						<input
 							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
 							type="text"

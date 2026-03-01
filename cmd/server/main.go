@@ -61,7 +61,7 @@ func main() {
 
 	handler := httpserver.NewRouterWithOptions(db, httpserver.RouterOptions{
 		Sessions:                 sessionManager,
-		AdminUsernames:           cfg.Admins,
+		AdminEmails:              cfg.AdminEmails,
 		FeatureEmail:             &cfg.FeatureEmail,
 		FeatureHopPictures:       &cfg.FeatureHopPictures,
 		AvatarImageMaxBytes:      &cfg.AvatarImageSize,

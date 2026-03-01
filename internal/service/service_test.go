@@ -71,7 +71,6 @@ func TestCreateMember(t *testing.T) {
 	input := types.Member{
 		FirstName:        "Test",
 		LastName:         "Member",
-		Username:         username,
 		Email:            email,
 		PasswordHash:     "hashed_password",
 		PreferredContact: email,
@@ -87,7 +86,7 @@ func TestCreateMember(t *testing.T) {
 	if member.ID == 0 {
 		t.Fatalf("expected member ID to be set")
 	}
-	if member.FirstName != input.FirstName || member.LastName != input.LastName || member.Username != input.Username || member.Email != input.Email || member.PasswordHash != input.PasswordHash {
+	if member.FirstName != input.FirstName || member.LastName != input.LastName || member.Email != input.Email || member.PasswordHash != input.PasswordHash {
 		t.Fatalf("returned member does not match input")
 	}
 	if member.CreatedAt.IsZero() || member.UpdatedAt.IsZero() {
@@ -107,7 +106,6 @@ func TestCreateOrganization(t *testing.T) {
 	memberInput := types.Member{
 		FirstName:        "Owner",
 		LastName:         "Member",
-		Username:         base,
 		Email:            memberEmail,
 		PasswordHash:     "hashed_password",
 		PreferredContact: memberEmail,
@@ -183,7 +181,6 @@ func TestMembershipStartingBalanceGrantedOnlyOnce(t *testing.T) {
 	ownerInput := types.Member{
 		FirstName:        "Owner",
 		LastName:         "User",
-		Username:         base + "_owner",
 		Email:            base + "_owner@example.com",
 		PasswordHash:     "hashed_password",
 		PreferredContact: base + "_owner@example.com",
@@ -193,7 +190,6 @@ func TestMembershipStartingBalanceGrantedOnlyOnce(t *testing.T) {
 	memberInput := types.Member{
 		FirstName:        "Member",
 		LastName:         "User",
-		Username:         base + "_member",
 		Email:            base + "_member@example.com",
 		PasswordHash:     "hashed_password",
 		PreferredContact: base + "_member@example.com",

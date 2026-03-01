@@ -529,10 +529,17 @@ func PendingMembershipRequests(ctx context.Context, db *sql.DB, orgID int64) ([]
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT mr.id, mr.organization_id, mr.member_id, m.username, m.email, mr.requested_at, mr.status
-		FROM membership_requests mr
-		JOIN members m ON m.id = mr.member_id
-		WHERE mr.organization_id = $1 AND mr.status = 'pending'
+			SELECT
+				mr.id,
+				mr.organization_id,
+				mr.member_id,
+				COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
+				m.email,
+				mr.requested_at,
+				mr.status
+			FROM membership_requests mr
+			JOIN members m ON m.id = mr.member_id
+			WHERE mr.organization_id = $1 AND mr.status = 'pending'
 		ORDER BY mr.requested_at ASC
 	`, orgID)
 	if err != nil {
@@ -691,12 +698,18 @@ func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT m.id, m.username, m.email, om.role, om.is_primary_owner, om.joined_at
-		FROM organization_memberships om
-		JOIN members m ON m.id = om.member_id
-		WHERE om.organization_id = $1 AND om.left_at IS NULL
-		ORDER BY om.is_primary_owner DESC, om.role DESC, m.username ASC
-	`, orgID)
+			SELECT
+				m.id,
+				COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
+				m.email,
+				om.role,
+				om.is_primary_owner,
+				om.joined_at
+			FROM organization_memberships om
+			JOIN members m ON m.id = om.member_id
+			WHERE om.organization_id = $1 AND om.left_at IS NULL
+			ORDER BY om.is_primary_owner DESC, om.role DESC, LOWER(m.last_name) ASC, LOWER(m.first_name) ASC, LOWER(m.email) ASC
+		`, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list organization members: %w", err)
 	}
@@ -705,7 +718,7 @@ func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.
 	var members []types.OrganizationMember
 	for rows.Next() {
 		var om types.OrganizationMember
-		if err := rows.Scan(&om.MemberID, &om.Username, &om.Email, &om.Role, &om.IsPrimaryOwner, &om.JoinedAt); err != nil {
+		if err := rows.Scan(&om.MemberID, &om.DisplayName, &om.Email, &om.Role, &om.IsPrimaryOwner, &om.JoinedAt); err != nil {
 			return nil, fmt.Errorf("scan organization member: %w", err)
 		}
 		members = append(members, om)

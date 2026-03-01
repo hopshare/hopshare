@@ -64,7 +64,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		requester := createSeededMember(t, ctx, db, "org_request_member", suffix)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
+		actor := newTestActor(t, "requester", server.URL, requester.Member.Email, requester.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/request", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -96,7 +96,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		requester := createSeededMember(t, ctx, db, "org_dup_member", suffix)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
+		actor := newTestActor(t, "requester", server.URL, requester.Member.Email, requester.Password)
 		actor.Login()
 		requireRedirectPath(t, actor.PostForm("/organizations/request", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -112,7 +112,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "org_invalid_request", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/request", formKV(
 			"org_id", "invalid",
@@ -129,7 +129,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.Get("/organizations/create"), "/organizations/manage")
 		requireQueryValue(t, loc, "error", "You already manage an organization.")
@@ -141,7 +141,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "org_create_success", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		loc := requireRedirectPath(t, actor.PostMultipart("/organizations/create", map[string]string{
@@ -166,7 +166,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "org_create_missing", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.PostMultipart("/organizations/create", map[string]string{
 			"name":        "",
@@ -180,7 +180,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "org_create_bad_logo", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.PostMultipartWithFiles("/organizations/create", map[string]string{
 			"name":        "Logo Bad Org " + uniqueTestSuffix(),
@@ -246,7 +246,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)), 200)
 		requireBodyContains(t, body, "Manage your organization")
@@ -258,7 +258,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		actor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		actor.Login()
 		requireStatus(t, actor.Get("/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)), 403)
 	})
@@ -271,7 +271,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		requireStatus(t, actor.Get("/organizations/manage?org_id=abc"), 400)
 	})
@@ -286,7 +286,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		}
 		updatedName := "Updated Name " + uniqueTestSuffix()
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostMultipart("/organizations/manage", map[string]string{
 			"action":      "details",
@@ -316,7 +316,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/manage", formKV(
 			"action", "skills",
@@ -343,7 +343,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/manage", formKV(
 			"action", "timebank",
@@ -372,7 +372,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 
 		body := requireStatus(t, actor.PostForm("/organizations/manage", formKV(
@@ -395,7 +395,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		requireStatus(t, actor.PostForm("/organizations/manage", formKV(
 			"action", "unknown",
@@ -415,7 +415,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		reqID := requirePendingRequestID(t, ctx, db, org.ID, requester.Member.ID)
 
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/request", formKV(
 			"request_id", strconv.FormatInt(reqID, 10),
@@ -444,7 +444,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		reqID := requirePendingRequestID(t, ctx, db, org.ID, requester.Member.ID)
 
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/request", formKV(
 			"request_id", strconv.FormatInt(reqID, 10),
@@ -465,7 +465,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		reqID := requirePendingRequestID(t, ctx, db, org.ID, requester.Member.ID)
 
 		server := newHTTPServer(t, db)
-		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		memberActor.Login()
 		loc := requireRedirectPath(t, memberActor.PostForm("/organizations/manage/request", formKV(
 			"request_id", strconv.FormatInt(reqID, 10),
@@ -484,7 +484,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/remove", formKV(
@@ -508,7 +508,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/remove", formKV(
@@ -525,7 +525,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 		other := createSeededMember(t, ctx, db, "non_member", suffix)
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/remove", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -540,7 +540,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member", "other")
 		server := newHTTPServer(t, db)
-		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		memberActor.Login()
 		requireStatus(t, memberActor.PostForm("/organizations/manage/member/remove", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -554,7 +554,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/role", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -573,7 +573,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 			t.Fatalf("promote setup: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/role", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -589,7 +589,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/role", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -605,7 +605,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/role", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -621,7 +621,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member", "other")
 		server := newHTTPServer(t, db)
-		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		memberActor.Login()
 		requireStatus(t, memberActor.PostForm("/organizations/manage/member/role", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -649,8 +649,8 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		ownerActor.Login()
 		memberActor.Login()
 
@@ -669,7 +669,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 
 		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage/member/remove", formKV(

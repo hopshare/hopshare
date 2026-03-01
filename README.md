@@ -33,7 +33,7 @@ Important variables:
 - `HOPSHARE_DB_URL` (required): Postgres connection string used by app and migration command.
 - `HOPSHARE_ADDR` (optional): server bind address, default `:8080`.
 - `HOPSHARE_ENV` (optional): environment label (for example `development`).
-- `HOPSHARE_ADMINS` (optional): comma-separated usernames with admin access. Matching is case-insensitive and spaces are ignored.
+- `HOPSHARE_ADMIN_EMAILS` (optional): comma-separated email addresses with admin access. Matching is case-insensitive and spaces are ignored.
 - `HOPSHARE_TIMEZONE` (optional): IANA timezone name used for rendered timestamps (for example `America/New_York`, `UTC`). Invalid values fail startup.
 - `FEATURE_EMAIL` (optional): enable email-centric flows (`true`/`false`, default `true`). When `false`, email verification is not required for new signups and Mailgun config is optional.
 - `FEATURE_HOP_PICTURES` (optional): controls the Hop Details Pictures panel (`true`/`false`, default `false`). When `false`, the Pictures panel is hidden.
@@ -65,7 +65,7 @@ Generate sample members/orgs:
 - `go run ./cmd/bulkload --members 100 --orgs 8`
 
 Default generated member login pattern:
-- Username: `member_<n>`
+- Email: `member_<n>@example.com`
 - Password: `password123`
 
 ## Testing
@@ -164,7 +164,7 @@ The publish workflows fail fast when these secrets are missing.
 ## Admin + Security Notes
 - Admin routes are under `/admin` and require:
   - authenticated user
-  - username listed in `HOPSHARE_ADMINS`
+  - email listed in `HOPSHARE_ADMIN_EMAILS`
 - Non-admin access to `/admin` routes returns `403 Unauthorized`.
 - Admin audit logging covers mutating actions only (not read-only views).
 - Audit exports are themselves audited.

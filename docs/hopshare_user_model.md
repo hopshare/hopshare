@@ -4,7 +4,8 @@
 
 Members who sign up to Hopshare must create an account. Each Member account must contain the following information
 
-* username
+* first name
+* last name
 * password (encrypted)
 * email address
 * preferred contact (free text string)

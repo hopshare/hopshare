@@ -55,9 +55,9 @@ func TestHopLifecycleWorkflow_MultiUserHTTP(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
-	requesterActor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
-	helperActor := newTestActor(t, "helper", server.URL, helper.Member.Username, helper.Password)
+	ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
+	requesterActor := newTestActor(t, "requester", server.URL, requester.Member.Email, requester.Password)
+	helperActor := newTestActor(t, "helper", server.URL, helper.Member.Email, helper.Password)
 
 	ownerActor.Login()
 	requesterActor.Login()
@@ -209,8 +209,8 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	}))
 	defer server.Close()
 
-	requesterActor := newTestActor(t, "requester", server.URL, requester.Member.Username, requester.Password)
-	helperActor := newTestActor(t, "helper", server.URL, helper.Member.Username, helper.Password)
+	requesterActor := newTestActor(t, "requester", server.URL, requester.Member.Email, requester.Password)
+	helperActor := newTestActor(t, "helper", server.URL, helper.Member.Email, helper.Password)
 	requesterActor.Login()
 	helperActor.Login()
 
@@ -340,7 +340,7 @@ func TestHopLifecycleWorkflow_PrivateHopBlocksNonAssociatedCommentAndImage(t *te
 	}))
 	defer server.Close()
 
-	outsiderActor := newTestActor(t, "outsider", server.URL, outsider.Member.Username, outsider.Password)
+	outsiderActor := newTestActor(t, "outsider", server.URL, outsider.Member.Email, outsider.Password)
 	outsiderActor.Login()
 
 	commentBody := requireStatus(t, outsiderActor.PostForm("/hops/comments/create", url.Values{
@@ -391,7 +391,6 @@ func createSeededMember(t *testing.T, ctx context.Context, db *sql.DB, role, suf
 	member, err := service.CreateMember(ctx, db, types.Member{
 		FirstName:        role,
 		LastName:         "Integration",
-		Username:         username,
 		Email:            email,
 		PasswordHash:     hash,
 		PreferredContact: email,

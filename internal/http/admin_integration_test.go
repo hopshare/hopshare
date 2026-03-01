@@ -175,8 +175,8 @@ func TestAdminOverviewHTTP(t *testing.T) {
 
 		expected := queryAdminOverviewExpectation(t, ctx, db)
 
-		server := newHTTPServerWithAdmins(t, db, []string{" " + admin.Member.Username + " "})
-		actor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{" " + admin.Member.Email + " "})
+		actor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		actor.Login()
 
 		body := requireStatus(t, actor.Get("/admin"), http.StatusOK)
@@ -271,10 +271,10 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 			t.Fatalf("seed negative org override: %v", err)
 		}
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
-		ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		ownerActor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		ownerActor.Login()
 
 		adminBody := requireStatus(t, adminActor.Get("/admin?tab=organizations&org_id="+strconv.FormatInt(org.ID, 10)+"&q="+url.QueryEscape("Admin Org")), http.StatusOK)
@@ -430,10 +430,10 @@ func TestAdminModerationHTTP(t *testing.T) {
 		}
 		deleteImageID := images[0].ID
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
-		reporterActor := newTestActor(t, "reporter", server.URL, reporter.Member.Username, reporter.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
+		reporterActor := newTestActor(t, "reporter", server.URL, reporter.Member.Email, reporter.Password)
 		reporterActor.Login()
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
 
 		requireRedirectPath(t, reporterActor.PostForm("/hops/comments/report", formKV(
@@ -568,13 +568,13 @@ func TestAdminUsersHTTP(t *testing.T) {
 		}
 
 		resetSender := &recordingPasswordResetEmailSender{}
-		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Username}, resetSender)
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Email}, resetSender)
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
-		targetActor := newTestActor(t, "target", server.URL, target.Member.Username, target.Password)
+		targetActor := newTestActor(t, "target", server.URL, target.Member.Email, target.Password)
 		targetActor.Login()
 
-		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Username)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
+		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Email)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
 		requireBodyContains(t, userTabBody, "Users")
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-result-%d"`, target.Member.ID))
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-detail-%d"`, target.Member.ID))
@@ -585,7 +585,7 @@ func TestAdminUsersHTTP(t *testing.T) {
 		disableLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "disable_user",
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "disable for account recovery policy",
 		)), "/admin")
 		requireQueryValue(t, disableLoc, "tab", "users")
@@ -627,17 +627,17 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("expected helper to receive reopen notification")
 		}
 
-		disabledLoginActor := newTestActor(t, "disabled-target-login", server.URL, target.Member.Username, target.Password)
+		disabledLoginActor := newTestActor(t, "disabled-target-login", server.URL, target.Member.Email, target.Password)
 		disabledLoginBody := requireStatus(t, disabledLoginActor.PostForm("/login", formKV(
-			"username", target.Member.Username,
+			"email", target.Member.Email,
 			"password", target.Password,
 		)), http.StatusOK)
-		requireBodyContains(t, disabledLoginBody, "Invalid username or password.")
+		requireBodyContains(t, disabledLoginBody, "Invalid email or password.")
 
 		enableLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "enable_user",
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "restore account access",
 		)), "/admin")
 		requireQueryValue(t, enableLoc, "success", "User re-enabled.")
@@ -653,16 +653,16 @@ func TestAdminUsersHTTP(t *testing.T) {
 		forceResetLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "force_password_reset",
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "credential recovery",
 		)), "/admin")
 		requireQueryValue(t, forceResetLoc, "success", "Password reset forced. User must use Forgot Password.")
 
 		oldPasswordLoginBody := requireStatus(t, disabledLoginActor.PostForm("/login", formKV(
-			"username", target.Member.Username,
+			"email", target.Member.Email,
 			"password", target.Password,
 		)), http.StatusOK)
-		requireBodyContains(t, oldPasswordLoginBody, "Invalid username or password.")
+		requireBodyContains(t, oldPasswordLoginBody, "Invalid email or password.")
 
 		anon := newTestActor(t, "anon", server.URL, "", "")
 		forgotBody := requireStatus(t, anon.PostForm("/forgot-password", formKV(
@@ -682,14 +682,14 @@ func TestAdminUsersHTTP(t *testing.T) {
 			"confirm_password", "TargetNewPassword123!",
 		)), "/login")
 
-		targetWithNewPassword := newTestActor(t, "target-new-password", server.URL, target.Member.Username, "TargetNewPassword123!")
+		targetWithNewPassword := newTestActor(t, "target-new-password", server.URL, target.Member.Email, "TargetNewPassword123!")
 		targetWithNewPassword.Login()
 		requireStatus(t, targetWithNewPassword.Get("/my-hopshare"), http.StatusOK)
 
 		revokeSessionsLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "revoke_sessions",
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "security session invalidation",
 		)), "/admin")
 		requireQueryValue(t, revokeSessionsLoc, "tab", "users")
@@ -700,7 +700,7 @@ func TestAdminUsersHTTP(t *testing.T) {
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hours_delta", "3",
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "manual correction",
 		)), "/admin")
 		requireQueryValue(t, adjustHoursLoc, "success", "Hour balance adjusted.")
@@ -742,11 +742,11 @@ func TestAdminUsersHTTP(t *testing.T) {
 		}
 
 		resetSender := &recordingPasswordResetEmailSender{}
-		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Username}, resetSender)
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdminsAndPasswordResetEmailSender(t, db, []string{admin.Member.Email}, resetSender)
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
 
-		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Username)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
+		userTabBody := requireStatus(t, adminActor.Get("/admin?tab=users&q="+url.QueryEscape(target.Member.Email)+"&member_id="+strconv.FormatInt(target.Member.ID, 10)), http.StatusOK)
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-send-verification-%d"`, target.Member.ID))
 		requireBodyContains(t, userTabBody, fmt.Sprintf(`data-testid="admin-user-verified-%d">Not Verified</span>`, target.Member.ID))
 
@@ -755,7 +755,7 @@ func TestAdminUsersHTTP(t *testing.T) {
 		sendLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "send_verification_email",
 			"member_id", strconv.FormatInt(target.Member.ID, 10),
-			"q", target.Member.Username,
+			"q", target.Member.Email,
 			"reason", "requested by user support",
 		)), "/admin")
 		requireQueryValue(t, sendLoc, "success", "Verification email sent.")
@@ -775,8 +775,8 @@ func TestAdminUsersHTTP(t *testing.T) {
 		if verifyEmail.ToEmail != target.Member.Email {
 			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, target.Member.Email)
 		}
-		if verifyEmail.Username != target.Member.Username {
-			t.Fatalf("verification email username mismatch: got=%q want=%q", verifyEmail.Username, target.Member.Username)
+		if verifyEmail.ToEmail != target.Member.Email {
+			t.Fatalf("verification email email mismatch: got=%q want=%q", verifyEmail.ToEmail, target.Member.Email)
 		}
 		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
 		if verifyToken == "" {
@@ -796,20 +796,20 @@ func TestAdminMessagesHTTP(t *testing.T) {
 		admin := createSeededMember(t, ctx, db, "admin_messages_admin", suffix)
 		recipient := createSeededMember(t, ctx, db, "admin_messages_recipient", suffix)
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
-		recipientActor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		recipientActor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		recipientActor.Login()
 
-		searchBody := requireStatus(t, adminActor.Get("/admin?tab=messages&q="+url.QueryEscape(recipient.Member.Username)), http.StatusOK)
+		searchBody := requireStatus(t, adminActor.Get("/admin?tab=messages&q="+url.QueryEscape(recipient.Member.Email)), http.StatusOK)
 		requireBodyContains(t, searchBody, "Admin Messages")
 		requireBodyContains(t, searchBody, fmt.Sprintf(`data-testid="admin-message-result-%d"`, recipient.Member.ID))
 
 		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionMessageSend)
 		firstLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
 			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
-			"q", recipient.Member.Username,
+			"q", recipient.Member.Email,
 			"subject", "Account update "+suffix,
 			"body", "Message body "+suffix,
 		)), "/admin")
@@ -844,13 +844,13 @@ func TestAdminMessagesHTTP(t *testing.T) {
 		adminInboxBody := requireStatus(t, adminActor.Get("/messages"), http.StatusOK)
 		requireBodyContains(t, adminInboxBody, "Re: "+firstSubject)
 
-		conversationBody := requireStatus(t, adminActor.Get("/admin?tab=messages&recipient_id="+strconv.FormatInt(recipient.Member.ID, 10)+"&q="+url.QueryEscape(recipient.Member.Username)), http.StatusOK)
+		conversationBody := requireStatus(t, adminActor.Get("/admin?tab=messages&recipient_id="+strconv.FormatInt(recipient.Member.ID, 10)+"&q="+url.QueryEscape(recipient.Member.Email)), http.StatusOK)
 		requireBodyContains(t, conversationBody, replyText)
 		requireBodyContains(t, conversationBody, firstSubject)
 
 		secondLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
 			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
-			"q", recipient.Member.Username,
+			"q", recipient.Member.Email,
 			"subject", "ADMIN Message: Follow-up "+suffix,
 			"body", "Second admin message "+suffix,
 		)), "/admin")
@@ -939,10 +939,10 @@ func TestAdminAuditHTTP(t *testing.T) {
 			t.Fatalf("write user audit event: %v", err)
 		}
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Username, admin.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
 		adminActor.Login()
-		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Username, nonAdmin.Password)
+		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Email, nonAdmin.Password)
 		nonAdminActor.Login()
 
 		auditBody := requireStatus(t, adminActor.Get("/admin?tab=audit"), http.StatusOK)
@@ -953,10 +953,10 @@ func TestAdminAuditHTTP(t *testing.T) {
 
 		filterDay := now.Format("2006-01-02")
 		filteredURL := "/admin?tab=audit" +
-			"&actor=" + url.QueryEscape(admin.Member.Username) +
+			"&actor=" + url.QueryEscape(admin.Member.Email) +
 			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
 			"&organization=" + url.QueryEscape(org.Name) +
-			"&user=" + url.QueryEscape(target.Member.Username) +
+			"&user=" + url.QueryEscape(target.Member.Email) +
 			"&target=" + url.QueryEscape("member:") +
 			"&start_date=" + url.QueryEscape(filterDay) +
 			"&end_date=" + url.QueryEscape(filterDay)
@@ -965,10 +965,10 @@ func TestAdminAuditHTTP(t *testing.T) {
 		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, disableEvent.ID))
 		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
 
-		exportQuery := "actor=" + url.QueryEscape(admin.Member.Username) +
+		exportQuery := "actor=" + url.QueryEscape(admin.Member.Email) +
 			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
 			"&organization=" + url.QueryEscape(org.Name) +
-			"&user=" + url.QueryEscape(target.Member.Username) +
+			"&user=" + url.QueryEscape(target.Member.Email) +
 			"&target=" + url.QueryEscape("member:") +
 			"&start_date=" + url.QueryEscape(filterDay) +
 			"&end_date=" + url.QueryEscape(filterDay)
@@ -1030,9 +1030,9 @@ func TestAdminAuthorizationBoundariesHTTP(t *testing.T) {
 		admin := createSeededMember(t, ctx, db, "admin_authz_admin", suffix)
 		nonAdmin := createSeededMember(t, ctx, db, "admin_authz_member", suffix)
 
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Username})
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
 		anonActor := newTestActor(t, "anon", server.URL, "", "")
-		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Username, nonAdmin.Password)
+		nonAdminActor := newTestActor(t, "non-admin", server.URL, nonAdmin.Member.Email, nonAdmin.Password)
 		nonAdminActor.Login()
 
 		requireRedirectPath(t, anonActor.Get("/admin"), "/login")

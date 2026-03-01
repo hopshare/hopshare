@@ -57,7 +57,6 @@ type Member struct {
 	ID                  int64
 	FirstName           string
 	LastName            string
-	Username            string
 	Email               string
 	PasswordHash        string
 	PreferredContact    string
@@ -107,7 +106,7 @@ type MembershipRequest struct {
 // OrganizationMember represents an active membership record.
 type OrganizationMember struct {
 	MemberID       int64
-	Username       string
+	DisplayName    string
 	Email          string
 	Role           string
 	IsPrimaryOwner bool
@@ -293,7 +292,7 @@ type AdminAuditFilter struct {
 type AdminAuditEventView struct {
 	ID               int64
 	ActorMemberID    int64
-	ActorUsername    string
+	ActorEmail       string
 	ActorName        string
 	Action           string
 	Target           string
@@ -303,7 +302,7 @@ type AdminAuditEventView struct {
 	OrganizationID   *int64
 	OrganizationName *string
 	UserMemberID     *int64
-	UserUsername     *string
+	UserEmail        *string
 	UserName         *string
 }
 
@@ -344,7 +343,6 @@ type AdminOrganizationTabData struct {
 
 type AdminUserSearchResult struct {
 	MemberID    int64
-	Username    string
 	FirstName   string
 	LastName    string
 	Email       string
@@ -371,7 +369,6 @@ type AdminUserBalanceEntry struct {
 
 type AdminUserDetail struct {
 	MemberID       int64
-	Username       string
 	FirstName      string
 	LastName       string
 	Email          string

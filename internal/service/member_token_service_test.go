@@ -164,7 +164,6 @@ func createTokenTestMember(t *testing.T, ctx context.Context, db *sql.DB, label 
 	input := types.Member{
 		FirstName:        "Token",
 		LastName:         "Tester",
-		Username:         "token_" + suffix,
 		Email:            "token_" + suffix + "@example.com",
 		PasswordHash:     "hashed_password",
 		PreferredContact: "token_" + suffix + "@example.com",

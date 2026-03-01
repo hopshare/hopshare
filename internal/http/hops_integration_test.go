@@ -21,7 +21,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
 		server := newHTTPServer(t, db)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
 		requester.Login()
 		loc := requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -65,7 +65,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
 		server := newHTTPServer(t, db)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
 		requester.Login()
 
 		loc := requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
@@ -101,7 +101,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
 		server := newHTTPServer(t, db)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
 		requester.Login()
 
 		body := requireStatus(t, requester.Get("/hops/request?org_id="+strconv.FormatInt(org.ID, 10)), 200)
@@ -122,7 +122,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, _ := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 		outsider := createSeededMember(t, ctx, db, "hop_non_member", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "outsider", server.URL, outsider.Member.Username, outsider.Password)
+		actor := newTestActor(t, "outsider", server.URL, outsider.Member.Email, outsider.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/hops/create", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -149,7 +149,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
 		requester.Login()
 		loc := requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -178,7 +178,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		member.Login()
 		body := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, body, "Viewable Hop")
@@ -203,7 +203,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 		outsider := createSeededMember(t, ctx, db, "hop_view_outsider", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "outsider", server.URL, outsider.Member.Username, outsider.Password)
+		actor := newTestActor(t, "outsider", server.URL, outsider.Member.Email, outsider.Password)
 		actor.Login()
 		requireStatus(t, actor.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 403)
 	})
@@ -216,9 +216,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Detail completion visibility "+suffix)
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		owner.Login()
 		helper.Login()
 		member.Login()
@@ -254,8 +254,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		helper.Login()
 		owner.Login()
 
@@ -295,7 +295,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -311,7 +311,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Cancel Accepted Hop "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -321,7 +321,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 
 		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
 		if ownerName == "" {
-			ownerName = members["owner"].Member.Username
+			ownerName = members["owner"].Member.Email
 		}
 		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
 		wantBody := "We wanted to let you know that " + ownerName + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
@@ -369,7 +369,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		helper.Login()
 		loc := requireRedirectPath(t, helper.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -385,7 +385,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Complete by requester "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -428,7 +428,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		helper.Login()
 		loc := requireRedirectPath(t, helper.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -479,7 +479,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -506,7 +506,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Complete from details "+suffix)
 
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		helper.Login()
 
 		redirectTo := "/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)
@@ -553,7 +553,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -579,7 +579,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Complete missing comment "+suffix)
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		helper.Login()
 		loc := requireRedirectPath(t, helper.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -608,7 +608,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/complete", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -625,7 +625,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Privacy hop "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		loc := requireRedirectPath(t, owner.PostForm("/hops/privacy", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -650,7 +650,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "HX privacy hop "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		resp := owner.Request("POST", "/hops/privacy", strings.NewReader(formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -671,7 +671,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper", "member")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Privacy forbidden hop "+suffix)
 		server := newHTTPServer(t, db)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		member.Login()
 		requireStatus(t, member.PostForm("/hops/privacy", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -687,7 +687,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
 		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Privacy invalid value "+suffix)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		requireStatus(t, owner.PostForm("/hops/privacy", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -726,8 +726,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create private hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		member.Login()
 		owner.Login()
 
@@ -762,7 +762,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		requireRedirectPath(t, owner.PostMultipartWithFiles("/hops/images/upload", map[string]string{
 			"org_id": strconv.FormatInt(org.ID, 10),
@@ -800,7 +800,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		requireStatus(t, owner.PostMultipartWithFiles("/hops/images/upload", map[string]string{
@@ -837,8 +837,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		owner.Login()
 		member.Login()
 
@@ -901,8 +901,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		imageID := images[0].ID
 
 		server := newHTTPServer(t, db)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
-		outsider := newTestActor(t, "nonMember", server.URL, nonMember.Member.Username, nonMember.Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		outsider := newTestActor(t, "nonMember", server.URL, nonMember.Member.Email, nonMember.Password)
 		member.Login()
 		outsider.Login()
 
@@ -950,8 +950,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
 		helper.Login()
 		requester.Login()
 
@@ -984,7 +984,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		approveMemberForOrganization(t, ctx, db, orgB.ID, ownerB.Member.ID, member.Member.ID)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		requireStatus(t, actor.Get("/my-hopshare?org_id="+strconv.FormatInt(orgB.ID, 10)), 200)
@@ -1004,7 +1004,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
 		_ = org
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		actor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		actor.Login()
 		requireStatus(t, actor.Get("/my-hopshare?org_id=not-a-number"), 200)
 		requireStatus(t, actor.Get("/my-hops?org_id=not-a-number"), 200)
@@ -1030,7 +1030,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("create expiring hop: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 		requireStatus(t, owner.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
 		updated, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
@@ -1051,8 +1051,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		createAcceptedHopViaOffer(t, ctx, db, org.ID, members["requester"].Member.ID, members["helper"].Member.ID, title)
 
 		server := newHTTPServer(t, db)
-		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
-		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Username, members["helper"].Password)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
 		requester.Login()
 		helper.Login()
 
@@ -1083,7 +1083,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		server := newHTTPServer(t, db)
-		member := newTestActor(t, "member", server.URL, members["member"].Member.Username, members["member"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
 		member.Login()
 
 		body := requireStatus(t, member.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
@@ -1110,7 +1110,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		approveMemberForOrganization(t, ctx, db, orgB.ID, ownerB.Member.ID, member.Member.ID)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		body := requireStatus(t, actor.Get("/my-hopshare/organizations"), 200)
@@ -1128,7 +1128,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
 
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		body := requireStatus(t, owner.Get("/my-hopshare/organizations"), 200)

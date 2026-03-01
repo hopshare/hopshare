@@ -18,7 +18,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "messages_get", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/messages"), 200)
 		requireBodyContains(t, body, "Messages")
@@ -43,7 +43,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, "Read marker message "+suffix)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		requireStatus(t, actor.Get("/messages?message_id="+strconv.FormatInt(msg.ID, 10)), 200)
 
@@ -61,7 +61,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "messages_invalid_id", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/messages?message_id=bad"), 200)
 		requireBodyContains(t, body, "Invalid message.")
@@ -72,7 +72,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "messages_unread_zero", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/messages/unread-count"), 200)
 		if body != "" {
@@ -97,7 +97,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 			t.Fatalf("send message: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		body := requireStatus(t, actor.Get("/messages/unread-count"), 200)
 		requireBodyContains(t, body, "<span")
@@ -123,7 +123,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, "Delete message "+suffix)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/messages/delete", formKV(
 			"message_id", strconv.FormatInt(msg.ID, 10),
@@ -151,7 +151,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipientA.Member.ID, "Delete other message "+suffix)
 
 		server := newHTTPServer(t, db)
-		actorB := newTestActor(t, "recipientB", server.URL, recipientB.Member.Username, recipientB.Password)
+		actorB := newTestActor(t, "recipientB", server.URL, recipientB.Member.Email, recipientB.Password)
 		actorB.Login()
 		loc := requireRedirectPath(t, actorB.PostForm("/messages/delete", formKV(
 			"message_id", strconv.FormatInt(msg.ID, 10),
@@ -178,7 +178,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, "Reply message "+suffix)
 
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/messages/reply", formKV(
 			"message_id", strconv.FormatInt(msg.ID, 10),
@@ -205,7 +205,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, "Empty reply message "+suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/messages/reply", formKV(
 			"message_id", strconv.FormatInt(msg.ID, 10),
@@ -241,7 +241,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}
 		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
-		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/messages/reply", formKV(
 			"message_id", strconv.FormatInt(actionMsg.ID, 10),
@@ -266,7 +266,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}
 		msg := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, "System notice "+suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Username, recipient.Password)
+		actor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/messages/reply", formKV(
 			"message_id", strconv.FormatInt(msg.ID, 10),
@@ -280,7 +280,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "messages_invalid_action", uniqueTestSuffix())
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/messages/action", formKV(
 			"message_id", "1",
@@ -316,7 +316,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}
 		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
-		other := newTestActor(t, "other", server.URL, members["other"].Member.Username, members["other"].Password)
+		other := newTestActor(t, "other", server.URL, members["other"].Member.Email, members["other"].Password)
 		other.Login()
 		loc := requireRedirectPath(t, other.PostForm("/messages/action", formKV(
 			"message_id", strconv.FormatInt(actionMsg.ID, 10),
@@ -352,7 +352,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}
 		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		requireRedirectPath(t, owner.PostForm("/messages/action", formKV(

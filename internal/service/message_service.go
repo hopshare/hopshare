@@ -59,15 +59,15 @@ func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
 		if senderName == "" {
 			var firstName string
 			var lastName string
-			var username string
+			var email string
 			if err := db.QueryRowContext(ctx, `
-				SELECT first_name, last_name, username
-				FROM members
-				WHERE id = $1
-			`, *p.SenderID).Scan(&firstName, &lastName, &username); err != nil {
+					SELECT first_name, last_name, email
+					FROM members
+					WHERE id = $1
+				`, *p.SenderID).Scan(&firstName, &lastName, &email); err != nil {
 				return fmt.Errorf("load sender name: %w", err)
 			}
-			senderName = memberDisplayName(firstName, lastName, username)
+			senderName = memberDisplayName(firstName, lastName, email)
 		}
 	} else if senderName == "" {
 		return ErrMissingField

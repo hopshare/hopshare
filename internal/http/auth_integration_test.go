@@ -27,12 +27,12 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		requireBodyNotContains(t, body, "/verify-email/resend")
 	})
 
-	t.Run("AUTH-01C GET /login with username query pre-fills username field", func(t *testing.T) {
+	t.Run("AUTH-01C GET /login with email query pre-fills email field", func(t *testing.T) {
 		server := newHTTPServer(t, db)
 		anon := newTestActor(t, "anon", server.URL, "", "")
-		prefill := "login_prefill_user"
-		body := requireStatus(t, anon.Get("/login?username="+url.QueryEscape(prefill)), http.StatusOK)
-		requireBodyContains(t, body, `name="username" value="`+prefill+`"`)
+		prefill := "login_prefill_user@example.com"
+		body := requireStatus(t, anon.Get("/login?email="+url.QueryEscape(prefill)), http.StatusOK)
+		requireBodyContains(t, body, `name="email" value="`+prefill+`"`)
 	})
 
 	t.Run("AUTH-01A secure-cookie mode sets Secure/HttpOnly/SameSite flags", func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 
 		loginResp, err := client.PostForm(server.URL+"/login", formKV(
-			"username", member.Member.Username,
+			"email", member.Member.Email,
 			"password", member.Password,
 			testCSRFFieldName, csrfToken,
 		))
@@ -103,9 +103,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}))
 		t.Cleanup(server.Close)
 
-		actor := newTestActor(t, "secure-http-actor", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "secure-http-actor", server.URL, member.Member.Email, member.Password)
 		resp := actor.PostForm("/login", formKV(
-			"username", member.Member.Username,
+			"email", member.Member.Email,
 			"password", member.Password,
 		))
 		requireSetCookieNotContains(t, resp, "hopshare_session", "Secure")
@@ -119,7 +119,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_login", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 	})
 
@@ -127,10 +127,10 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		server := newHTTPServer(t, db)
 		anon := newTestActor(t, "anon", server.URL, "", "")
 		body := requireStatus(t, anon.PostForm("/login", formKV(
-			"username", "does_not_exist",
+			"email", "does_not_exist",
 			"password", "wrong_password",
 		)), 200)
-		requireBodyContains(t, body, "Invalid username or password.")
+		requireBodyContains(t, body, "Invalid email or password.")
 	})
 
 	t.Run("AUTH-04 GET /login when already authenticated redirects to /my-hopshare", func(t *testing.T) {
@@ -139,7 +139,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_login_redirect", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		requireRedirectPath(t, actor.Get("/login"), "/my-hopshare")
 	})
@@ -154,9 +154,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			t.Fatalf("create org: %v", err)
 		}
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		requireRedirectPath(t, actor.PostForm("/login", formKV(
-			"username", owner.Member.Username,
+			"email", owner.Member.Email,
 			"password", owner.Password,
 			"next", "/organization/"+org.URLName,
 		)), "/organization/"+org.URLName)
@@ -168,9 +168,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_next_invalid", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		requireRedirectPath(t, actor.PostForm("/login", formKV(
-			"username", member.Member.Username,
+			"email", member.Member.Email,
 			"password", member.Password,
 			"next", "https://evil.example.com",
 		)), "/my-hopshare")
@@ -188,7 +188,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_logout_method_guard", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		resp := actor.Get("/logout")
 		requireStatus(t, resp, http.StatusMethodNotAllowed)
@@ -204,7 +204,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_logout_post", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 		requireRedirectPath(t, actor.PostForm("/logout", formKV()), "/")
 		requireRedirectPath(t, actor.Get("/my-hopshare"), "/login")
@@ -216,7 +216,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_logout_missing_csrf", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		resp := actor.Request(http.MethodPost, "/logout", strings.NewReader(""), map[string]string{
@@ -232,7 +232,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_logout_invalid_csrf", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		resp := actor.Request(http.MethodPost, "/logout", strings.NewReader("csrf_token=invalid"), map[string]string{
@@ -304,8 +304,8 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		if verifyEmail.ToEmail != email {
 			t.Fatalf("verification email recipient mismatch: got=%q want=%q", verifyEmail.ToEmail, email)
 		}
-		if verifyEmail.Username != member.Username {
-			t.Fatalf("verification email username mismatch: got=%q want=%q", verifyEmail.Username, member.Username)
+		if verifyEmail.ToEmail != member.Email {
+			t.Fatalf("verification email email mismatch: got=%q want=%q", verifyEmail.ToEmail, member.Email)
 		}
 		verifyToken := extractVerifyTokenFromURL(t, verifyEmail.VerifyURL)
 		if verifyToken == "" {
@@ -313,7 +313,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 
 		loginBody := requireStatus(t, anon.PostForm("/login", formKV(
-			"username", member.Username,
+			"email", member.Email,
 			"password", "Password123!",
 		)), http.StatusOK)
 		requireBodyContains(t, loginBody, "Please verify your email before logging in.")
@@ -324,9 +324,9 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		}
 		verifyLoc := requireRedirectPath(t, anon.Get(verifyURL.RequestURI()), "/login")
 		requireQueryValue(t, verifyLoc, "success", "Email verified. You can now log in.")
-		requireQueryValue(t, verifyLoc, "username", member.Username)
+		requireQueryValue(t, verifyLoc, "email", member.Email)
 		prefilledLoginBody := requireStatus(t, anon.Get(verifyLoc.RequestURI()), http.StatusOK)
-		requireBodyContains(t, prefilledLoginBody, `name="username" value="`+member.Username+`"`)
+		requireBodyContains(t, prefilledLoginBody, `name="email" value="`+member.Email+`"`)
 
 		verifiedMember, err := service.GetMemberByID(ctx, db, member.ID)
 		if err != nil {
@@ -336,7 +336,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected verified member after verification link")
 		}
 
-		loginActor := newTestActor(t, "verified_member", server.URL, member.Username, "Password123!")
+		loginActor := newTestActor(t, "verified_member", server.URL, member.Email, "Password123!")
 		loginActor.Login()
 	})
 
@@ -367,7 +367,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected no verification email when feature email is disabled, got %d", emailSender.VerificationCount())
 		}
 
-		loginActor := newTestActor(t, "feature_disabled_member", server.URL, member.Username, "Password123!")
+		loginActor := newTestActor(t, "feature_disabled_member", server.URL, member.Email, "Password123!")
 		loginActor.Login()
 	})
 
@@ -502,7 +502,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		)), "/signup-success")
 	})
 
-	t.Run("AUTH-13 repeated signup base username gets unique username", func(t *testing.T) {
+	t.Run("AUTH-13 repeated signup with same name keeps unique email identity", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -533,8 +533,8 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		if err != nil {
 			t.Fatalf("load memberB: %v", err)
 		}
-		if memberA.Username == memberB.Username {
-			t.Fatalf("expected unique usernames, both were %q", memberA.Username)
+		if memberA.Email == memberB.Email {
+			t.Fatalf("expected unique emails, both were %q", memberA.Email)
 		}
 	})
 
@@ -638,14 +638,14 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"confirm_password", "NewPassword123!",
 		)), "/login")
 
-		loginActor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		loginActor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		invalidBody := requireStatus(t, loginActor.PostForm("/login", formKV(
-			"username", member.Member.Username,
+			"email", member.Member.Email,
 			"password", member.Password,
 		)), 200)
-		requireBodyContains(t, invalidBody, "Invalid username or password.")
+		requireBodyContains(t, invalidBody, "Invalid email or password.")
 
-		newLoginActor := newTestActor(t, "member_new", server.URL, member.Member.Username, "NewPassword123!")
+		newLoginActor := newTestActor(t, "member_new", server.URL, member.Member.Email, "NewPassword123!")
 		newLoginActor.Login()
 
 		reuseBody := requireStatus(t, anon.PostForm("/reset-password", formKV(
@@ -682,7 +682,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 			"confirm_password", "CrossInstancePassword123!",
 		)), "/login")
 
-		newLoginActor := newTestActor(t, "member_cross_instance", resetServer.URL, member.Member.Username, "CrossInstancePassword123!")
+		newLoginActor := newTestActor(t, "member_cross_instance", resetServer.URL, member.Member.Email, "CrossInstancePassword123!")
 		newLoginActor.Login()
 	})
 
@@ -694,7 +694,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		resetSender := &recordingPasswordResetEmailSender{}
 		server := newHTTPServerWithPasswordResetEmailSender(t, db, resetSender)
 
-		memberActor := newTestActor(t, "member_active_session", server.URL, member.Member.Username, member.Password)
+		memberActor := newTestActor(t, "member_active_session", server.URL, member.Member.Email, member.Password)
 		memberActor.Login()
 		requireStatus(t, memberActor.Get("/my-hopshare"), http.StatusOK)
 
@@ -716,7 +716,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 
 		requireRedirectPath(t, memberActor.Get("/my-hopshare"), "/login")
 
-		newLoginActor := newTestActor(t, "member_after_revoke", server.URL, member.Member.Username, "RevokeSessions123!")
+		newLoginActor := newTestActor(t, "member_after_revoke", server.URL, member.Member.Email, "RevokeSessions123!")
 		newLoginActor.Login()
 	})
 
@@ -728,7 +728,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 
 		sessions := auth.NewSessionManager()
 		server := newHTTPServerWithSessions(t, db, sessions)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		requireStatus(t, actor.Get("/my-hopshare"), http.StatusOK)
@@ -744,7 +744,7 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_non_admin", suffix)
 		server := newHTTPServer(t, db)
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		requireStatus(t, actor.Get("/admin"), http.StatusForbidden)
@@ -757,8 +757,8 @@ func TestAuthHTTPMatrix(t *testing.T) {
 		defer cancel()
 		suffix := uniqueTestSuffix()
 		member := createSeededMember(t, ctx, db, "auth_admin", suffix)
-		server := newHTTPServerWithAdmins(t, db, []string{"  " + strings.ToUpper(member.Member.Username) + "  "})
-		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		server := newHTTPServerWithAdmins(t, db, []string{"  " + strings.ToUpper(member.Member.Email) + "  "})
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
 		actor.Login()
 
 		adminBody := requireStatus(t, actor.Get("/admin"), http.StatusOK)
@@ -778,7 +778,7 @@ func TestAuthRateLimitingHTTP(t *testing.T) {
 
 		for i := 0; i < maxRequests; i++ {
 			resp := anon.PostForm("/login", formKV(
-				"username", "unknown_user",
+				"email", "unknown_user",
 				"password", "wrong_password",
 			))
 			if resp.StatusCode == http.StatusTooManyRequests {
@@ -788,7 +788,7 @@ func TestAuthRateLimitingHTTP(t *testing.T) {
 		}
 
 		limited := anon.PostForm("/login", formKV(
-			"username", "unknown_user",
+			"email", "unknown_user",
 			"password", "wrong_password",
 		))
 		requireStatus(t, limited, http.StatusTooManyRequests)

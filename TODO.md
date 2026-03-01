@@ -35,6 +35,9 @@
 
 * /healthz endpoint should actually determine health- currently just returns 200
 
+* Login
+    * Add one-time login code via e-mail instead of password
+
 * Header
 
 * My Profile
@@ -52,15 +55,30 @@
         * The Organization name in the detail pane should be clickable to take you directly to the Organization page
 
 * Organizations
-    * Need to have a separate set of timebank parameters per organization
-        * Minimum balance (default -5)
-        * Maximum balance (default 10)
-        * Starting balance (default 5)
-    * The UI should enforce some sensible levels here to avoid crazy numbers that would make the timebank unusable.
 
-* Joining an Organization should use messages
-    * Send an information message to all Owners of an Organization when you request membership. The message body should contain a link that will take the Member directly to their 
-    * Send yourself an information message that you requested membership in an Organization.
+* Sign Up
+    * Sign Ups now can be of two kinds- invited and non-invited.
+        * Invited means you got an email from a hopShare Org that auto-joins you to that Org after you've signed up and been verified.
+        * Non-Invited means you decided to sign up to hopShare on your own and after being verified will decide whether to join or create an Org.
+             * We should have a small wizard to walk these users thru the process.
+             * If the just want to find an Org- let them search, request to join.
+             * If they want to make an Org.
+                * Go to the creation page.
+                * Offer to let them send an initial set of invites (this counts as their invite blast for the day).
+                * Provide more details and links to docs on how to manage an Org. 
+
+* Joining an Organization 
+    * Users can individually request to join an organization
+        * We should use messages for this
+        * All Owners of the organization get a message with the request- they can approve or deny.
+            * The User asking to join gets a message letting them know if they've been approved or not.
+        * The User asking to join gets a message telling them their request has been sent.
+    * An Organization Owner can send out one invite blast to up to 30 individuals each day thru the Manage Organization page.
+        * We want to make it as simple as possible to sign up and get hopping...
+        * Take a simple list of email addresses (up to 30) delimited by commas.
+        * Each invite goes to an email. It has a link to sign up for hopShare, and they are pre-approved for the Organization. If the recipient is already a hopShare user, the link takes them to the Organization page and pre-approves them for the Organization.
+        * Invitations expire in two weeks but can be re-sent
+
 
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
 

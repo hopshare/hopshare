@@ -117,7 +117,7 @@ func adminOrganizationRecentHops(ctx context.Context, db *sql.DB, orgID int64, l
 			h.organization_id,
 			h.title,
 			h.status,
-			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.username),
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
 			h.created_at
 		FROM hops h
 		JOIN members m ON m.id = h.created_by

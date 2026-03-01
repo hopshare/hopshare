@@ -37,24 +37,23 @@ func SearchMembersForAdmin(ctx context.Context, db *sql.DB, query string, limit 
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT
-			id,
-			username,
-			first_name,
-			last_name,
-			email,
+			SELECT
+				id,
+				first_name,
+				last_name,
+				email,
 			enabled,
 			last_login_at
 		FROM members
-		WHERE (
-			$1 = '%'
-			OR LOWER(username) LIKE $1
-			OR LOWER(first_name) LIKE $1
-			OR LOWER(last_name) LIKE $1
-		)
-		ORDER BY username ASC
-		LIMIT $2
-	`, searchPattern, limit)
+			WHERE (
+				$1 = '%'
+				OR LOWER(email) LIKE $1
+				OR LOWER(first_name) LIKE $1
+				OR LOWER(last_name) LIKE $1
+			)
+			ORDER BY LOWER(last_name) ASC, LOWER(first_name) ASC, LOWER(email) ASC
+			LIMIT $2
+		`, searchPattern, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search members for admin: %w", err)
 	}
@@ -66,7 +65,6 @@ func SearchMembersForAdmin(ctx context.Context, db *sql.DB, query string, limit 
 		var lastLoginAt sql.NullTime
 		if err := rows.Scan(
 			&row.MemberID,
-			&row.Username,
 			&row.FirstName,
 			&row.LastName,
 			&row.Email,
@@ -98,12 +96,11 @@ func AdminUserDetail(ctx context.Context, db *sql.DB, memberID int64) (types.Adm
 
 	var detail types.AdminUserDetail
 	if err := db.QueryRowContext(ctx, `
-		SELECT id, username, first_name, last_name, email, enabled, verified, last_login_at, created_at, updated_at
-		FROM members
-		WHERE id = $1
-	`, memberID).Scan(
+			SELECT id, first_name, last_name, email, enabled, verified, last_login_at, created_at, updated_at
+			FROM members
+			WHERE id = $1
+		`, memberID).Scan(
 		&detail.MemberID,
-		&detail.Username,
 		&detail.FirstName,
 		&detail.LastName,
 		&detail.Email,

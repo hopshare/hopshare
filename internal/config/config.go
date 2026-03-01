@@ -12,7 +12,7 @@ type Config struct {
 	Addr               string
 	DatabaseURL        string
 	Env                string
-	Admins             []string
+	AdminEmails        []string
 	Timezone           string
 	FeatureEmail       bool
 	FeatureHopPictures bool
@@ -33,7 +33,7 @@ func Load() Config {
 		Addr:               getenv("HOPSHARE_ADDR", ":8080"),
 		DatabaseURL:        getenv("HOPSHARE_DB_URL", ""),
 		Env:                getenv("HOPSHARE_ENV", "development"),
-		Admins:             parseAdmins(getenv("HOPSHARE_ADMINS", "")),
+		AdminEmails:        parseAdminEmails(getenv("HOPSHARE_ADMIN_EMAILS", "")),
 		Timezone:           loadTimezone(),
 		FeatureEmail:       getenvBool("FEATURE_EMAIL", true),
 		FeatureHopPictures: getenvBool("FEATURE_HOP_PICTURES", false),
@@ -95,7 +95,7 @@ func getenvInt64(key string, fallback int64) int64 {
 	return parsed
 }
 
-func parseAdmins(raw string) []string {
+func parseAdminEmails(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
@@ -105,15 +105,15 @@ func parseAdmins(raw string) []string {
 	admins := make([]string, 0, len(parts))
 	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
-		username := strings.ToLower(strings.TrimSpace(part))
-		if username == "" {
+		email := strings.ToLower(strings.TrimSpace(part))
+		if email == "" {
 			continue
 		}
-		if _, ok := seen[username]; ok {
+		if _, ok := seen[email]; ok {
 			continue
 		}
-		seen[username] = struct{}{}
-		admins = append(admins, username)
+		seen[email] = struct{}{}
+		admins = append(admins, email)
 	}
 	return admins
 }
