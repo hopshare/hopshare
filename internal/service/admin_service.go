@@ -63,6 +63,7 @@ func AdminAppOverview(ctx context.Context, db *sql.DB, leaderboardLimit int) (ty
 			COALESCE(SUM(CASE WHEN hours_delta > 0 THEN hours_delta ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
 		FROM hour_balance_adjustments
+		WHERE is_starting_balance = FALSE
 	`).Scan(&out.HourOverrideCounts.Count, &out.HourOverrideCounts.HoursGiven, &out.HourOverrideCounts.HoursRemoved); err != nil {
 		return types.AdminAppOverview{}, fmt.Errorf("count admin hour overrides: %w", err)
 	}

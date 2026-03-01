@@ -155,4 +155,116 @@ func TestCreateOrganization(t *testing.T) {
 	if len(orgs) != 1 || orgs[0].ID != org.ID {
 		t.Fatalf("expected one organization for member; got %d", len(orgs))
 	}
+	if org.TimebankMinBalance != DefaultTimebankMinBalance || org.TimebankMaxBalance != DefaultTimebankMaxBalance || org.TimebankStartingBalance != DefaultTimebankStartingBalance {
+		t.Fatalf(
+			"unexpected default timebank policy: min=%d max=%d start=%d",
+			org.TimebankMinBalance,
+			org.TimebankMaxBalance,
+			org.TimebankStartingBalance,
+		)
+	}
+
+	stats, err := MemberStats(ctx, db, org.ID, member.ID)
+	if err != nil {
+		t.Fatalf("MemberStats returned error: %v", err)
+	}
+	if stats.BalanceHours != DefaultTimebankStartingBalance {
+		t.Fatalf("expected owner starting balance of %d, got %d", DefaultTimebankStartingBalance, stats.BalanceHours)
+	}
+}
+
+func TestMembershipStartingBalanceGrantedOnlyOnce(t *testing.T) {
+	db := require_db(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	base := fmt.Sprintf("inttest_org_start_%d", time.Now().UnixNano())
+	ownerInput := types.Member{
+		FirstName:        "Owner",
+		LastName:         "User",
+		Username:         base + "_owner",
+		Email:            base + "_owner@example.com",
+		PasswordHash:     "hashed_password",
+		PreferredContact: base + "_owner@example.com",
+		Enabled:          true,
+		Verified:         true,
+	}
+	memberInput := types.Member{
+		FirstName:        "Member",
+		LastName:         "User",
+		Username:         base + "_member",
+		Email:            base + "_member@example.com",
+		PasswordHash:     "hashed_password",
+		PreferredContact: base + "_member@example.com",
+		Enabled:          true,
+		Verified:         true,
+	}
+
+	owner, err := CreateMember(ctx, db, ownerInput)
+	if err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	member, err := CreateMember(ctx, db, memberInput)
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+
+	org, err := CreateOrganization(ctx, db, base+" Org", "City", "TS", "Desc", owner.ID)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+
+	approve := func() {
+		if err := RequestMembership(ctx, db, member.ID, org.ID, nil); err != nil {
+			t.Fatalf("request membership: %v", err)
+		}
+		requests, err := PendingMembershipRequests(ctx, db, org.ID)
+		if err != nil {
+			t.Fatalf("pending requests: %v", err)
+		}
+		var requestID int64
+		for _, req := range requests {
+			if req.MemberID == member.ID {
+				requestID = req.ID
+				break
+			}
+		}
+		if requestID == 0 {
+			t.Fatalf("expected pending request for member=%d", member.ID)
+		}
+		if err := ApproveMembershipRequest(ctx, db, requestID, owner.ID); err != nil {
+			t.Fatalf("approve membership request: %v", err)
+		}
+	}
+
+	approve()
+
+	if err := RemoveOrganizationMember(ctx, db, org.ID, member.ID, owner.ID); err != nil {
+		t.Fatalf("remove member after first approval: %v", err)
+	}
+
+	approve()
+
+	stats, err := MemberStats(ctx, db, org.ID, member.ID)
+	if err != nil {
+		t.Fatalf("member stats after rejoin: %v", err)
+	}
+	if stats.BalanceHours != DefaultTimebankStartingBalance {
+		t.Fatalf("expected rejoined member balance to remain %d, got %d", DefaultTimebankStartingBalance, stats.BalanceHours)
+	}
+
+	var startingRows int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM hour_balance_adjustments
+		WHERE organization_id = $1
+			AND member_id = $2
+			AND is_starting_balance = TRUE
+	`, org.ID, member.ID).Scan(&startingRows); err != nil {
+		t.Fatalf("count starting balance rows: %v", err)
+	}
+	if startingRows != 1 {
+		t.Fatalf("expected exactly one starting balance row, got %d", startingRows)
+	}
 }

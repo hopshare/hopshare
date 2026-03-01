@@ -20,8 +20,9 @@
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * The 403 unauthorized page says "This page is only available to organization owners." - need to make this more generic
 * Deleting a User does not delete their Organization...what do we do here?
+    * Before deleting, we need to make them choose one of the Owners to take it on- that Owner can't already have an Organization
+    * We probably need a fail safe here in the Admin tab for abandoned Orgs.
 * Move to a static tailwind CSS- don't pull dynamically
-* Add a file size limit on org/user avatar pictures (2MB)
 
 
 ## Now
@@ -48,6 +49,7 @@
     * Users
     * Organizations
         * We should let Admins 'inject' new Owners into an Organization if they get abandoned
+        * The Organization name in the detail pane should be clickable to take you directly to the Organization page
 
 * Organizations
     * Need to have a separate set of timebank parameters per organization

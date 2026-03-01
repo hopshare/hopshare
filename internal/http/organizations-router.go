@@ -347,6 +347,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
+	activeTab := normalizeManageOrganizationTab(r.URL.Query().Get("tab"))
 
 	switch r.Method {
 	case http.MethodGet:
@@ -403,7 +404,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, successMsg, errorMsg))
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, successMsg, errorMsg, activeTab))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
@@ -470,6 +471,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		if action == "" {
 			action = "details"
 		}
+		activeTab = normalizeManageOrganizationTab(action)
 
 		switch action {
 		case "details":
@@ -479,7 +481,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			description := strings.TrimSpace(r.FormValue("description"))
 			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", err.Error()))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", err.Error(), activeTab))
 				return
 			}
 
@@ -493,34 +495,63 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			}
 			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 				log.Printf("update organization %d: %v", org.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update organization."))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update organization.", activeTab))
 				return
 			}
 
 			if hasLogo {
 				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
 					log.Printf("set org logo org=%d: %v", org.ID, err)
-					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not upload logo."))
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not upload logo.", activeTab))
 					return
 				}
 			}
 
-			redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization updated.")
-			if org.ID != 0 {
-				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Organization updated.")
-			}
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization updated.", activeTab)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		case "skills":
 			skillNames := parseSkillLines(r.FormValue("skills_text"))
 			if err := service.ReplaceOrganizationSkills(r.Context(), s.db, org.ID, user.ID, skillNames); err != nil {
 				log.Printf("replace organization skills org=%d actor=%d: %v", org.ID, user.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update skills."))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update skills.", activeTab))
 				return
 			}
-			redirectURL := "/organizations/manage?success=" + url.QueryEscape("Organization skills updated.")
-			if org.ID != 0 {
-				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Organization skills updated.")
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization skills updated.", activeTab)
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		case "timebank":
+			minBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_min_balance")))
+			if err != nil {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Minimum balance must be a whole number.", activeTab))
+				return
 			}
+			maxBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_max_balance")))
+			if err != nil {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Maximum balance must be a whole number.", activeTab))
+				return
+			}
+			startingBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_starting_balance")))
+			if err != nil {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Starting balance must be a whole number.", activeTab))
+				return
+			}
+
+			if err := service.UpdateOrganizationTimebankPolicy(r.Context(), s.db, org.ID, minBalance, maxBalance, startingBalance); err != nil {
+				msg := "Could not update time bank settings."
+				switch {
+				case errors.Is(err, service.ErrInvalidTimebankMinBalance):
+					msg = "Minimum balance must be below zero and greater than -10."
+				case errors.Is(err, service.ErrInvalidTimebankMaxBalance):
+					msg = "Maximum balance must be above zero and less than 20."
+				case errors.Is(err, service.ErrInvalidTimebankStart):
+					msg = "Starting balance must be above zero and less than 10."
+				case errors.Is(err, service.ErrInvalidTimebank):
+					msg = "Starting balance must be less than or equal to the maximum balance."
+				}
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", msg, activeTab))
+				return
+			}
+
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Time bank settings updated.", activeTab)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		default:
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -528,6 +559,30 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func normalizeManageOrganizationTab(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "details", "skills", "timebank":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "details"
+	}
+}
+
+func manageOrganizationRedirectURL(orgID int64, successMsg, activeTab string) string {
+	query := url.Values{}
+	if orgID != 0 {
+		query.Set("org_id", strconv.FormatInt(orgID, 10))
+	}
+	if successMsg != "" {
+		query.Set("success", successMsg)
+	}
+	tab := normalizeManageOrganizationTab(activeTab)
+	if tab != "details" {
+		query.Set("tab", tab)
+	}
+	return "/organizations/manage?" + query.Encode()
 }
 
 func readLogoUpload(r *http.Request, field string, maxBytes int64) ([]byte, string, bool, error) {
@@ -571,6 +626,17 @@ func parseSkillLines(raw string) []string {
 		skills = append(skills, v)
 	}
 	return skills
+}
+
+func parseRequiredInt(raw string) (int, error) {
+	if raw == "" {
+		return 0, errors.New("missing integer")
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, err
+	}
+	return parsed, nil
 }
 
 func (s *Server) handleManageMembershipRequest(w http.ResponseWriter, r *http.Request) {

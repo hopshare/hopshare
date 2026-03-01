@@ -133,6 +133,33 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "Could not create hop.")
 	})
 
+	t.Run("HOP-03A create hop blocked when requester is at minimum balance", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
+		if err := service.AdjustMemberHourBalance(ctx, db, service.AdjustMemberHourBalanceParams{
+			OrganizationID: org.ID,
+			MemberID:       members["requester"].Member.ID,
+			AdminMemberID:  members["owner"].Member.ID,
+			HoursDelta:     -10, // requester starts at 5, so this moves them to -5 (default min)
+			Reason:         "test minimum balance request block",
+		}); err != nil {
+			t.Fatalf("adjust requester balance: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Username, members["requester"].Password)
+		requester.Login()
+		loc := requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"title", "Min Blocked "+suffix,
+			"estimated_hours", "1",
+			"needed_by_kind", types.HopNeededByAnytime,
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "error", "You're at this organization's minimum balance (-5). Complete a hop first to earn hours before requesting another.")
+	})
+
 	t.Run("HOP-04 view hop as org member succeeds", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -492,6 +519,57 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "org_id", strconv.FormatInt(org.ID, 10))
 		requireQueryValue(t, loc, "hop_id", strconv.FormatInt(hop.ID, 10))
 		requireQueryValue(t, loc, "success", "Hop completed.")
+	})
+
+	t.Run("HOP-12e completion transfer is capped at organization maximum balance", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
+		hopTitle := "Completion capped by max balance " + suffix
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          hopTitle,
+			Details:        "Cap completion hours by helper max balance.",
+			EstimatedHours: 8,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			OffererID:      members["helper"].Member.ID,
+			OffererName:    "helper",
+		}); err != nil {
+			t.Fatalf("offer hop help: %v", err)
+		}
+		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+		if err := service.AcceptHopOfferMessage(ctx, db, msg.ID, members["owner"].Member.ID, "owner", "accepted"); err != nil {
+			t.Fatalf("accept hop offer message: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Username, members["owner"].Password)
+		owner.Login()
+		loc := requireRedirectPath(t, owner.PostForm("/hops/complete", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"completed_hours", "8",
+			"completion_comment", "Requester completed with cap.",
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Hop completed. 5 hour(s) were transferred instead of 8 to keep the helper below the organization's maximum balance (10).")
+
+		updated, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
+		if err != nil {
+			t.Fatalf("load completed hop: %v", err)
+		}
+		if updated.CompletedHours == nil || *updated.CompletedHours != 5 {
+			t.Fatalf("expected completed_hours=5 after cap, got %v", updated.CompletedHours)
+		}
 	})
 
 	t.Run("HOP-13 complete hop missing comment is rejected", func(t *testing.T) {

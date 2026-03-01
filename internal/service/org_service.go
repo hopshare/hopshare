@@ -29,14 +29,14 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL AND o.enabled = TRUE
 	`, memberID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -52,7 +52,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
@@ -66,7 +66,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -88,7 +88,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
 		       om.role, om.is_primary_owner
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
@@ -103,7 +103,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	var orgs []types.MemberOrganization
 	for rows.Next() {
 		var o types.MemberOrganization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
 			return nil, fmt.Errorf("scan member organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -128,14 +128,14 @@ func OrganizationForOwner(ctx context.Context, db *sql.DB, memberID, orgID int64
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL AND o.enabled = TRUE
 	`, memberID, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -233,13 +233,13 @@ func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Or
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE id = $1
 	`, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by id: %w", err)
 	}
 	return o, nil
@@ -268,13 +268,13 @@ func GetOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE url_name = $1
 	`, urlName)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by url name: %w", err)
 	}
 	return o, nil
@@ -299,7 +299,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE enabled = TRUE
 		ORDER BY name
@@ -312,7 +312,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -341,7 +341,7 @@ func SearchOrganizationsForAdmin(ctx context.Context, db *sql.DB, query string, 
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
 		FROM organizations
 		WHERE ($1 = '%' OR LOWER(name) LIKE $1)
 		ORDER BY name
@@ -355,7 +355,7 @@ func SearchOrganizationsForAdmin(ctx context.Context, db *sql.DB, query string, 
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -590,6 +590,17 @@ func ApproveMembershipRequest(ctx context.Context, db *sql.DB, requestID, decide
 		return fmt.Errorf("approve membership request: %w", err)
 	}
 
+	var hadAnyMembership bool
+	if err = tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM organization_memberships
+			WHERE organization_id = $1 AND member_id = $2
+		)
+	`, orgID, memberID).Scan(&hadAnyMembership); err != nil {
+		return fmt.Errorf("check membership history: %w", err)
+	}
+
 	var exists bool
 	if err = tx.QueryRowContext(ctx, `
 		SELECT EXISTS (
@@ -605,6 +616,28 @@ func ApproveMembershipRequest(ctx context.Context, db *sql.DB, requestID, decide
 			VALUES ($1, $2, 'member', FALSE)
 		`, orgID, memberID); err != nil {
 			return fmt.Errorf("create membership: %w", err)
+		}
+	}
+
+	if !hadAnyMembership {
+		policy, policyErr := loadTimebankPolicy(ctx, tx, orgID)
+		if policyErr != nil {
+			return policyErr
+		}
+		if policy.StartingBalance > 0 {
+			if _, err = tx.ExecContext(ctx, `
+				INSERT INTO hour_balance_adjustments (
+					organization_id,
+					member_id,
+					admin_member_id,
+					hours_delta,
+					reason,
+					is_starting_balance
+				)
+				VALUES ($1, $2, $3, $4, $5, TRUE)
+			`, orgID, memberID, decidedBy, policy.StartingBalance, "Organization starting balance"); err != nil {
+				return fmt.Errorf("insert starting balance adjustment: %w", err)
+			}
 		}
 	}
 
@@ -808,6 +841,37 @@ func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization)
 	return nil
 }
 
+// UpdateOrganizationTimebankPolicy updates min/max/starting balance settings for an organization.
+func UpdateOrganizationTimebankPolicy(ctx context.Context, db *sql.DB, orgID int64, minBalance, maxBalance, startingBalance int) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+
+	policy := timebankPolicy{
+		MinBalance:      minBalance,
+		MaxBalance:      maxBalance,
+		StartingBalance: startingBalance,
+	}
+	if err := validateTimebankPolicy(policy); err != nil {
+		return err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET timebank_min_balance = $1,
+			timebank_max_balance = $2,
+			timebank_starting_balance = $3,
+			updated_at = NOW()
+		WHERE id = $4
+	`, policy.MinBalance, policy.MaxBalance, policy.StartingBalance, orgID); err != nil {
+		return fmt.Errorf("update organization timebank policy: %w", err)
+	}
+	return nil
+}
+
 // CreateOrganization inserts an organization and sets the given member as the primary owner.
 func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, description string, primaryOwnerMemberID int64) (types.Organization, error) {
 	if db == nil {
@@ -825,6 +889,14 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 	}
 	if primaryOwnerMemberID == 0 {
 		return types.Organization{}, ErrMissingMemberID
+	}
+	defaultPolicy := timebankPolicy{
+		MinBalance:      DefaultTimebankMinBalance,
+		MaxBalance:      DefaultTimebankMaxBalance,
+		StartingBalance: DefaultTimebankStartingBalance,
+	}
+	if err := validateTimebankPolicy(defaultPolicy); err != nil {
+		return types.Organization{}, err
 	}
 
 	var alreadyPrimaryOwner bool
@@ -859,11 +931,13 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 		}
 
 		row := tx.QueryRowContext(ctx, `
-			INSERT INTO organizations (name, url_name, city, state, description, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			RETURNING id, name, url_name, city, state, description, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
-		`, name, urlName, city, state, description, primaryOwnerMemberID)
-		if err = row.Scan(&org.ID, &org.Name, &org.URLName, &org.City, &org.State, &org.Description, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
+				INSERT INTO organizations (
+					name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, created_by
+				)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+				RETURNING id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+			`, name, urlName, city, state, description, defaultPolicy.MinBalance, defaultPolicy.MaxBalance, defaultPolicy.StartingBalance, primaryOwnerMemberID)
+		if err = row.Scan(&org.ID, &org.Name, &org.URLName, &org.City, &org.State, &org.Description, &org.TimebankMinBalance, &org.TimebankMaxBalance, &org.TimebankStartingBalance, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
 			if isUniqueConstraintViolation(err, organizationURLNameUniqueConstraint) {
 				continue
 			}
@@ -880,6 +954,22 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 		VALUES ($1, $2, 'owner', TRUE)
 	`, org.ID, primaryOwnerMemberID); err != nil {
 		return types.Organization{}, fmt.Errorf("add primary owner: %w", err)
+	}
+
+	if org.TimebankStartingBalance > 0 {
+		if _, err = tx.ExecContext(ctx, `
+			INSERT INTO hour_balance_adjustments (
+				organization_id,
+				member_id,
+				admin_member_id,
+				hours_delta,
+				reason,
+				is_starting_balance
+			)
+			VALUES ($1, $2, $3, $4, $5, TRUE)
+		`, org.ID, primaryOwnerMemberID, primaryOwnerMemberID, org.TimebankStartingBalance, "Organization starting balance"); err != nil {
+			return types.Organization{}, fmt.Errorf("insert owner starting balance adjustment: %w", err)
+		}
 	}
 
 	if err = tx.Commit(); err != nil {

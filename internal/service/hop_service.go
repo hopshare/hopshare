@@ -51,6 +51,17 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 	if err := requireActiveMembership(ctx, db, p.OrganizationID, p.MemberID); err != nil {
 		return types.Hop{}, err
 	}
+	policy, err := loadTimebankPolicy(ctx, db, p.OrganizationID)
+	if err != nil {
+		return types.Hop{}, err
+	}
+	balance, err := loadMemberBalanceHours(ctx, db, p.OrganizationID, p.MemberID)
+	if err != nil {
+		return types.Hop{}, err
+	}
+	if balance <= policy.MinBalance {
+		return types.Hop{}, ErrHopRequestLimit
+	}
 
 	neededByKind := strings.TrimSpace(p.NeededByKind)
 	var neededByDate sql.NullTime
@@ -537,31 +548,45 @@ type CompleteHopParams struct {
 	CompletedHours int
 }
 
+type CompleteHopResult struct {
+	RequestedHours      int
+	AwardedHours        int
+	MinBalance          int
+	MaxBalance          int
+	RequesterMinLimited bool
+	HelperMaxLimited    bool
+}
+
 func CompleteHop(ctx context.Context, db *sql.DB, p CompleteHopParams) error {
+	_, err := CompleteHopWithResult(ctx, db, p)
+	return err
+}
+
+func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams) (CompleteHopResult, error) {
 	if db == nil {
-		return ErrNilDB
+		return CompleteHopResult{}, ErrNilDB
 	}
 	if p.OrganizationID == 0 {
-		return ErrMissingOrgID
+		return CompleteHopResult{}, ErrMissingOrgID
 	}
 	if p.HopID == 0 {
-		return ErrHopNotFound
+		return CompleteHopResult{}, ErrHopNotFound
 	}
 	if p.CompletedBy == 0 {
-		return ErrMissingMemberID
+		return CompleteHopResult{}, ErrMissingMemberID
 	}
 	comment := strings.TrimSpace(p.Comment)
 	if comment == "" {
-		return ErrMissingField
+		return CompleteHopResult{}, ErrMissingField
 	}
 
 	if err := requireActiveMembership(ctx, db, p.OrganizationID, p.CompletedBy); err != nil {
-		return err
+		return CompleteHopResult{}, err
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin complete hop: %w", err)
+		return CompleteHopResult{}, fmt.Errorf("begin complete hop: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -581,47 +606,96 @@ func CompleteHop(ctx context.Context, db *sql.DB, p CompleteHopParams) error {
 	`, p.HopID, p.OrganizationID)
 	if err = row.Scan(&createdBy, &acceptedBy, &estimatedHours, &status); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrHopNotFound
+			return CompleteHopResult{}, ErrHopNotFound
 		}
-		return fmt.Errorf("load hop for completion: %w", err)
+		return CompleteHopResult{}, fmt.Errorf("load hop for completion: %w", err)
 	}
 
 	if status != types.HopStatusAccepted || !acceptedBy.Valid {
-		return ErrHopInvalidState
+		return CompleteHopResult{}, ErrHopInvalidState
 	}
 	if p.CompletedBy != createdBy && p.CompletedBy != acceptedBy.Int64 {
-		return ErrHopForbidden
+		return CompleteHopResult{}, ErrHopForbidden
 	}
 
 	// Only the requester can choose awarded hours. For helpers, hours are fixed
 	// to the hop estimate to prevent self-awarded balance inflation.
-	hours := estimatedHours
+	requestedHours := estimatedHours
 	if p.CompletedBy == createdBy && p.CompletedHours > 0 {
-		hours = p.CompletedHours
+		requestedHours = p.CompletedHours
 	}
-	if hours <= 0 {
-		return ErrMissingField
+	if requestedHours <= 0 {
+		return CompleteHopResult{}, ErrMissingField
 	}
+	result := CompleteHopResult{
+		RequestedHours: requestedHours,
+	}
+	policy, err := loadTimebankPolicy(ctx, tx, p.OrganizationID)
+	if err != nil {
+		return CompleteHopResult{}, err
+	}
+	result.MinBalance = policy.MinBalance
+	result.MaxBalance = policy.MaxBalance
+
+	// Serialize completions per member to prevent limit bypass when concurrent
+	// hop completions update balances for the same members.
+	if _, err = tx.ExecContext(ctx, `
+		SELECT id
+		FROM members
+		WHERE id IN ($1, $2)
+		FOR UPDATE
+	`, createdBy, acceptedBy.Int64); err != nil {
+		return CompleteHopResult{}, fmt.Errorf("lock members for completion: %w", err)
+	}
+
+	requesterBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, createdBy)
+	if err != nil {
+		return CompleteHopResult{}, err
+	}
+	helperBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, acceptedBy.Int64)
+	if err != nil {
+		return CompleteHopResult{}, err
+	}
+
+	allowedByMin := requesterBalance - policy.MinBalance
+	allowedByMax := policy.MaxBalance - helperBalance
+	if allowedByMin < requestedHours {
+		result.RequesterMinLimited = true
+	}
+	if allowedByMax < requestedHours {
+		result.HelperMaxLimited = true
+	}
+	hours := requestedHours
+	if allowedByMin < hours {
+		hours = allowedByMin
+	}
+	if allowedByMax < hours {
+		hours = allowedByMax
+	}
+	if hours < 0 {
+		hours = 0
+	}
+	result.AwardedHours = hours
 
 	if _, err = tx.ExecContext(ctx, `
 		UPDATE hops
 		SET status = $1, completed_by = $2, completed_at = NOW(), completed_hours = $3, completion_comment = $4, updated_at = NOW()
 		WHERE id = $5 AND organization_id = $6 AND status = $7
 	`, types.HopStatusCompleted, p.CompletedBy, hours, comment, p.HopID, p.OrganizationID, types.HopStatusAccepted); err != nil {
-		return fmt.Errorf("mark hop completed: %w", err)
+		return CompleteHopResult{}, fmt.Errorf("mark hop completed: %w", err)
 	}
 
 	if _, err = tx.ExecContext(ctx, `
 		INSERT INTO hop_transactions (organization_id, hop_id, from_member_id, to_member_id, hours)
 		VALUES ($1, $2, $3, $4, $5)
 	`, p.OrganizationID, p.HopID, createdBy, acceptedBy.Int64, hours); err != nil {
-		return fmt.Errorf("insert hop transaction: %w", err)
+		return CompleteHopResult{}, fmt.Errorf("insert hop transaction: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit complete hop: %w", err)
+		return CompleteHopResult{}, fmt.Errorf("commit complete hop: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (int64, error) {
@@ -1430,24 +1504,11 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	}
 
 	var stats types.MemberHopStats
-	if err := db.QueryRowContext(ctx, `
-		SELECT
-			COALESCE((
-				SELECT
-					COALESCE(SUM(CASE WHEN ht.to_member_id = $2 THEN ht.hours ELSE 0 END), 0) -
-					COALESCE(SUM(CASE WHEN ht.from_member_id = $2 THEN ht.hours ELSE 0 END), 0)
-				FROM hop_transactions ht
-				WHERE ht.organization_id = $1 AND (ht.to_member_id = $2 OR ht.from_member_id = $2)
-			), 0)
-			+
-			COALESCE((
-				SELECT COALESCE(SUM(hba.hours_delta), 0)
-				FROM hour_balance_adjustments hba
-				WHERE hba.organization_id = $1 AND hba.member_id = $2
-			), 0)
-	`, orgID, memberID).Scan(&stats.BalanceHours); err != nil {
-		return types.MemberHopStats{}, fmt.Errorf("load balance: %w", err)
+	balance, err := loadMemberBalanceHours(ctx, db, orgID, memberID)
+	if err != nil {
+		return types.MemberHopStats{}, err
 	}
+	stats.BalanceHours = balance
 
 	var lastMade sql.NullTime
 	if err := db.QueryRowContext(ctx, `
@@ -1818,6 +1879,36 @@ func GetHopImageData(ctx context.Context, db *sql.DB, imageID int64) (HopImageDa
 		img.AcceptedBy = &v
 	}
 	return img, nil
+}
+
+func loadMemberBalanceHours(ctx context.Context, q queryer, orgID, memberID int64) (int, error) {
+	if orgID == 0 {
+		return 0, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return 0, ErrMissingMemberID
+	}
+
+	var balance int
+	if err := q.QueryRowContext(ctx, `
+		SELECT
+			COALESCE((
+				SELECT
+					COALESCE(SUM(CASE WHEN ht.to_member_id = $2 THEN ht.hours ELSE 0 END), 0) -
+					COALESCE(SUM(CASE WHEN ht.from_member_id = $2 THEN ht.hours ELSE 0 END), 0)
+				FROM hop_transactions ht
+				WHERE ht.organization_id = $1 AND (ht.to_member_id = $2 OR ht.from_member_id = $2)
+			), 0)
+			+
+			COALESCE((
+				SELECT COALESCE(SUM(hba.hours_delta), 0)
+				FROM hour_balance_adjustments hba
+				WHERE hba.organization_id = $1 AND hba.member_id = $2
+			), 0)
+	`, orgID, memberID).Scan(&balance); err != nil {
+		return 0, fmt.Errorf("load balance: %w", err)
+	}
+	return balance, nil
 }
 
 func requireActiveMembership(ctx context.Context, q queryer, orgID, memberID int64) error {

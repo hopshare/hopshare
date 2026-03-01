@@ -76,18 +76,21 @@ type Member struct {
 
 // Organization represents a Hopshare organization/tenant.
 type Organization struct {
-	ID              int64
-	Name            string
-	URLName         string
-	City            string
-	State           string
-	Description     string
-	LogoContentType *string
-	HasLogo         bool
-	Enabled         bool
-	CreatedBy       *int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                      int64
+	Name                    string
+	URLName                 string
+	City                    string
+	State                   string
+	Description             string
+	TimebankMinBalance      int
+	TimebankMaxBalance      int
+	TimebankStartingBalance int
+	LogoContentType         *string
+	HasLogo                 bool
+	Enabled                 bool
+	CreatedBy               *int64
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // MembershipRequest represents a pending/judged request to join an organization.

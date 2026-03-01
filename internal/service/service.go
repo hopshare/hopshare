@@ -33,6 +33,8 @@ var (
 	ErrHopInvalidState  = errors.New("hop invalid state")
 	ErrHopOfferExists   = errors.New("hop offer already exists")
 	ErrHopImageNotFound = errors.New("hop image not found")
+	ErrHopRequestLimit  = errors.New("hop request blocked by timebank minimum balance")
+	ErrInvalidTimebank  = errors.New("invalid timebank policy")
 
 	ErrModerationReportNotFound  = errors.New("moderation report not found")
 	ErrModerationReportResolved  = errors.New("moderation report already resolved")
@@ -40,6 +42,9 @@ var (
 	ErrModerationTargetMismatch  = errors.New("moderation target type mismatch")
 	ErrModerationAlreadyReported = errors.New("moderation target already reported by this member")
 	ErrInvalidHoursDelta         = errors.New("invalid hours delta")
+	ErrInvalidTimebankMinBalance = errors.New("invalid timebank minimum balance")
+	ErrInvalidTimebankMaxBalance = errors.New("invalid timebank maximum balance")
+	ErrInvalidTimebankStart      = errors.New("invalid timebank starting balance")
 
 	ErrMessageNotFound = errors.New("message not found")
 	ErrInvalidMessage  = errors.New("invalid message")

@@ -3,6 +3,7 @@ package http
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -425,6 +426,15 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("create hop failed: %v", err)
+		if errors.Is(err, service.ErrHopRequestLimit) {
+			minBalance := service.DefaultTimebankMinBalance
+			if org, orgErr := service.GetOrganizationByID(r.Context(), s.db, orgID); orgErr == nil {
+				minBalance = org.TimebankMinBalance
+			}
+			msg := fmt.Sprintf("You're at this organization's minimum balance (%d). Complete a hop first to earn hours before requesting another.", minBalance)
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape(msg), http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not create hop."), http.StatusSeeOther)
 		return
 	}
@@ -521,19 +531,20 @@ func (s *Server) handleCompleteHop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	completedHours, _ := strconv.Atoi(strings.TrimSpace(r.FormValue("completed_hours")))
-	if err := service.CompleteHop(r.Context(), s.db, service.CompleteHopParams{
+	result, err := service.CompleteHopWithResult(r.Context(), s.db, service.CompleteHopParams{
 		OrganizationID: orgID,
 		HopID:          hopID,
 		CompletedBy:    user.ID,
 		Comment:        r.FormValue("completion_comment"),
 		CompletedHours: completedHours,
-	}); err != nil {
+	})
+	if err != nil {
 		log.Printf("complete hop failed: %v", err)
 		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not complete hop."), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Hop completed."), http.StatusSeeOther)
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", completeHopSuccessMessage(result)), http.StatusSeeOther)
 }
 
 func (s *Server) handleHopPrivacy(w http.ResponseWriter, r *http.Request) {
@@ -1016,4 +1027,43 @@ func redirectWithMessage(base string, key string, msg string) string {
 		sep = "&"
 	}
 	return base + sep + key + "=" + url.QueryEscape(msg)
+}
+
+func completeHopSuccessMessage(result service.CompleteHopResult) string {
+	if result.AwardedHours == result.RequestedHours {
+		return "Hop completed."
+	}
+	if result.AwardedHours == 0 {
+		return fmt.Sprintf(
+			"Hop completed. No hours were transferred because this would exceed this organization's limits (minimum %d, maximum %d).",
+			result.MinBalance,
+			result.MaxBalance,
+		)
+	}
+	if result.RequesterMinLimited && result.HelperMaxLimited {
+		return fmt.Sprintf(
+			"Hop completed. %d hour(s) were transferred instead of %d due to this organization's minimum (%d) and maximum (%d) balance limits.",
+			result.AwardedHours,
+			result.RequestedHours,
+			result.MinBalance,
+			result.MaxBalance,
+		)
+	}
+	if result.RequesterMinLimited {
+		return fmt.Sprintf(
+			"Hop completed. %d hour(s) were transferred instead of %d to keep the requester above the organization's minimum balance (%d).",
+			result.AwardedHours,
+			result.RequestedHours,
+			result.MinBalance,
+		)
+	}
+	if result.HelperMaxLimited {
+		return fmt.Sprintf(
+			"Hop completed. %d hour(s) were transferred instead of %d to keep the helper below the organization's maximum balance (%d).",
+			result.AwardedHours,
+			result.RequestedHours,
+			result.MaxBalance,
+		)
+	}
+	return "Hop completed."
 }

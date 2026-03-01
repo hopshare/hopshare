@@ -7,10 +7,32 @@ import (
 	"hopshare/internal/types"
 )
 
-const (
-	timebankMinBalance = -5
-	timebankMaxBalance = 15
-)
+func currentOrgTimebankMinBalance(orgs []types.Organization, currentOrgID int64) int {
+	for _, org := range orgs {
+		if org.ID == currentOrgID {
+			return org.TimebankMinBalance
+		}
+	}
+	return -5
+}
+
+func currentOrgTimebankMaxBalance(orgs []types.Organization, currentOrgID int64) int {
+	for _, org := range orgs {
+		if org.ID == currentOrgID {
+			return org.TimebankMaxBalance
+		}
+	}
+	return 10
+}
+
+func currentOrgTimebankStartingBalance(orgs []types.Organization, currentOrgID int64) int {
+	for _, org := range orgs {
+		if org.ID == currentOrgID {
+			return org.TimebankStartingBalance
+		}
+	}
+	return 5
+}
 
 templ MyhopShare(
 	email string,
@@ -201,16 +223,14 @@ templ MyhopShareDashboard(
 						<p class="mt-2 text-lg font-semibold text-slate-900">Hours Earned</p>
 					</div>
 					<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
-						if memberStats.BalanceHours >= timebankMaxBalance {
+						if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
 							You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
-						} else if memberStats.BalanceHours > 10 {
-							Your balance is really growing- amazing work helping others! Don't forget to request some Hops so others can help you too!
-						} else if memberStats.BalanceHours >= 5 {
+						} else if memberStats.BalanceHours >= currentOrgTimebankStartingBalance(orgs, currentOrgID) {
 							You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
-						} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= timebankMinBalance) {
+						} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= currentOrgTimebankMinBalance(orgs, currentOrgID)) {
 							You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
 						} else if memberStats.BalanceHours < 0 {
-							You're out of hours but don't worry! You can go down to {timebankMinBalance} hours. Find some other users who need help and build up your balance!
+							You're out of hours but don't worry! You can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)} hours. Find some other users who need help and build up your balance!
 						} else {
 							Pay some forward to another user!
 						}
@@ -427,7 +447,7 @@ templ CompletedHopRow(hop types.Hop) {
 	</li>
 }
 
-templ MemberStats(stats types.MemberHopStats, orgID int64) {
+templ MemberStats(stats types.MemberHopStats, orgID int64, minBalance int, maxBalance int, startingBalance int) {
 	<section class="space-y-4">
 		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
 			<div class="space-y-1">
@@ -442,14 +462,14 @@ templ MemberStats(stats types.MemberHopStats, orgID int64) {
 			</a>
 		</div>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-			@StatCardBalance(stats.BalanceHours)
+			@StatCardBalance(stats.BalanceHours, minBalance, maxBalance, startingBalance)
 			@StatCardCount("Hops you've requested", stats.HopsMade, stats.LastHopMadeAt)
 			@StatCardCount("Hops you've given", stats.HopsFulfilled, stats.LastHopFulfilledAt)
 		</div>
 	</section>
 }
 
-templ StatCardBalance(balanceHours int) {
+templ StatCardBalance(balanceHours int, minBalance int, maxBalance int, startingBalance int) {
 	<section class="rounded-2xl bg-sky-100 p-8 text-center">
 		<p class="text-6xl font-extrabold text-slate-900">
 			if balanceHours > 0 {
@@ -462,16 +482,14 @@ templ StatCardBalance(balanceHours int) {
 		</p>
 		<p class="mt-2 text-xl font-bold text-slate-900">Hours Earned</p>
 		<p class="mt-4 text-sm text-slate-700">
-			if balanceHours >= timebankMaxBalance {
+			if balanceHours >= maxBalance {
 				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
-			} else if balanceHours > 10 {
-				Your balance is really growing- amazing work helping others! Don't forget to request some Hops so others can help you too!
-			} else if balanceHours >= 5 {
+			} else if balanceHours >= startingBalance {
 				You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
-			} else if (balanceHours < 0) && (balanceHours <= timebankMinBalance) {
+			} else if (balanceHours < 0) && (balanceHours <= minBalance) {
 				You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
 			} else if balanceHours < 0 {
-				You're out of hours but don't worry! You can go down to {timebankMinBalance} hours. Find some other users who need help and build up your balance!
+				You're out of hours but don't worry! You can go down to {minBalance} hours. Find some other users who need help and build up your balance!
 			}
 		</p>
 	</section>

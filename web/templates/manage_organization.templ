@@ -18,16 +18,25 @@ func skillLines(skills []types.Skill) string {
 	return strings.Join(lines, "\n")
 }
 
-templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, currentMemberID, successMsg, errorMsg))
+func manageOrganizationActiveTab(tab string) string {
+	switch strings.ToLower(strings.TrimSpace(tab)) {
+	case "details", "skills", "timebank":
+		return strings.ToLower(strings.TrimSpace(tab))
+	default:
+		return "details"
+	}
 }
 
-templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, currentMemberID, successMsg, errorMsg))
+templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, currentMemberID, successMsg, errorMsg, activeTab))
 }
 
-templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string) {
-	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data="{ activeTab: 'details' }">
+templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, currentMemberID, successMsg, errorMsg, activeTab))
+}
+
+templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data={ "{ activeTab: '" + manageOrganizationActiveTab(activeTab) + "' }" }>
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="space-y-1">
 				<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
@@ -59,6 +68,14 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					x-on:click="activeTab = 'skills'"
 				>
 					Skills
+				</button>
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'timebank'"
+				>
+					Time Bank
 				</button>
 			</nav>
 		</div>
@@ -264,6 +281,68 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				</div>
 				<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
 					Save skills
+				</button>
+			</form>
+		</div>
+		<div x-show="activeTab === 'timebank'" class="space-y-4">
+			<h2 class="text-lg font-semibold text-slate-900">Time bank settings</h2>
+			<p class="text-sm text-slate-600">
+				Adjust your organization's minimum, maximum, and starting balances. Changing these values does not
+				modify existing balances automatically.
+			</p>
+			<form class="space-y-4" method="POST" action="/organizations/manage">
+				@CSRFField()
+				<input type="hidden" name="action" value="timebank" />
+				<input type="hidden" name="org_id" value={ org.ID } />
+				<div class="grid gap-4 sm:grid-cols-3">
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="timebank_min_balance">Minimum balance</label>
+						<input
+							id="timebank_min_balance"
+							name="timebank_min_balance"
+							type="number"
+							min="-9"
+							max="-1"
+							step="1"
+							required
+							value={ strconv.Itoa(org.TimebankMinBalance) }
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+						/>
+						<p class="text-xs text-slate-500">Must be below 0 and greater than -10.</p>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="timebank_max_balance">Maximum balance</label>
+						<input
+							id="timebank_max_balance"
+							name="timebank_max_balance"
+							type="number"
+							min="1"
+							max="19"
+							step="1"
+							required
+							value={ strconv.Itoa(org.TimebankMaxBalance) }
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+						/>
+						<p class="text-xs text-slate-500">Must be above 0 and less than 20.</p>
+					</div>
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="timebank_starting_balance">Starting balance</label>
+						<input
+							id="timebank_starting_balance"
+							name="timebank_starting_balance"
+							type="number"
+							min="1"
+							max="9"
+							step="1"
+							required
+							value={ strconv.Itoa(org.TimebankStartingBalance) }
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
+						/>
+						<p class="text-xs text-slate-500">Must be above 0 and less than 10.</p>
+					</div>
+				</div>
+				<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+					Save time bank settings
 				</button>
 			</form>
 		</div>

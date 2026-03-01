@@ -48,6 +48,7 @@ func AdminOrganizationDetail(ctx context.Context, db *sql.DB, orgID int64, hopLi
 			COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
 		FROM hour_balance_adjustments
 		WHERE organization_id = $1
+			AND is_starting_balance = FALSE
 	`, orgID).Scan(&detail.HourOverrideCounts.Count, &detail.HourOverrideCounts.HoursGiven, &detail.HourOverrideCounts.HoursRemoved); err != nil {
 		return types.AdminOrganizationDetail{}, fmt.Errorf("load organization hour override counts: %w", err)
 	}

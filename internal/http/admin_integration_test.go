@@ -709,8 +709,9 @@ func TestAdminUsersHTTP(t *testing.T) {
 		if err != nil {
 			t.Fatalf("load member stats after hour adjustment: %v", err)
 		}
-		if stats.BalanceHours != 3 {
-			t.Fatalf("expected adjusted balance of 3, got %d", stats.BalanceHours)
+		expectedBalance := service.DefaultTimebankStartingBalance + 3
+		if stats.BalanceHours != expectedBalance {
+			t.Fatalf("expected adjusted balance of %d, got %d", expectedBalance, stats.BalanceHours)
 		}
 
 		var adjustmentCount int
@@ -1137,12 +1138,13 @@ func queryAdminOverviewExpectation(t *testing.T, ctx context.Context, db *sql.DB
 	}
 
 	if err := db.QueryRowContext(ctx, `
-		SELECT
-			COUNT(*),
-			COALESCE(SUM(CASE WHEN hours_delta > 0 THEN hours_delta ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
-		FROM hour_balance_adjustments
-	`).Scan(&expected.OverrideCount, &expected.OverrideHoursGiven, &expected.OverrideHoursRemoved); err != nil {
+			SELECT
+				COUNT(*),
+				COALESCE(SUM(CASE WHEN hours_delta > 0 THEN hours_delta ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN hours_delta < 0 THEN -hours_delta ELSE 0 END), 0)
+			FROM hour_balance_adjustments
+			WHERE is_starting_balance = FALSE
+		`).Scan(&expected.OverrideCount, &expected.OverrideHoursGiven, &expected.OverrideHoursRemoved); err != nil {
 		t.Fatalf("query admin override counts: %v", err)
 	}
 

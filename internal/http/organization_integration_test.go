@@ -334,6 +334,58 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		}
 	})
 
+	t.Run("ORG-18A POST /organizations/manage action=timebank success", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_manage_timebank_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Timebank Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor.Login()
+		loc := requireRedirectPath(t, actor.PostForm("/organizations/manage", formKV(
+			"action", "timebank",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"timebank_min_balance", "-4",
+			"timebank_max_balance", "12",
+			"timebank_starting_balance", "6",
+		)), "/organizations/manage")
+		requireQueryValue(t, loc, "success", "Time bank settings updated.")
+
+		updated, err := service.GetOrganizationByID(ctx, db, org.ID)
+		if err != nil {
+			t.Fatalf("get org: %v", err)
+		}
+		if updated.TimebankMinBalance != -4 || updated.TimebankMaxBalance != 12 || updated.TimebankStartingBalance != 6 {
+			t.Fatalf("unexpected timebank policy: min=%d max=%d start=%d", updated.TimebankMinBalance, updated.TimebankMaxBalance, updated.TimebankStartingBalance)
+		}
+	})
+
+	t.Run("ORG-18B POST /organizations/manage action=timebank invalid minimum shows error", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_manage_timebank_invalid_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Timebank Invalid Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Username, owner.Password)
+		actor.Login()
+
+		body := requireStatus(t, actor.PostForm("/organizations/manage", formKV(
+			"action", "timebank",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"timebank_min_balance", "-12",
+			"timebank_max_balance", "12",
+			"timebank_starting_balance", "6",
+		)), 200)
+		requireBodyContains(t, body, "Minimum balance must be below zero and greater than -10.")
+		requireBodyContains(t, body, "activeTab: 'timebank'")
+	})
+
 	t.Run("ORG-19 POST /organizations/manage unknown action returns 400", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
