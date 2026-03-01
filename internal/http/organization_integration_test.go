@@ -383,7 +383,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			"timebank_starting_balance", "6",
 		)), 200)
 		requireBodyContains(t, body, "Minimum balance must be below zero and greater than -10.")
-		requireBodyContains(t, body, "activeTab: 'timebank'")
+		requireBodyContains(t, body, "x-data=\"{ activeTab: &#39;timebank&#39; }\"")
 	})
 
 	t.Run("ORG-19 POST /organizations/manage unknown action returns 400", func(t *testing.T) {
