@@ -49,6 +49,7 @@ templ MyhopShare(
 	memberID int64,
 	activityCount int,
 	hasPrimary bool,
+	showInvitePrompt bool,
 	successMsg string,
 	errorMsg string,
 ) {
@@ -67,6 +68,7 @@ templ MyhopShare(
 		memberID,
 		activityCount,
 		hasPrimary,
+		showInvitePrompt,
 		successMsg,
 		errorMsg,
 	))
@@ -87,6 +89,7 @@ templ MyhopShareBody(
 	memberID int64,
 	activityCount int,
 	hasPrimary bool,
+	showInvitePrompt bool,
 	successMsg string,
 	errorMsg string,
 ) {
@@ -96,6 +99,28 @@ templ MyhopShareBody(
 		}
 		if errorMsg != "" {
 			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+		}
+		if showInvitePrompt && currentOrgID != 0 {
+			<section class="rounded-xl border border-sky-200 bg-sky-50 p-5 space-y-3">
+				<h3 class="text-lg font-bold text-slate-900">Invite people to your new organization?</h3>
+				<p class="text-sm text-slate-700">
+					You can send up to 30 invitation emails today. Would you like to do that now?
+				</p>
+				<div class="flex flex-wrap gap-3">
+					<a
+						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
+						href={ "/organizations/manage?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&tab=invite&post_invite_redirect=my-hopshare" }
+					>
+						Yes, invite people
+					</a>
+					<a
+						class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition"
+						href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+					>
+						No, maybe later
+					</a>
+				</div>
+			</section>
 		}
 
 		if len(orgs) == 0 || currentOrgID == 0 {
@@ -121,31 +146,33 @@ templ MyhopShareBody(
 }
 
 templ MyhopShareNoOrganizations(hasPrimary bool) {
-	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-4">
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h2 class="text-xl font-bold text-slate-900">Join an organization to get started!</h2>
 			<p class="text-slate-600 leading-relaxed">
-				Everyone on hopShare need to belong to at least one Organization. Find one for yourself, or start a new one and invite others to join!
+				Everyone on hopShare must belong to at least one organization. This guide helps you choose the right next step.
 			</p>
 		</div>
-		<div class="flex flex-wrap gap-3 pt-2">
-			if hasPrimary {
-				<a class="inline-flex justify-center rounded-lg bg-slate-800 text-white font-semibold px-4 py-2.5 hover:bg-slate-900 transition" href="/organizations/manage">
-					Manage my organization
-				</a>
-			} else {
+
+		<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 space-y-4">
+			<p><span class="font-semibold text-slate-900">Create an organization</span>{ " if you represent a real organization and want to manage it in hopShare." }</p>
+			<p>This includes organization setup and ownership responsibilities. You will be the primary owner while your account exists.</p>
+			<p><span class="font-semibold text-slate-900">Find an organization</span>{ " if you want to join one that already exists." }</p>
+			<div class="flex flex-wrap gap-3">
 				<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations">
 					Find an organization
 				</a>
-				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/create">
-					Create an organization
-				</a>
-			}
-			if hasPrimary {
-				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations">
-					Find an organization
-				</a>
-			}
+				if !hasPrimary {
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/create">
+						Create an organization
+					</a>
+				}
+				if hasPrimary {
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/manage">
+						Manage my organization
+					</a>
+				}
+			</div>
 		</div>
 	</section>
 }

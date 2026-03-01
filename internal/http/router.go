@@ -37,6 +37,7 @@ type Server struct {
 	avatarImageMaxBytes      int64
 	publicBaseURL            string
 	cookieSecure             bool
+	appLocation              *time.Location
 }
 
 type HandlerFunc func(http.ResponseWriter, *http.Request)
@@ -61,6 +62,7 @@ const cspPolicy = "default-src 'self'; script-src 'self' 'unsafe-eval' https://c
 type PasswordResetEmailSender interface {
 	SendPasswordReset(ctx context.Context, toEmail, resetURL string) error
 	SendEmailVerification(ctx context.Context, toEmail, verifyURL string) error
+	SendOrganizationInvite(ctx context.Context, toEmail, inviteURL, orgName, inviterName string, expiresAt time.Time) error
 }
 
 type RouterOptions struct {
@@ -72,6 +74,7 @@ type RouterOptions struct {
 	AvatarImageMaxBytes      *int64
 	PublicBaseURL            string
 	CookieSecure             *bool
+	AppLocation              *time.Location
 }
 
 // NewRouter wires the base HTTP routes.
@@ -123,6 +126,10 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	if opts.CookieSecure != nil {
 		cookieSecure = *opts.CookieSecure
 	}
+	appLocation := time.UTC
+	if opts.AppLocation != nil {
+		appLocation = opts.AppLocation
+	}
 
 	srv := &Server{
 		db:                       db,
@@ -135,6 +142,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		avatarImageMaxBytes:      avatarImageMaxBytes,
 		publicBaseURL:            publicBaseURL,
 		cookieSecure:             cookieSecure,
+		appLocation:              appLocation,
 	}
 
 	mux := http.NewServeMux()
@@ -159,6 +167,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/reset-password", srv.handleResetPassword, srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/verify-email", srv.handleVerifyEmail, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/verify-email/resend", srv.handleVerifyEmailResend, srv.requireMethod(http.MethodPost), srv.rateLimitAuthEndpoint("verify-email-resend"))
+	srv.register(mux, "/invite", srv.handleInvite, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare/organizations", srv.handleMyHopshareOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -332,7 +341,27 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		render(w, r, templates.Signup(s.currentUserEmailPtr(r), templates.SignupForm{}, "", "", next))
+		inviteToken := sanitizeInviteToken(r.URL.Query().Get("invite_token"))
+		form := templates.SignupForm{}
+		invitedEmailLocked := false
+		if inviteToken != "" {
+			if !s.featureEmail {
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "Invited signups are unavailable right now.", next, "", false))
+				return
+			}
+			inviteResolution, err := service.ResolveOrganizationInvite(r.Context(), s.db, inviteToken, time.Now().UTC())
+			if err != nil {
+				msg := "This invitation is invalid or expired."
+				if errors.Is(err, service.ErrOrganizationDisabled) {
+					msg = "Sorry, this Organization no longer exists. Feel free to look around for another Organization that you might recognize!"
+				}
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", msg, next, "", false))
+				return
+			}
+			form.Email = inviteResolution.InvitedEmail
+			invitedEmailLocked = true
+		}
+		render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "", next, inviteToken, invitedEmailLocked))
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -344,6 +373,26 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		}
 		if next != "" {
 			s.setPostAuthRedirectCookie(w, r, next)
+		}
+		inviteToken := sanitizeInviteToken(r.FormValue("invite_token"))
+		invitedEmailLocked := false
+		invitedEmail := ""
+		if inviteToken != "" {
+			if !s.featureEmail {
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), templates.SignupForm{}, "", "Invited signups are unavailable right now.", next, "", false))
+				return
+			}
+			inviteResolution, err := service.ResolveOrganizationInvite(r.Context(), s.db, inviteToken, time.Now().UTC())
+			if err != nil {
+				msg := "This invitation is invalid or expired."
+				if errors.Is(err, service.ErrOrganizationDisabled) {
+					msg = "Sorry, this Organization no longer exists. Feel free to look around for another Organization that you might recognize!"
+				}
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), templates.SignupForm{}, "", msg, next, "", false))
+				return
+			}
+			invitedEmail = inviteResolution.InvitedEmail
+			invitedEmailLocked = true
 		}
 
 		form := templates.SignupForm{
@@ -357,12 +406,16 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		firstName := form.FirstName
 		lastName := form.LastName
 		email := form.Email
+		if invitedEmailLocked {
+			email = invitedEmail
+			form.Email = invitedEmail
+		}
 		password := form.Password
 		city := form.City
 		state := form.State
 
 		if firstName == "" || lastName == "" {
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "Please enter your first and last name.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "Please enter your first and last name.", next, inviteToken, invitedEmailLocked))
 			return
 		}
 
@@ -376,7 +429,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		passwordHash, err := service.HashPassword(password)
 		if err != nil {
 			log.Printf("hash password failed: %v", err)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next, inviteToken, invitedEmailLocked))
 			return
 		}
 
@@ -394,11 +447,11 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		created, createErr := service.CreateMember(r.Context(), s.db, member)
 		if createErr != nil {
 			if isUniqueViolation(createErr, "members_email_lower_key") || isUniqueViolation(createErr, "members_email_key") {
-				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "That email address is already taken, please try another one.", next))
+				render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "That email address is already taken, please try another one.", next, inviteToken, invitedEmailLocked))
 				return
 			}
 			log.Printf("create member failed: %v", createErr)
-			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next))
+			render(w, r, templates.Signup(s.currentUserEmailPtr(r), form, "", "We could not process your request right now. Please try again.", next, inviteToken, invitedEmailLocked))
 			return
 		}
 
@@ -413,7 +466,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 			if tokenErr != nil {
 				log.Printf("email verification token issue failed: member_id=%d: %v", created.ID, tokenErr)
 			} else {
-				verifyURL := s.verifyEmailURL(token, created.Email)
+				verifyURL := s.verifyEmailURLWithInvite(token, created.Email, inviteToken)
 				if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), created.Email, verifyURL); sendErr != nil {
 					log.Printf("email verification send failed: member_id=%d: %v", created.ID, sendErr)
 				}
@@ -447,6 +500,7 @@ func (s *Server) handleSignupSuccess(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	email := sanitizeLoginEmail(r.URL.Query().Get("email"))
+	inviteToken := sanitizeInviteToken(r.URL.Query().Get("invite_token"))
 	redirectToLogin := func(kind, message string) {
 		query := url.Values{}
 		query.Set(kind, message)
@@ -477,6 +531,61 @@ func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 		redirectToLogin("error", "Could not verify your email right now.")
 		return
 	}
+	if inviteToken != "" {
+		member, memberErr := service.GetMemberByID(r.Context(), s.db, memberID)
+		if memberErr != nil {
+			log.Printf("verify email load member failed: member_id=%d: %v", memberID, memberErr)
+			redirectToLogin("error", "Could not complete invitation right now.")
+			return
+		}
+		accepted, acceptErr := service.AcceptOrganizationInvite(r.Context(), s.db, inviteToken, member.ID, member.Email, time.Now().UTC())
+		if acceptErr != nil {
+			switch {
+			case errors.Is(acceptErr, service.ErrInviteExpired):
+				render(w, r, templates.InviteStatus(
+					s.currentUserEmailPtr(r),
+					"Invitation expired",
+					"This invitation has expired. Contact an organization owner for a new invitation.",
+					"/organizations",
+					"Find organizations",
+					"/",
+					"Return home",
+				))
+			case errors.Is(acceptErr, service.ErrOrganizationDisabled):
+				render(w, r, templates.InviteStatus(
+					s.currentUserEmailPtr(r),
+					"Organization unavailable",
+					"Sorry, this Organization no longer exists. Feel free to look around for another Organization that you might recognize.",
+					"/organizations",
+					"Find organizations",
+					"/",
+					"Return home",
+				))
+			case errors.Is(acceptErr, service.ErrInviteEmailMismatch):
+				render(w, r, templates.InviteStatus(
+					s.currentUserEmailPtr(r),
+					"Wrong account for this invitation",
+					"This invitation belongs to a different email address.",
+					"/login",
+					"Log in",
+					"/",
+					"Return home",
+				))
+			default:
+				redirectToLogin("error", "Email verified, but we could not complete invitation acceptance.")
+			}
+			return
+		}
+		query := url.Values{}
+		query.Set("success", "Email verified and invitation accepted. You can now log in.")
+		query.Set("email", member.Email)
+		next := "/organization/" + accepted.Organization.URLName
+		if next = sanitizePostAuthRedirect(next); next != "" {
+			query.Set("next", next)
+		}
+		http.Redirect(w, r, "/login?"+query.Encode(), http.StatusSeeOther)
+		return
+	}
 
 	redirectToLogin("success", "Email verified. You can now log in.")
 }
@@ -492,6 +601,7 @@ func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	email := strings.TrimSpace(r.FormValue("email"))
+	inviteToken := sanitizeInviteToken(r.FormValue("invite_token"))
 
 	member, err := service.GetMemberByEmail(r.Context(), s.db, email)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -510,7 +620,7 @@ func (s *Server) handleVerifyEmailResend(w http.ResponseWriter, r *http.Request)
 		if tokenErr != nil {
 			log.Printf("verify email resend token issue failed: member_id=%d: %v", member.ID, tokenErr)
 		} else {
-			verifyURL := s.verifyEmailURL(token, member.Email)
+			verifyURL := s.verifyEmailURLWithInvite(token, member.Email, inviteToken)
 			if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
 				log.Printf("verify email resend send failed: member_id=%d: %v", member.ID, sendErr)
 			}
@@ -689,6 +799,13 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
+	showInvitePrompt := false
+	if s.featureEmail {
+		switch strings.ToLower(strings.TrimSpace(r.URL.Query().Get("invite_prompt"))) {
+		case "1", "true", "yes":
+			showInvitePrompt = true
+		}
+	}
 
 	displayName := memberDisplayName(user)
 	lastLoginLabel := "First login"
@@ -816,6 +933,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		user.ID,
 		activityCount,
 		hasPrimary,
+		showInvitePrompt,
 		successMsg,
 		errorMsg,
 	))
@@ -1265,6 +1383,10 @@ func (s *Server) resetPasswordURL(token string) string {
 }
 
 func (s *Server) verifyEmailURL(token, email string) string {
+	return s.verifyEmailURLWithInvite(token, email, "")
+}
+
+func (s *Server) verifyEmailURLWithInvite(token, email, inviteToken string) string {
 	base, err := url.Parse(s.publicBaseURL)
 	if err != nil {
 		base, _ = url.Parse(defaultPublicBaseURL)
@@ -1275,6 +1397,21 @@ func (s *Server) verifyEmailURL(token, email string) string {
 	if email = sanitizeLoginEmail(email); email != "" {
 		query.Set("email", email)
 	}
+	if inviteToken = sanitizeInviteToken(inviteToken); inviteToken != "" {
+		query.Set("invite_token", inviteToken)
+	}
+	ref.RawQuery = query.Encode()
+	return base.ResolveReference(ref).String()
+}
+
+func (s *Server) organizationInviteURL(token string) string {
+	base, err := url.Parse(s.publicBaseURL)
+	if err != nil {
+		base, _ = url.Parse(defaultPublicBaseURL)
+	}
+	ref := &url.URL{Path: "/invite"}
+	query := ref.Query()
+	query.Set("token", token)
 	ref.RawQuery = query.Encode()
 	return base.ResolveReference(ref).String()
 }
@@ -1289,6 +1426,10 @@ func (nopPasswordResetEmailSender) SendEmailVerification(_ context.Context, _ st
 	return nil
 }
 
+func (nopPasswordResetEmailSender) SendOrganizationInvite(_ context.Context, _ string, _ string, _ string, _ string, _ time.Time) error {
+	return nil
+}
+
 func sanitizePostAuthRedirect(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || len(raw) > 256 {
@@ -1299,6 +1440,20 @@ func sanitizePostAuthRedirect(raw string) string {
 	}
 	if strings.ContainsAny(raw, "\r\n") {
 		return ""
+	}
+	if strings.HasPrefix(raw, "/invite?token=") {
+		parsed, err := url.ParseRequestURI(raw)
+		if err != nil {
+			return ""
+		}
+		if parsed.Path != "/invite" {
+			return ""
+		}
+		token := sanitizeInviteToken(parsed.Query().Get("token"))
+		if token == "" {
+			return ""
+		}
+		return "/invite?token=" + url.QueryEscape(token)
 	}
 	if !strings.HasPrefix(raw, "/organization/") {
 		return ""
@@ -1325,6 +1480,25 @@ func sanitizePostAuthRedirect(raw string) string {
 		return ""
 	}
 	return "/organization/" + clean
+}
+
+func sanitizeInviteToken(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || len(raw) > 256 {
+		return ""
+	}
+	for i := 0; i < len(raw); i++ {
+		b := raw[i]
+		isLowerHex := (b >= 'a' && b <= 'f') || (b >= '0' && b <= '9')
+		if isLowerHex || b == '.' {
+			continue
+		}
+		return ""
+	}
+	if !strings.Contains(raw, ".") {
+		return ""
+	}
+	return raw
 }
 
 func sanitizeLoginEmail(raw string) string {

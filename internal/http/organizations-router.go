@@ -86,7 +86,13 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 		}
 
 		success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
-		http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape(success), http.StatusSeeOther)
+		query := url.Values{}
+		query.Set("org_id", strconv.FormatInt(org.ID, 10))
+		query.Set("success", success)
+		if s.featureEmail {
+			query.Set("invite_prompt", "1")
+		}
+		http.Redirect(w, r, "/my-hopshare?"+query.Encode(), http.StatusSeeOther)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -348,6 +354,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 	activeTab := normalizeManageOrganizationTab(r.URL.Query().Get("tab"))
+	invitePostRedirect := normalizeManageOrganizationInvitePostRedirect(r.URL.Query().Get("post_invite_redirect"))
 
 	switch r.Method {
 	case http.MethodGet:
@@ -403,8 +410,20 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			http.Error(w, "could not load organization skills", http.StatusInternalServerError)
 			return
 		}
+		invitations, err := service.ListOrganizationInvitations(r.Context(), s.db, org.ID, 100)
+		if err != nil {
+			log.Printf("load organization invitations org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization invitations", http.StatusInternalServerError)
+			return
+		}
+		inviteRemaining, err := service.RemainingOrganizationInviteSlotsToday(r.Context(), s.db, org.ID, time.Now().UTC(), s.appLocation)
+		if err != nil {
+			log.Printf("remaining organization invites org=%d: %v", org.ID, err)
+			http.Error(w, "could not load invitation limits", http.StatusInternalServerError)
+			return
+		}
 
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, successMsg, errorMsg, activeTab))
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, successMsg, errorMsg, activeTab, invitePostRedirect))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
@@ -466,12 +485,25 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			http.Error(w, "could not load organization skills", http.StatusInternalServerError)
 			return
 		}
+		invitations, err := service.ListOrganizationInvitations(r.Context(), s.db, org.ID, 100)
+		if err != nil {
+			log.Printf("load organization invitations org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization invitations", http.StatusInternalServerError)
+			return
+		}
+		inviteRemaining, err := service.RemainingOrganizationInviteSlotsToday(r.Context(), s.db, org.ID, time.Now().UTC(), s.appLocation)
+		if err != nil {
+			log.Printf("remaining organization invites org=%d: %v", org.ID, err)
+			http.Error(w, "could not load invitation limits", http.StatusInternalServerError)
+			return
+		}
 
 		action := strings.TrimSpace(r.FormValue("action"))
 		if action == "" {
 			action = "details"
 		}
 		activeTab = normalizeManageOrganizationTab(action)
+		invitePostRedirect = normalizeManageOrganizationInvitePostRedirect(r.FormValue("post_invite_redirect"))
 
 		switch action {
 		case "details":
@@ -481,7 +513,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			description := strings.TrimSpace(r.FormValue("description"))
 			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", err.Error(), activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", err.Error(), activeTab, invitePostRedirect))
 				return
 			}
 
@@ -495,14 +527,14 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			}
 			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 				log.Printf("update organization %d: %v", org.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update organization.", activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not update organization.", activeTab, invitePostRedirect))
 				return
 			}
 
 			if hasLogo {
 				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
 					log.Printf("set org logo org=%d: %v", org.ID, err)
-					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not upload logo.", activeTab))
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not upload logo.", activeTab, invitePostRedirect))
 					return
 				}
 			}
@@ -513,7 +545,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			skillNames := parseSkillLines(r.FormValue("skills_text"))
 			if err := service.ReplaceOrganizationSkills(r.Context(), s.db, org.ID, user.ID, skillNames); err != nil {
 				log.Printf("replace organization skills org=%d actor=%d: %v", org.ID, user.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Could not update skills.", activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not update skills.", activeTab, invitePostRedirect))
 				return
 			}
 			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization skills updated.", activeTab)
@@ -521,17 +553,17 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		case "timebank":
 			minBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_min_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Minimum balance must be a whole number.", activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Minimum balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 			maxBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_max_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Maximum balance must be a whole number.", activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Maximum balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 			startingBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_starting_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", "Starting balance must be a whole number.", activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Starting balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 
@@ -547,11 +579,118 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				case errors.Is(err, service.ErrInvalidTimebank):
 					msg = "Starting balance must be less than or equal to the maximum balance."
 				}
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, user.ID, "", msg, activeTab))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
 				return
 			}
 
 			redirectURL := manageOrganizationRedirectURL(org.ID, "Time bank settings updated.", activeTab)
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		case "invites":
+			if !s.featureEmail {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Invitations are currently unavailable.", activeTab, invitePostRedirect))
+				return
+			}
+
+			result := service.OrganizationInviteBlastResult{}
+			rawInviteEmails := strings.TrimSpace(r.FormValue("invite_emails"))
+			normalized, invalidEmails, duplicateEmails := service.ParseAndNormalizeInviteEmails(rawInviteEmails)
+			result.InvalidEmails = invalidEmails
+			result.DuplicateEmails = duplicateEmails
+
+			if len(normalized) == 0 {
+				msg := "No valid emails were provided."
+				if len(result.InvalidEmails) == 0 && len(result.DuplicateEmails) == 0 {
+					msg = "Please enter one or more comma-separated email addresses."
+				}
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
+				return
+			}
+
+			remaining := inviteRemaining
+			nowUTC := time.Now().UTC()
+			for _, email := range normalized {
+				if remaining <= 0 {
+					result.QuotaSkippedEmails = append(result.QuotaSkippedEmails, email)
+					continue
+				}
+
+				member, lookupErr := service.GetMemberByEmail(r.Context(), s.db, email)
+				if lookupErr == nil && !member.Enabled {
+					result.DisabledEmails = append(result.DisabledEmails, email)
+					continue
+				}
+				if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+					log.Printf("lookup invite email member org=%d email=%q: %v", org.ID, email, lookupErr)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					continue
+				}
+
+				alreadyMember, err := service.MemberHasActiveMembershipByEmail(r.Context(), s.db, org.ID, email)
+				if err != nil {
+					log.Printf("membership by email org=%d email=%q: %v", org.ID, email, err)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					continue
+				}
+				if alreadyMember {
+					result.AlreadyMemberEmails = append(result.AlreadyMemberEmails, email)
+					continue
+				}
+
+				expiredCount, err := service.ExpirePendingOrganizationInvitesByEmail(r.Context(), s.db, org.ID, email, nowUTC)
+				if err != nil {
+					log.Printf("expire pending invite org=%d email=%q: %v", org.ID, email, err)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					continue
+				}
+				result.ExpiredPreviousPendingCount += expiredCount
+
+				issued, err := service.CreateOrganizationInvitation(r.Context(), s.db, org.ID, user.ID, email, nowUTC)
+				if err != nil {
+					log.Printf("create organization invitation org=%d email=%q: %v", org.ID, email, err)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					continue
+				}
+
+				inviteURL := s.organizationInviteURL(issued.RawToken)
+				if sendErr := s.passwordResetEmailSender.SendOrganizationInvite(r.Context(), email, inviteURL, org.Name, memberDisplayName(user), issued.ExpiresAt); sendErr != nil {
+					log.Printf("send organization invite org=%d email=%q: %v", org.ID, email, sendErr)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					if expireErr := service.ExpireOrganizationInvitation(r.Context(), s.db, issued.InvitationID, nowUTC); expireErr != nil {
+						log.Printf("expire failed invite org=%d invite=%d email=%q: %v", org.ID, issued.InvitationID, email, expireErr)
+					}
+					continue
+				}
+
+				if err := service.MarkOrganizationInvitationSent(r.Context(), s.db, issued.InvitationID, nowUTC); err != nil {
+					log.Printf("mark invite sent org=%d invite=%d email=%q: %v", org.ID, issued.InvitationID, email, err)
+					result.SendFailedEmails = append(result.SendFailedEmails, email)
+					if expireErr := service.ExpireOrganizationInvitation(r.Context(), s.db, issued.InvitationID, nowUTC); expireErr != nil {
+						log.Printf("expire unsent invite org=%d invite=%d email=%q: %v", org.ID, issued.InvitationID, email, expireErr)
+					}
+					continue
+				}
+
+				result.SentCount++
+				remaining--
+			}
+
+			remainingNow, err := service.RemainingOrganizationInviteSlotsToday(r.Context(), s.db, org.ID, time.Now().UTC(), s.appLocation)
+			if err != nil {
+				log.Printf("remaining organization invites org=%d: %v", org.ID, err)
+				remainingNow = remaining
+			}
+			result.RemainingToday = remainingNow
+			if summaryErr := service.SendOwnerInviteBlastSummaryMessage(r.Context(), s.db, user.ID, org.Name, result); summaryErr != nil {
+				log.Printf("send invite blast summary org=%d owner=%d: %v", org.ID, user.ID, summaryErr)
+			}
+
+			success := fmt.Sprintf("Invite blast complete: %d sent, %d remaining today.", result.SentCount, result.RemainingToday)
+			if invitePostRedirect == "my-hopshare" {
+				redirectURL := "/my-hopshare?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape(success)
+				http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+				return
+			}
+			redirectURL := manageOrganizationRedirectURL(org.ID, success, activeTab)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		default:
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -563,10 +702,21 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 func normalizeManageOrganizationTab(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "details", "skills", "timebank":
+	case "details", "skills", "timebank", "invite":
 		return strings.ToLower(strings.TrimSpace(raw))
+	case "invites":
+		return "invite"
 	default:
 		return "details"
+	}
+}
+
+func normalizeManageOrganizationInvitePostRedirect(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "my-hopshare":
+		return "my-hopshare"
+	default:
+		return ""
 	}
 }
 

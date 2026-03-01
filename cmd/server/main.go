@@ -24,6 +24,10 @@ func main() {
 	if err := templates.SetAppTimezone(cfg.Timezone); err != nil {
 		log.Fatalf("configure app timezone: %v", err)
 	}
+	appLocation, err := time.LoadLocation(cfg.Timezone)
+	if err != nil {
+		log.Fatalf("load app timezone: %v", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -68,6 +72,7 @@ func main() {
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
 		CookieSecure:             &cfg.CookieSecure,
+		AppLocation:              appLocation,
 	})
 
 	server := &http.Server{

@@ -597,55 +597,8 @@ func ApproveMembershipRequest(ctx context.Context, db *sql.DB, requestID, decide
 		return fmt.Errorf("approve membership request: %w", err)
 	}
 
-	var hadAnyMembership bool
-	if err = tx.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM organization_memberships
-			WHERE organization_id = $1 AND member_id = $2
-		)
-	`, orgID, memberID).Scan(&hadAnyMembership); err != nil {
-		return fmt.Errorf("check membership history: %w", err)
-	}
-
-	var exists bool
-	if err = tx.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM organization_memberships
-			WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
-		)
-	`, orgID, memberID).Scan(&exists); err != nil {
-		return fmt.Errorf("check existing membership: %w", err)
-	}
-	if !exists {
-		if _, err = tx.ExecContext(ctx, `
-			INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-			VALUES ($1, $2, 'member', FALSE)
-		`, orgID, memberID); err != nil {
-			return fmt.Errorf("create membership: %w", err)
-		}
-	}
-
-	if !hadAnyMembership {
-		policy, policyErr := loadTimebankPolicy(ctx, tx, orgID)
-		if policyErr != nil {
-			return policyErr
-		}
-		if policy.StartingBalance > 0 {
-			if _, err = tx.ExecContext(ctx, `
-				INSERT INTO hour_balance_adjustments (
-					organization_id,
-					member_id,
-					admin_member_id,
-					hours_delta,
-					reason,
-					is_starting_balance
-				)
-				VALUES ($1, $2, $3, $4, $5, TRUE)
-			`, orgID, memberID, decidedBy, policy.StartingBalance, "Organization starting balance"); err != nil {
-				return fmt.Errorf("insert starting balance adjustment: %w", err)
-			}
-		}
+	if _, ensureErr := ensureActiveMembershipAndStartingBalance(ctx, tx, orgID, memberID, decidedBy); ensureErr != nil {
+		return ensureErr
 	}
 
 	if err = tx.Commit(); err != nil {

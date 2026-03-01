@@ -1,0 +1,50 @@
+package templates
+
+import "hopshare/internal/types"
+
+templ InviteLanding(userEmail *string, org types.Organization, invitedEmail string, signupHref string, loginHref string) {
+	@Base("hopShare | Organization invite", userEmail, InviteLandingBody(org, invitedEmail, signupHref, loginHref))
+}
+
+templ InviteLandingBody(org types.Organization, invitedEmail string, signupHref string, loginHref string) {
+	<section class="max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div class="space-y-2">
+			<h1 class="text-2xl font-bold text-slate-900">You're invited to join { org.Name }</h1>
+			<p class="text-slate-600">This invitation was sent to <span class="font-semibold text-slate-900">{ invitedEmail }</span>.</p>
+			<p class="text-slate-600">Choose an option below to continue.</p>
+		</div>
+		<div class="flex flex-wrap gap-3">
+			<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href={ signupHref }>
+				I don't have a hopShare account, sign me up!
+			</a>
+			<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href={ loginHref }>
+				I already have a hopShare account, add me to this Organization!
+			</a>
+		</div>
+	</section>
+}
+
+templ InviteStatus(userEmail *string, title string, message string, primaryHref string, primaryLabel string, secondaryHref string, secondaryLabel string) {
+	@Base("hopShare | Invitation", userEmail, InviteStatusBody(title, message, primaryHref, primaryLabel, secondaryHref, secondaryLabel))
+}
+
+templ InviteStatusBody(title string, message string, primaryHref string, primaryLabel string, secondaryHref string, secondaryLabel string) {
+	<section class="max-w-2xl mx-auto bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<div class="space-y-2">
+			<h1 class="text-2xl font-bold text-slate-900">{ title }</h1>
+			<p class="text-slate-600">{ message }</p>
+		</div>
+		<div class="flex flex-wrap gap-3">
+			if primaryHref != "" && primaryLabel != "" {
+				<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href={ primaryHref }>
+					{ primaryLabel }
+				</a>
+			}
+			if secondaryHref != "" && secondaryLabel != "" {
+				<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href={ secondaryHref }>
+					{ secondaryLabel }
+				</a>
+			}
+		</div>
+	</section>
+}

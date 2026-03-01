@@ -76,6 +76,21 @@ func (s *mailgunPasswordResetEmailSender) SendEmailVerification(ctx context.Cont
 	return s.sendText(ctx, toEmail, "Verify your HopShare email", message)
 }
 
+func (s *mailgunPasswordResetEmailSender) SendOrganizationInvite(ctx context.Context, toEmail, inviteURL, orgName, inviterName string, expiresAt time.Time) error {
+	orgName = strings.TrimSpace(orgName)
+	inviterName = strings.TrimSpace(inviterName)
+	if inviterName == "" {
+		inviterName = "A HopShare organization owner"
+	}
+	if orgName == "" {
+		orgName = "a HopShare organization"
+	}
+	message := inviterName + " invited you to join " + orgName + " on HopShare.\n\n"
+	message += "Use this link to accept the invitation:\n" + strings.TrimSpace(inviteURL) + "\n\n"
+	message += "This invitation expires on " + expiresAt.Format("January 2, 2006 at 3:04 PM MST") + "."
+	return s.sendText(ctx, toEmail, "You're invited to join "+orgName+" on HopShare", message)
+}
+
 func (s *mailgunPasswordResetEmailSender) sendText(ctx context.Context, toEmail, subject, bodyText string) error {
 	toEmail = strings.TrimSpace(toEmail)
 	subject = strings.TrimSpace(subject)

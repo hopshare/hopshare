@@ -20,22 +20,33 @@ func skillLines(skills []types.Skill) string {
 
 func manageOrganizationActiveTab(tab string) string {
 	switch strings.ToLower(strings.TrimSpace(tab)) {
-	case "details", "skills", "timebank":
+	case "details", "skills", "timebank", "invite":
 		return strings.ToLower(strings.TrimSpace(tab))
+	case "invites":
+		return "invite"
 	default:
 		return "details"
 	}
 }
 
-templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, currentMemberID, successMsg, errorMsg, activeTab))
+func manageOrganizationInvitePostRedirect(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "my-hopshare":
+		return "my-hopshare"
+	default:
+		return ""
+	}
 }
 
-templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, currentMemberID, successMsg, errorMsg, activeTab))
+templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
 }
 
-templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, currentMemberID int64, successMsg string, errorMsg string, activeTab string) {
+templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
+	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
+}
+
+templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data={ "{ activeTab: '" + manageOrganizationActiveTab(activeTab) + "' }" }>
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="space-y-1">
@@ -77,6 +88,16 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				>
 					Time Bank
 				</button>
+				if invitesEnabled {
+					<button
+						type="button"
+						class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+						x-bind:class="activeTab === 'invite' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+						x-on:click="activeTab = 'invite'"
+					>
+						Invite
+					</button>
+				}
 			</nav>
 		</div>
 
@@ -346,5 +367,55 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				</button>
 			</form>
 		</div>
+		if invitesEnabled {
+			<div x-show="activeTab === 'invite'" class="space-y-4">
+				<h2 class="text-lg font-semibold text-slate-900">Invite people to your organization</h2>
+				<p class="text-sm text-slate-600">
+					Organization owners can send invitation emails in comma-separated format. You can send up to 30 successful invites each day.
+				</p>
+				<p class="text-sm font-semibold text-slate-800">Remaining invites today: { strconv.Itoa(inviteRemaining) }</p>
+				<form class="space-y-4" method="POST" action="/organizations/manage">
+					@CSRFField()
+					<input type="hidden" name="action" value="invites" />
+					<input type="hidden" name="org_id" value={ org.ID } />
+					if manageOrganizationInvitePostRedirect(invitePostRedirect) != "" {
+						<input type="hidden" name="post_invite_redirect" value={ manageOrganizationInvitePostRedirect(invitePostRedirect) } />
+					}
+					<div class="space-y-1">
+						<label class="block text-sm font-semibold text-slate-800" for="invite_emails">Email addresses</label>
+						<textarea
+							id="invite_emails"
+							name="invite_emails"
+							class="w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[180px] focus:outline-none focus:ring-2 focus:ring-sky-500"
+							placeholder="person1@example.com, person2@example.com, person3@example.com"
+						></textarea>
+						<p class="text-xs text-slate-500">Use commas between addresses.</p>
+					</div>
+					<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
+						Send invite blast
+					</button>
+				</form>
+				<div class="space-y-3">
+					<h3 class="text-base font-semibold text-slate-900">Recent invitations</h3>
+					if len(invitations) == 0 {
+						<p class="text-sm text-slate-600">No invitations sent yet.</p>
+					} else {
+						<div class="rounded-lg border border-slate-200 divide-y divide-slate-100">
+							for _, inv := range invitations {
+								<div class="px-3 py-2 space-y-1">
+									<p class="text-sm font-semibold text-slate-900">{ inv.InvitedEmail }</p>
+									<p class="text-xs text-slate-600">
+										{ "Status: " + inv.Status + " • Invited " + formatInAppTime(inv.InvitedAt, "Jan 2, 2006 3:04 PM") }
+										if inv.ExpiresAt != nil {
+											{ " • Expires " + formatInAppTime(inv.ExpiresAt, "Jan 2, 2006 3:04 PM") }
+										}
+									</p>
+								</div>
+							}
+						</div>
+					}
+				</div>
+			</div>
+		}
 	</section>
 }

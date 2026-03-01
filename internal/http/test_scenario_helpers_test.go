@@ -99,10 +99,19 @@ type sentVerificationEmail struct {
 	VerifyURL string
 }
 
+type sentOrganizationInviteEmail struct {
+	ToEmail   string
+	InviteURL string
+	OrgName   string
+	Inviter   string
+	ExpiresAt time.Time
+}
+
 type recordingPasswordResetEmailSender struct {
 	mu                 sync.Mutex
 	resetEmails        []sentPasswordResetEmail
 	verificationEmails []sentVerificationEmail
+	inviteEmails       []sentOrganizationInviteEmail
 }
 
 func (s *recordingPasswordResetEmailSender) SendPasswordReset(_ context.Context, toEmail, resetURL string) error {
@@ -120,6 +129,19 @@ func (s *recordingPasswordResetEmailSender) SendEmailVerification(_ context.Cont
 	s.verificationEmails = append(s.verificationEmails, sentVerificationEmail{
 		ToEmail:   toEmail,
 		VerifyURL: verifyURL,
+	})
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *recordingPasswordResetEmailSender) SendOrganizationInvite(_ context.Context, toEmail, inviteURL, orgName, inviterName string, expiresAt time.Time) error {
+	s.mu.Lock()
+	s.inviteEmails = append(s.inviteEmails, sentOrganizationInviteEmail{
+		ToEmail:   toEmail,
+		InviteURL: inviteURL,
+		OrgName:   orgName,
+		Inviter:   inviterName,
+		ExpiresAt: expiresAt,
 	})
 	s.mu.Unlock()
 	return nil

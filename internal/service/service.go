@@ -27,6 +27,10 @@ var (
 	ErrTokenExpired         = errors.New("token expired")
 	ErrTokenUsed            = errors.New("token already used")
 	ErrTokenPurposeInvalid  = errors.New("token purpose invalid")
+	ErrInviteInvalid        = errors.New("invite invalid")
+	ErrInviteExpired        = errors.New("invite expired")
+	ErrInviteEmailMismatch  = errors.New("invite email mismatch")
+	ErrInviteAlreadyExists  = errors.New("invite already exists")
 
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")

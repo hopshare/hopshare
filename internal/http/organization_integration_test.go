@@ -3,7 +3,9 @@ package http_test
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 
 	"hopshare/internal/service"
@@ -150,6 +152,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			"state":       "TN",
 			"description": "Created through integration test.",
 		}), "/my-hopshare")
+		requireQueryValue(t, loc, "invite_prompt", "1")
 		requireBodyContains(t, loc.Query().Get("success"), "Created")
 
 		org, err := service.PrimaryOwnedOrganization(ctx, db, member.Member.ID)
@@ -686,6 +689,136 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected primary owner membership to remain active")
 		}
 	})
+
+	t.Run("ORG-I-01 owner invite blast sends valid emails and skips existing members", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+		disabled := createSeededMember(t, ctx, db, "disabled_invite", suffix)
+		if err := service.SetMemberEnabled(ctx, db, disabled.Member.ID, false); err != nil {
+			t.Fatalf("disable invitee member: %v", err)
+		}
+		sender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, sender)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage", formKV(
+			"action", "invites",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"invite_emails", "not-an-email, "+members["member"].Member.Email+", "+disabled.Member.Email+", invite_"+suffix+"@example.com",
+		)), "/organizations/manage")
+		requireQueryValue(t, loc, "tab", "invite")
+
+		if len(sender.inviteEmails) != 1 {
+			t.Fatalf("expected one invite email, got %d", len(sender.inviteEmails))
+		}
+		if !strings.EqualFold(sender.inviteEmails[0].ToEmail, "invite_"+suffix+"@example.com") {
+			t.Fatalf("invite email recipient mismatch: got=%q", sender.inviteEmails[0].ToEmail)
+		}
+
+		invitations, err := service.ListOrganizationInvitations(ctx, db, org.ID, 50)
+		if err != nil {
+			t.Fatalf("list organization invitations: %v", err)
+		}
+		if len(invitations) == 0 {
+			t.Fatalf("expected at least one invitation row")
+		}
+		if invitations[0].SentAt == nil {
+			t.Fatalf("expected sent_at to be populated for latest invite")
+		}
+	})
+
+	t.Run("ORG-I-01A owner invite blast can redirect to my-hopshare", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
+		sender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, sender)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage", formKV(
+			"action", "invites",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"invite_emails", "invite_redirect_"+suffix+"@example.com",
+			"post_invite_redirect", "my-hopshare",
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "org_id", strconv.FormatInt(org.ID, 10))
+		requireBodyContains(t, loc.Query().Get("success"), "Invite blast complete")
+
+		if len(sender.inviteEmails) != 1 {
+			t.Fatalf("expected one invite email, got %d", len(sender.inviteEmails))
+		}
+	})
+
+	t.Run("ORG-I-02 logged-in invited member can accept invitation link", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
+		invitee := createSeededMember(t, ctx, db, "invitee", suffix)
+		sender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithPasswordResetEmailSender(t, db, sender)
+
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+		requireRedirectPath(t, ownerActor.PostForm("/organizations/manage", formKV(
+			"action", "invites",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"invite_emails", invitee.Member.Email,
+		)), "/organizations/manage")
+
+		if len(sender.inviteEmails) != 1 {
+			t.Fatalf("expected one invite email, got %d", len(sender.inviteEmails))
+		}
+		token := extractInviteTokenFromURL(t, sender.inviteEmails[0].InviteURL)
+		if token == "" {
+			t.Fatalf("expected invite token")
+		}
+
+		inviteeActor := newTestActor(t, "invitee", server.URL, invitee.Member.Email, invitee.Password)
+		inviteeActor.Login()
+		loc := requireRedirectPath(t, inviteeActor.Get("/invite?token="+url.QueryEscape(token)), "/organization/"+org.URLName)
+		requireQueryValue(t, loc, "success", "Invitation accepted.")
+
+		hasMembership, err := service.MemberHasActiveMembership(ctx, db, invitee.Member.ID, org.ID)
+		if err != nil {
+			t.Fatalf("check invitee membership: %v", err)
+		}
+		if !hasMembership {
+			t.Fatalf("expected invitee to have active membership after accepting invite")
+		}
+	})
+
+	t.Run("ORG-I-03 invite tab hidden when feature email is disabled", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
+		sender := &recordingPasswordResetEmailSender{}
+		server := newHTTPServerWithFeatureEmailAndPasswordResetEmailSender(t, db, false, sender)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		body := requireStatus(t, ownerActor.Get("/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		requireBodyNotContains(t, body, "Send invite blast")
+	})
+}
+
+func extractInviteTokenFromURL(t *testing.T, inviteURL string) string {
+	t.Helper()
+	parsed, err := url.Parse(strings.TrimSpace(inviteURL))
+	if err != nil {
+		t.Fatalf("parse invite url %q: %v", inviteURL, err)
+	}
+	token := strings.TrimSpace(parsed.Query().Get("token"))
+	if token == "" {
+		t.Fatalf("could not find invite token in url %q", inviteURL)
+	}
+	return token
 }
 
 func requirePendingRequestID(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64) int64 {

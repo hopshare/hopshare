@@ -103,6 +103,23 @@ type MembershipRequest struct {
 	Status         string
 }
 
+// OrganizationInvitation represents an invitation to join an organization.
+type OrganizationInvitation struct {
+	ID               int64
+	OrganizationID   int64
+	InvitedEmail     string
+	Role             string
+	Status           string
+	InvitedBy        *int64
+	InvitedByName    string
+	InvitedAt        time.Time
+	SentAt           *time.Time
+	ExpiresAt        *time.Time
+	RespondedAt      *time.Time
+	AcceptedAt       *time.Time
+	AcceptedMemberID *int64
+}
+
 // OrganizationMember represents an active membership record.
 type OrganizationMember struct {
 	MemberID       int64
