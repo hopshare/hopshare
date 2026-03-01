@@ -34,6 +34,7 @@ type Server struct {
 	passwordResetEmailSender PasswordResetEmailSender
 	featureEmail             bool
 	featureHopPictures       bool
+	avatarImageMaxBytes      int64
 	publicBaseURL            string
 	cookieSecure             bool
 }
@@ -68,6 +69,7 @@ type RouterOptions struct {
 	PasswordResetEmailSender PasswordResetEmailSender
 	FeatureEmail             *bool
 	FeatureHopPictures       *bool
+	AvatarImageMaxBytes      *int64
 	PublicBaseURL            string
 	CookieSecure             *bool
 }
@@ -112,6 +114,10 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	if opts.FeatureHopPictures != nil {
 		featureHopPictures = *opts.FeatureHopPictures
 	}
+	avatarImageMaxBytes := int64(2 << 20)
+	if opts.AvatarImageMaxBytes != nil && *opts.AvatarImageMaxBytes > 0 {
+		avatarImageMaxBytes = *opts.AvatarImageMaxBytes
+	}
 	publicBaseURL := normalizePublicBaseURL(opts.PublicBaseURL)
 	cookieSecure := true
 	if opts.CookieSecure != nil {
@@ -126,6 +132,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 		passwordResetEmailSender: passwordResetEmailSender,
 		featureEmail:             featureEmail,
 		featureHopPictures:       featureHopPictures,
+		avatarImageMaxBytes:      avatarImageMaxBytes,
 		publicBaseURL:            publicBaseURL,
 		cookieSecure:             cookieSecure,
 	}

@@ -16,6 +16,7 @@ type Config struct {
 	Timezone           string
 	FeatureEmail       bool
 	FeatureHopPictures bool
+	AvatarImageSize    int64
 	PublicBaseURL      string
 	MailgunAPIBaseURL  string
 	MailgunDomain      string
@@ -36,6 +37,7 @@ func Load() Config {
 		Timezone:           loadTimezone(),
 		FeatureEmail:       getenvBool("FEATURE_EMAIL", true),
 		FeatureHopPictures: getenvBool("FEATURE_HOP_PICTURES", false),
+		AvatarImageSize:    getenvInt64("HOPSHARE_AVATAR_IMAGE_SIZE", 2<<20),
 		PublicBaseURL:      getenv("HOPSHARE_PUBLIC_BASE_URL", "http://localhost:8080"),
 		MailgunAPIBaseURL:  getenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net"),
 		MailgunDomain:      getenv("HOPSHARE_MAILGUN_DOMAIN", "hopshare.org"),
@@ -77,6 +79,18 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 	}
 	if parsed < 0 {
 		return 0
+	}
+	return parsed
+}
+
+func getenvInt64(key string, fallback int64) int64 {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || parsed <= 0 {
+		return fallback
 	}
 	return parsed
 }

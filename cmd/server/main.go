@@ -64,6 +64,7 @@ func main() {
 		AdminUsernames:           cfg.Admins,
 		FeatureEmail:             &cfg.FeatureEmail,
 		FeatureHopPictures:       &cfg.FeatureHopPictures,
+		AvatarImageMaxBytes:      &cfg.AvatarImageSize,
 		PublicBaseURL:            cfg.PublicBaseURL,
 		PasswordResetEmailSender: passwordResetEmailSender,
 		CookieSecure:             &cfg.CookieSecure,

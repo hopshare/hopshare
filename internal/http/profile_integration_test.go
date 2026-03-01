@@ -21,6 +21,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		actor.Login()
 		body := requireStatus(t, actor.Get("/profile"), 200)
 		requireBodyContains(t, body, "My Profile")
+		requireBodyContains(t, body, "Maximum avatar file size: 2 MB.")
 	})
 
 	t.Run("PROF-01A GET /profile renders My Account danger zone controls", func(t *testing.T) {
@@ -317,6 +318,29 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "avatar must be a PNG or JPEG")
 	})
 
+	t.Run("PROF-12C POST /profile action=profile with oversized avatar is rejected", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		member := createSeededMember(t, ctx, db, "profile_avatar_oversized", uniqueTestSuffix())
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Username, member.Password)
+		actor.Login()
+
+		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/profile", map[string]string{
+			"action":            "profile",
+			"first_name":        member.Member.FirstName,
+			"last_name":         member.Member.LastName,
+			"email":             member.Member.Email,
+			"preferred_contact": member.Member.Email,
+		}, []multipartFile{{
+			FieldName:   "avatar_file",
+			FileName:    "avatar.png",
+			ContentType: "image/png",
+			Data:        oversizedPNGData((2 << 20) + 1),
+		}}), "/profile")
+		requireQueryValue(t, loc, "error", "avatar file too large (max 2 MB)")
+	})
+
 	t.Run("PROF-12A POST /profile action=delete_account requires exact confirmation phrase", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -427,4 +451,10 @@ func tinyPNGData() []byte {
 		0x45, 0x4E, 0x44, 0xAE,
 		0x42, 0x60, 0x82,
 	}
+}
+
+func oversizedPNGData(size int) []byte {
+	data := make([]byte, size)
+	copy(data, tinyPNGData())
+	return data
 }

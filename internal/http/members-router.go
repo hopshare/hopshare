@@ -55,10 +55,10 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		render(w, r, templates.MyProfile(user.Email, member, orgs, availableSkills, selectedSkillIDs, successMsg, errorMsg))
+		render(w, r, templates.MyProfile(user.Email, member, orgs, availableSkills, selectedSkillIDs, s.avatarImageMaxBytes, successMsg, errorMsg))
 	case http.MethodPost:
-		const maxAvatarUploadBytes = 20 << 20
-		const maxBodyBytes = maxAvatarUploadBytes + (1 << 20)
+		maxAvatarUploadBytes := s.avatarImageMaxBytes
+		maxBodyBytes := maxAvatarUploadBytes + (1 << 20)
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		if err := r.ParseMultipartForm(maxBodyBytes); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -310,7 +310,7 @@ func readAvatarUpload(r *http.Request, field string, maxBytes int64) ([]byte, st
 		return nil, "", false, fmt.Errorf("read avatar file: %w", err)
 	}
 	if int64(len(data)) > maxBytes {
-		return nil, "", false, fmt.Errorf("avatar file too large (max 20MB)")
+		return nil, "", false, fmt.Errorf("avatar file too large (max %s)", imageSizeLabel(maxBytes))
 	}
 	if len(data) == 0 {
 		return nil, "", false, fmt.Errorf("avatar file is empty")
@@ -323,6 +323,16 @@ func readAvatarUpload(r *http.Request, field string, maxBytes int64) ([]byte, st
 	default:
 		return nil, "", false, fmt.Errorf("avatar must be a PNG or JPEG")
 	}
+}
+
+func imageSizeLabel(maxBytes int64) string {
+	if maxBytes >= 1<<20 && maxBytes%(1<<20) == 0 {
+		return fmt.Sprintf("%d MB", maxBytes/(1<<20))
+	}
+	if maxBytes >= 1<<10 && maxBytes%(1<<10) == 0 {
+		return fmt.Sprintf("%d KB", maxBytes/(1<<10))
+	}
+	return fmt.Sprintf("%d bytes", maxBytes)
 }
 
 func avatarInitial(name string) string {

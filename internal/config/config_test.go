@@ -14,6 +14,7 @@ func TestLoadParsesAdmins(t *testing.T) {
 	t.Setenv("HOPSHARE_TIMEZONE", "America/New_York")
 	t.Setenv("FEATURE_EMAIL", "false")
 	t.Setenv("FEATURE_HOP_PICTURES", "true")
+	t.Setenv("HOPSHARE_AVATAR_IMAGE_SIZE", "3145728")
 	t.Setenv("HOPSHARE_PUBLIC_BASE_URL", "https://hopshare.example.com")
 	t.Setenv("HOPSHARE_MAILGUN_API_BASE_URL", "https://api.mailgun.net")
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "mg.example.com")
@@ -41,6 +42,9 @@ func TestLoadParsesAdmins(t *testing.T) {
 	}
 	if !cfg.FeatureHopPictures {
 		t.Fatalf("feature hop pictures: got %v want true", cfg.FeatureHopPictures)
+	}
+	if cfg.AvatarImageSize != 3145728 {
+		t.Fatalf("avatar image size: got %d want %d", cfg.AvatarImageSize, int64(3145728))
 	}
 	if cfg.PublicBaseURL != "https://hopshare.example.com" {
 		t.Fatalf("public base url: got %q want %q", cfg.PublicBaseURL, "https://hopshare.example.com")
@@ -92,6 +96,7 @@ func TestLoadTimezoneDefaultUTC(t *testing.T) {
 func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("FEATURE_EMAIL", "")
 	t.Setenv("FEATURE_HOP_PICTURES", "")
+	t.Setenv("HOPSHARE_AVATAR_IMAGE_SIZE", "")
 	t.Setenv("HOPSHARE_PUBLIC_BASE_URL", "")
 	t.Setenv("HOPSHARE_MAILGUN_API_BASE_URL", "")
 	t.Setenv("HOPSHARE_MAILGUN_DOMAIN", "")
@@ -107,6 +112,9 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	}
 	if cfg.FeatureHopPictures {
 		t.Fatalf("feature hop pictures default: got %v want false", cfg.FeatureHopPictures)
+	}
+	if cfg.AvatarImageSize != 2<<20 {
+		t.Fatalf("avatar image size default: got %d want %d", cfg.AvatarImageSize, int64(2<<20))
 	}
 	if cfg.PublicBaseURL != "http://localhost:8080" {
 		t.Fatalf("public base url default: got %q want %q", cfg.PublicBaseURL, "http://localhost:8080")
