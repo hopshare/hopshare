@@ -103,6 +103,26 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "Name, email, and preferred contact are required.")
 	})
 
+	t.Run("PROF-04A POST /profile action=profile duplicate email is rejected with explicit message", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "profile_duplicate_email_member", suffix)
+		other := createSeededMember(t, ctx, db, "profile_duplicate_email_other", suffix)
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
+		actor.Login()
+
+		loc := requireRedirectPath(t, actor.PostMultipart("/profile", map[string]string{
+			"action":            "profile",
+			"first_name":        "Duplicate",
+			"last_name":         "Email",
+			"email":             other.Member.Email,
+			"preferred_contact": member.Member.Email,
+		}), "/profile")
+		requireQueryValue(t, loc, "error", "The email provided is already being used. Please choose another one.")
+	})
+
 	t.Run("PROF-05 POST /profile action=password success updates password", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()

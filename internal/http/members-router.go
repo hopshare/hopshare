@@ -86,6 +86,8 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				switch {
 				case errors.Is(err, service.ErrMissingField):
 					msg = "Name, email, and preferred contact are required."
+				case isUniqueViolation(err, "members_email_lower_key"):
+					msg = "The email provided is already being used. Please choose another one."
 				}
 				log.Printf("update member profile %d: %v", user.ID, err)
 				http.Redirect(w, r, "/profile?error="+url.QueryEscape(msg), http.StatusSeeOther)
