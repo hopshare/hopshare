@@ -281,16 +281,27 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	if !foundDeclinedInfo {
 		t.Fatalf("expected helper to receive declined info message")
 	}
+	var declinedNotificationCount int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM member_notifications
+		WHERE member_id = $1 AND href = $2 AND text LIKE $3
+	`, helper.Member.ID, "/messages", "%was declined.%").Scan(&declinedNotificationCount); err != nil {
+		t.Fatalf("count declined helper notifications: %v", err)
+	}
+	if declinedNotificationCount == 0 {
+		t.Fatalf("expected helper to receive declined notification with /messages link")
+	}
 
 	offerAgainLoc := requireRedirectPath(t, helperActor.PostForm("/hops/offer", url.Values{
 		"org_id": {strconv.FormatInt(org.ID, 10)},
 		"hop_id": {strconv.FormatInt(hop.ID, 10)},
 	}), "/my-hopshare")
-	requireQueryValue(t, offerAgainLoc, "error", "Could not send offer.")
+	requireQueryValue(t, offerAgainLoc, "success", "Offer sent.")
 
 	pendingCount := countPendingActionMessagesForHop(t, ctx, db, requester.Member.ID, hop.ID)
-	if pendingCount != 0 {
-		t.Fatalf("expected no pending action messages after declined offer retry, got %d", pendingCount)
+	if pendingCount != 1 {
+		t.Fatalf("expected one pending action message after declined offer retry, got %d", pendingCount)
 	}
 }
 

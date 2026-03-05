@@ -200,25 +200,35 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 		return ErrHopForbidden
 	}
 
-	var offerExists bool
-	if err = tx.QueryRowContext(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM hop_help_offers
-			WHERE hop_id = $1 AND member_id = $2 AND status IS NULL
-		)
-	`, p.HopID, p.OffererID).Scan(&offerExists); err != nil {
+	var existingStatus sql.NullString
+	err = tx.QueryRowContext(ctx, `
+		SELECT status
+		FROM hop_help_offers
+		WHERE hop_id = $1 AND member_id = $2
+		FOR UPDATE
+	`, p.HopID, p.OffererID).Scan(&existingStatus)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		if _, err = tx.ExecContext(ctx, `
+			INSERT INTO hop_help_offers (hop_id, member_id, offered_at)
+			VALUES ($1, $2, NOW())
+		`, p.HopID, p.OffererID); err != nil {
+			return fmt.Errorf("create hop offer: %w", err)
+		}
+	case err != nil:
 		return fmt.Errorf("check existing hop offer: %w", err)
-	}
-	if offerExists {
+	case !existingStatus.Valid:
 		return ErrHopOfferExists
-	}
-
-	if _, err = tx.ExecContext(ctx, `
-		INSERT INTO hop_help_offers (hop_id, member_id, offered_at)
-		VALUES ($1, $2, NOW())
-	`, p.HopID, p.OffererID); err != nil {
-		return fmt.Errorf("create hop offer: %w", err)
+	case existingStatus.String == types.HopOfferStatusDenied:
+		if _, err = tx.ExecContext(ctx, `
+			UPDATE hop_help_offers
+			SET offered_at = NOW(), status = NULL, accepted_at = NULL, denied_at = NULL
+			WHERE hop_id = $1 AND member_id = $2
+		`, p.HopID, p.OffererID); err != nil {
+			return fmt.Errorf("reset denied hop offer: %w", err)
+		}
+	default:
+		return ErrHopOfferExists
 	}
 
 	offererName := strings.TrimSpace(p.OffererName)
@@ -448,6 +458,13 @@ func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipien
 	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
 		return err
 	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		offererID,
+		fmt.Sprintf("Your offer to help with \"%s\" was declined.", description),
+		"/messages",
+	)
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit decline offer: %w", err)
