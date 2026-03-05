@@ -546,15 +546,69 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 		return ErrHopInvalidState
 	}
 
-	if status == types.HopStatusAccepted && acceptedBy.Valid && acceptedBy.Int64 != cancelerID {
-		subject := fmt.Sprintf("%s has canceled their Hop, %s", cancelerName, title)
-		body := fmt.Sprintf(
-			"We wanted to let you know that %s has canceled their Hop titled, %s. Thanks anyway for the offer to help! Why not go check for some other Hops that need help?",
-			cancelerName,
-			title,
+	offerRows, err := tx.QueryContext(ctx, `
+		SELECT member_id
+		FROM hop_help_offers
+		WHERE hop_id = $1 AND status IS NULL
+		FOR UPDATE
+	`, hopID)
+	if err != nil {
+		return fmt.Errorf("list pending hop offerers for cancel: %w", err)
+	}
+	var pendingOffererIDs []int64
+	for offerRows.Next() {
+		var memberID int64
+		if scanErr := offerRows.Scan(&memberID); scanErr != nil {
+			offerRows.Close()
+			return fmt.Errorf("scan pending hop offerer for cancel: %w", scanErr)
+		}
+		pendingOffererIDs = append(pendingOffererIDs, memberID)
+	}
+	if err := offerRows.Err(); err != nil {
+		offerRows.Close()
+		return fmt.Errorf("list pending hop offerers for cancel: %w", err)
+	}
+	if err := offerRows.Close(); err != nil {
+		return fmt.Errorf("close pending hop offerers for cancel: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE hop_help_offers
+		SET status = $1, denied_at = $2
+		WHERE hop_id = $3 AND status IS NULL
+	`, types.HopOfferStatusDenied, now, hopID); err != nil {
+		return fmt.Errorf("cancel pending hop offers: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL
+	`, types.MessageActionDeclined, now, createdBy, hopID, types.MessageTypeAction); err != nil {
+		return fmt.Errorf("cancel pending hop offer messages: %w", err)
+	}
+	cancelSubject := fmt.Sprintf("%s has canceled their Hop, %s", cancelerName, title)
+	cancelBody := fmt.Sprintf(
+		"We wanted to let you know that %s has canceled their Hop titled, %s. Thanks anyway for the offer to help! Why not go check for some other Hops that need help?",
+		cancelerName,
+		title,
+	)
+	senderID := cancelerID
+	for _, offererID := range pendingOffererIDs {
+		if err = insertMessage(ctx, tx, offererID, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, cancelSubject, cancelBody); err != nil {
+			return err
+		}
+		_ = createMemberNotification(
+			ctx,
+			tx,
+			offererID,
+			fmt.Sprintf("%s canceled their hop: %s. Your offer is no longer needed.", cancelerName, title),
+			"/messages",
 		)
-		senderID := cancelerID
-		if err = insertMessage(ctx, tx, acceptedBy.Int64, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+	}
+
+	if status == types.HopStatusAccepted && acceptedBy.Valid && acceptedBy.Int64 != cancelerID {
+		if err = insertMessage(ctx, tx, acceptedBy.Int64, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, cancelSubject, cancelBody); err != nil {
 			return err
 		}
 	}

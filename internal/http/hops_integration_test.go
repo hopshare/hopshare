@@ -304,6 +304,182 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "success", "Hop canceled.")
 	})
 
+	t.Run("HOP-15b cancel open hop clears pending offers and action messages", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Cancel open clears offers " + suffix,
+			Details:        "Cancel should clear pending offers and actions.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper.Login()
+		owner.Login()
+
+		offerLoc := requireRedirectPath(t, helper.PostForm("/hops/offer", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+		)), "/my-hopshare")
+		requireQueryValue(t, offerLoc, "success", "Offer sent.")
+
+		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+
+		cancelLoc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+		)), "/my-hopshare")
+		requireQueryValue(t, cancelLoc, "success", "Hop canceled.")
+
+		reloadedMsg, err := service.GetMessageForMember(ctx, db, actionMsg.ID, members["owner"].Member.ID)
+		if err != nil {
+			t.Fatalf("reload action message after cancel: %v", err)
+		}
+		if reloadedMsg.ActionStatus == nil || *reloadedMsg.ActionStatus != types.MessageActionDeclined {
+			t.Fatalf("expected action message status %q after cancel, got %+v", types.MessageActionDeclined, reloadedMsg.ActionStatus)
+		}
+
+		pendingCount := countPendingActionMessagesForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+		if pendingCount != 0 {
+			t.Fatalf("expected no pending action messages after cancel, got %d", pendingCount)
+		}
+
+		var offerStatus sql.NullString
+		if err := db.QueryRowContext(ctx, `
+			SELECT status
+			FROM hop_help_offers
+			WHERE hop_id = $1 AND member_id = $2
+		`, hop.ID, members["helper"].Member.ID).Scan(&offerStatus); err != nil {
+			t.Fatalf("load hop offer status after cancel: %v", err)
+		}
+		if !offerStatus.Valid || offerStatus.String != types.HopOfferStatusDenied {
+			t.Fatalf("expected offer status %q after cancel, got %+v", types.HopOfferStatusDenied, offerStatus)
+		}
+
+		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
+		if ownerName == "" {
+			ownerName = members["owner"].Member.Email
+		}
+		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
+		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("list helper messages after cancel: %v", err)
+		}
+		var foundCancelInfo bool
+		for _, msg := range helperMessages {
+			if msg.Subject == wantSubject {
+				foundCancelInfo = true
+				break
+			}
+		}
+		if !foundCancelInfo {
+			t.Fatalf("expected helper cancellation message with subject %q", wantSubject)
+		}
+
+		var helperCancelNotificationCount int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM member_notifications
+			WHERE member_id = $1 AND href = $2 AND text LIKE $3
+		`, members["helper"].Member.ID, "/messages", "%offer is no longer needed.%").Scan(&helperCancelNotificationCount); err != nil {
+			t.Fatalf("count helper cancel notifications: %v", err)
+		}
+		if helperCancelNotificationCount == 0 {
+			t.Fatalf("expected helper cancellation notification with /messages link")
+		}
+	})
+
+	t.Run("HOP-15c cancel open hop notifies all pending offerers", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper1", "helper2")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Cancel open notifies all helpers " + suffix,
+			Details:        "All pending offerers should be notified when requester cancels.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper1 := newTestActor(t, "helper1", server.URL, members["helper1"].Member.Email, members["helper1"].Password)
+		helper2 := newTestActor(t, "helper2", server.URL, members["helper2"].Member.Email, members["helper2"].Password)
+		owner.Login()
+		helper1.Login()
+		helper2.Login()
+
+		loc := requireRedirectPath(t, helper1.PostForm("/hops/offer", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Offer sent.")
+		loc = requireRedirectPath(t, helper2.PostForm("/hops/offer", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Offer sent.")
+
+		cancelLoc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+		)), "/my-hopshare")
+		requireQueryValue(t, cancelLoc, "success", "Hop canceled.")
+
+		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
+		if ownerName == "" {
+			ownerName = members["owner"].Member.Email
+		}
+		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
+
+		helperIDs := []int64{members["helper1"].Member.ID, members["helper2"].Member.ID}
+		for _, helperID := range helperIDs {
+			msgs, listErr := service.ListMessages(ctx, db, helperID)
+			if listErr != nil {
+				t.Fatalf("list helper messages helper=%d: %v", helperID, listErr)
+			}
+			var hasCancelInfo bool
+			for _, msg := range msgs {
+				if msg.Subject == wantSubject {
+					hasCancelInfo = true
+					break
+				}
+			}
+			if !hasCancelInfo {
+				t.Fatalf("expected helper=%d cancellation message with subject %q", helperID, wantSubject)
+			}
+
+			var notificationCount int
+			if err := db.QueryRowContext(ctx, `
+				SELECT COUNT(*)
+				FROM member_notifications
+				WHERE member_id = $1 AND href = $2 AND text LIKE $3
+			`, helperID, "/messages", "%offer is no longer needed.%").Scan(&notificationCount); err != nil {
+				t.Fatalf("count helper cancellation notifications helper=%d: %v", helperID, err)
+			}
+			if notificationCount == 0 {
+				t.Fatalf("expected helper=%d cancellation notification with /messages link", helperID)
+			}
+		}
+	})
+
 	t.Run("HOP-16 cancel accepted hop by creator succeeds", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
