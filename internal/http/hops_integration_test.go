@@ -226,14 +226,53 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		ownerBody := requireStatus(t, owner.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, ownerBody, "Mark complete")
 		requireBodyContains(t, ownerBody, "data-hop-requester=\"true\"")
+		requireBodyContains(t, ownerBody, "action=\"/hops/cancel\"")
 
 		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, helperBody, "Mark complete")
 		requireBodyContains(t, helperBody, "data-hop-requester=\"false\"")
+		requireBodyNotContains(t, helperBody, "action=\"/hops/cancel\"")
 
 		memberBody := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyNotContains(t, memberBody, "data-hop-requester=\"true\"")
 		requireBodyNotContains(t, memberBody, "data-hop-requester=\"false\"")
+		requireBodyNotContains(t, memberBody, "action=\"/hops/cancel\"")
+	})
+
+	t.Run("HOP-06b open hop details show cancel action only for requester", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper", "member")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Open detail cancel visibility " + suffix,
+			Details:        "Only requester should see cancel on open hop details.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		owner.Login()
+		helper.Login()
+		member.Login()
+
+		ownerBody := requireStatus(t, owner.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, ownerBody, "action=\"/hops/cancel\"")
+
+		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, helperBody, "action=\"/hops/cancel\"")
+
+		memberBody := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, memberBody, "action=\"/hops/cancel\"")
 	})
 
 	t.Run("HOP-07 duplicate offer is rejected and HOP-08 offering own hop is rejected", func(t *testing.T) {
