@@ -734,7 +734,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"member_id", strconv.FormatInt(members["owner"].Member.ID, 10),
 		)), "/organizations/manage")
-		requireQueryValue(t, loc, "error", "Could not remove member.")
+		requireQueryValue(t, loc, "error", "Primary owner cannot be removed.")
 
 		hasMembership, err := service.MemberHasActiveMembership(ctx, db, members["owner"].Member.ID, org.ID)
 		if err != nil {
@@ -743,6 +743,23 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		if !hasMembership {
 			t.Fatalf("expected primary owner membership to remain active")
 		}
+	})
+
+	t.Run("ORG-M-12 remove button is not shown for primary owner", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+		if err := service.UpdateOrganizationMemberRole(ctx, db, org.ID, members["member"].Member.ID, true); err != nil {
+			t.Fatalf("promote setup: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		secondaryOwnerActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		secondaryOwnerActor.Login()
+
+		body := requireStatus(t, secondaryOwnerActor.Get("/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		requireBodyNotContains(t, body, "name=\"member_id\" value=\""+strconv.FormatInt(members["owner"].Member.ID, 10)+"\"")
 	})
 
 	t.Run("ORG-I-01 owner invite blast sends valid emails and skips existing members", func(t *testing.T) {

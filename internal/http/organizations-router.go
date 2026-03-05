@@ -923,6 +923,8 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		msg := "Could not remove member."
 		if errors.Is(err, service.ErrMembershipNotFound) {
 			msg = "Membership not found."
+		} else if errors.Is(err, service.ErrInvalidRoleChange) {
+			msg = "Primary owner cannot be removed."
 		}
 		redirectURL := "/organizations/manage?error=" + url.QueryEscape(msg)
 		if org.ID != 0 {

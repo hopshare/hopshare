@@ -581,7 +581,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 						return templ_7745c5c3_Err
 					}
 				}
-				if m.MemberID != currentMemberID {
+				if m.MemberID != currentMemberID && !m.IsPrimaryOwner {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<form method=\"POST\" action=\"/organizations/manage/member/remove\" class=\"inline-flex\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err

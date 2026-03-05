@@ -271,7 +271,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 											</button>
 										</form>
 									}
-									if m.MemberID != currentMemberID {
+									if m.MemberID != currentMemberID && !m.IsPrimaryOwner {
 										<form method="POST" action="/organizations/manage/member/remove" class="inline-flex">
 											@CSRFField()
 											<input type="hidden" name="member_id" value={ m.MemberID } />
