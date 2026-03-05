@@ -182,6 +182,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		member.Login()
 		body := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, body, "Viewable Hop")
+		requireBodyContains(t, body, "Is asking for help")
+		requireBodyNotContains(t, body, ">Unknown<")
 	})
 
 	t.Run("HOP-05 view hop as non-member returns forbidden", func(t *testing.T) {

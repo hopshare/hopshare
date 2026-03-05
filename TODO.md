@@ -14,7 +14,6 @@
 
 ## Bugs
 
-* On Hop Detail page, showing a Pending Hop, it says, "Unknown" user is helping. It should instead just show the Requesting user with the text, "needs help!"
 * I can create Hops with a due date in the past- they are then automatically expired!
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
@@ -23,7 +22,6 @@
     * Before deleting, we need to make them choose one of the Owners to take it on- that Owner can't already have an Organization
     * We probably need a fail safe here in the Admin tab for abandoned Orgs.
 * Move to a static tailwind CSS- don't pull dynamically
-* When you try to change your email to one that's already taken in My Profile the error is "Could not update profile"- should be "The email provided is already being used. Please choose another one."
 
 
 ## Now

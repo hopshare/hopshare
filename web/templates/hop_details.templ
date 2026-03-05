@@ -141,31 +141,43 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 
 			<div class="space-y-6">
 				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-					<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
-						<div class="text-center space-y-2">
-							if hop.AcceptedBy != nil {
-								<img
-									class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-									src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
-									alt={ hopHelperDisplayName(hop) + " avatar" }
-								/>
-							} else {
-								<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
-							}
-							<p class="text-xs text-slate-700">{ hopHelperDisplayName(hop) }</p>
-						</div>
-						<div class="flex h-14 items-center justify-center px-1">
-							<p class="text-lg font-semibold text-slate-500 leading-none">helping</p>
-						</div>
-						<div class="text-center space-y-2">
+					if hop.Status == types.HopStatusOpen {
+						<div class="space-y-2 text-center">
 							<img
 								class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
 								src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
 								alt={ hop.CreatedByName + " avatar" }
 							/>
 							<p class="text-xs text-slate-700">{ hop.CreatedByName }</p>
+							<p class="text-sm font-semibold text-slate-500">Is asking for help</p>
 						</div>
-					</div>
+					} else {
+						<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
+							<div class="text-center space-y-2">
+								if hop.AcceptedBy != nil {
+									<img
+										class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+										src={ "/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
+										alt={ hopHelperDisplayName(hop) + " avatar" }
+									/>
+								} else {
+									<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
+								}
+								<p class="text-xs text-slate-700">{ hopHelperDisplayName(hop) }</p>
+							</div>
+							<div class="flex h-14 items-center justify-center px-1">
+								<p class="text-lg font-semibold text-slate-500 leading-none">helping</p>
+							</div>
+							<div class="text-center space-y-2">
+								<img
+									class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
+									src={ "/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
+									alt={ hop.CreatedByName + " avatar" }
+								/>
+								<p class="text-xs text-slate-700">{ hop.CreatedByName }</p>
+							</div>
+						</div>
+					}
 					<div class="mt-4 space-y-1 text-sm text-slate-700">
 						<p><span class="font-semibold text-slate-900">Created:</span> { formatInAppTime(&hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
 						<p><span class="font-semibold text-slate-900">Needed_by:</span> { hopNeededByDateValue(hop) }</p>
