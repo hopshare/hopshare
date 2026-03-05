@@ -87,7 +87,34 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		if !found {
 			t.Fatalf("expected pending request for member %d", requester.Member.ID)
 		}
-		_ = members
+		ownerID := members["owner"].Member.ID
+		ownerMessages, err := service.ListMessages(ctx, db, ownerID)
+		if err != nil {
+			t.Fatalf("owner messages: %v", err)
+		}
+		foundOwnerMessage := false
+		for _, msg := range ownerMessages {
+			if msg.Subject == "New membership request" && strings.Contains(msg.Body, org.Name) {
+				foundOwnerMessage = true
+				break
+			}
+		}
+		if !foundOwnerMessage {
+			t.Fatalf("expected owner membership request message for org %q", org.Name)
+		}
+
+		var ownerNotificationCount int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM member_notifications
+			WHERE member_id = $1
+				AND text LIKE $2
+		`, ownerID, "%requested to join "+org.Name+"%").Scan(&ownerNotificationCount); err != nil {
+			t.Fatalf("count owner notifications: %v", err)
+		}
+		if ownerNotificationCount == 0 {
+			t.Fatalf("expected owner membership request notification for org %q", org.Name)
+		}
 	})
 
 	t.Run("ORG-06 duplicate membership request is rejected", func(t *testing.T) {
@@ -454,6 +481,34 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			"action", "deny",
 		)), "/organizations/manage")
 		requireQueryValue(t, loc, "success", "Membership denied.")
+
+		requesterMessages, err := service.ListMessages(ctx, db, requester.Member.ID)
+		if err != nil {
+			t.Fatalf("requester messages: %v", err)
+		}
+		foundRequesterMessage := false
+		for _, msg := range requesterMessages {
+			if msg.Subject == "Membership request denied" && strings.Contains(msg.Body, org.Name) {
+				foundRequesterMessage = true
+				break
+			}
+		}
+		if !foundRequesterMessage {
+			t.Fatalf("expected requester denial message for org %q", org.Name)
+		}
+
+		var requesterNotificationCount int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM member_notifications
+			WHERE member_id = $1
+				AND text LIKE $2
+		`, requester.Member.ID, "%request to join "+org.Name+" was denied%").Scan(&requesterNotificationCount); err != nil {
+			t.Fatalf("count requester notifications: %v", err)
+		}
+		if requesterNotificationCount == 0 {
+			t.Fatalf("expected requester denial notification for org %q", org.Name)
+		}
 	})
 
 	t.Run("ORG-22 POST /organizations/manage/request non-owner is blocked", func(t *testing.T) {

@@ -674,6 +674,18 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 		return AcceptOrganizationInviteResult{}, fmt.Errorf("accept organization invitation: %w", err)
 	}
 
+	notificationHref := ""
+	if strings.TrimSpace(orgURLName) != "" {
+		notificationHref = "/organization/" + orgURLName
+	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		memberID,
+		"Your membership in "+orgName+" was approved.",
+		notificationHref,
+	)
+
 	if err = tx.Commit(); err != nil {
 		return AcceptOrganizationInviteResult{}, fmt.Errorf("commit organization invite acceptance: %w", err)
 	}

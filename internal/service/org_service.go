@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/lib/pq"
@@ -516,6 +517,42 @@ func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, n
 		return fmt.Errorf("insert membership request: %w", err)
 	}
 
+	requesterName, requesterEmail, err := memberNameAndEmailByID(ctx, db, memberID)
+	if err != nil {
+		return err
+	}
+	orgName := "your organization"
+	if name, _, detailsErr := organizationNameAndURLNameByID(ctx, db, orgID); detailsErr == nil {
+		orgName = name
+	}
+
+	ownerIDs, err := activeOwnerMemberIDsForOrganization(ctx, db, orgID)
+	if err != nil {
+		return err
+	}
+	notificationHref := "/organizations/manage?org_id=" + strconv.FormatInt(orgID, 10)
+	notificationText := requesterName + " requested to join " + orgName + "."
+	subject := "New membership request"
+	body := requesterName + " requested to join " + orgName + ".\n\nReview the request on the manage organization page."
+	if strings.TrimSpace(requesterEmail) != "" && !strings.EqualFold(strings.TrimSpace(requesterEmail), strings.TrimSpace(requesterName)) {
+		body = requesterName + " (" + strings.TrimSpace(requesterEmail) + ") requested to join " + orgName + ".\n\nReview the request on the manage organization page."
+	}
+	senderID := memberID
+	for _, ownerID := range ownerIDs {
+		if ownerID == memberID {
+			continue
+		}
+		_ = createMemberNotification(ctx, db, ownerID, notificationText, notificationHref)
+		_ = SendMessage(ctx, db, SendMessageParams{
+			SenderID:    &senderID,
+			SenderName:  requesterName,
+			RecipientID: ownerID,
+			MessageType: types.MessageTypeInformation,
+			Subject:     subject,
+			Body:        body,
+		})
+	}
+
 	return nil
 }
 
@@ -601,11 +638,28 @@ func ApproveMembershipRequest(ctx context.Context, db *sql.DB, requestID, decide
 		return ensureErr
 	}
 
+	orgName := "your organization"
+	orgURLName := ""
+	if name, urlName, nameErr := organizationNameAndURLNameByID(ctx, tx, orgID); nameErr == nil {
+		orgName = name
+		orgURLName = urlName
+	}
+	notificationHref := ""
+	if strings.TrimSpace(orgURLName) != "" {
+		notificationHref = "/organization/" + orgURLName
+	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		memberID,
+		"Your membership in "+orgName+" was approved.",
+		notificationHref,
+	)
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit approve request: %w", err)
 	}
 
-	// TODO: notify requester of approval (email/notification).
 	return nil
 }
 
@@ -621,23 +675,40 @@ func DenyMembershipRequest(ctx context.Context, db *sql.DB, requestID, decidedBy
 		return ErrMissingMemberID
 	}
 
-	res, err := db.ExecContext(ctx, `
+	var orgID int64
+	var memberID int64
+	if err := db.QueryRowContext(ctx, `
 		UPDATE membership_requests
 		SET status = 'rejected', decided_at = NOW(), decided_by = $1
 		WHERE id = $2 AND status = 'pending'
-	`, decidedBy, requestID)
-	if err != nil {
+		RETURNING organization_id, member_id
+	`, decidedBy, requestID).Scan(&orgID, &memberID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrRequestNotFound
+		}
 		return fmt.Errorf("deny membership request: %w", err)
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("deny membership request rows affected: %w", err)
-	}
-	if affected == 0 {
-		return ErrRequestNotFound
-	}
 
-	// TODO: notify requester of rejection.
+	orgName := "the organization"
+	if name, _, nameErr := organizationNameAndURLNameByID(ctx, db, orgID); nameErr == nil {
+		orgName = name
+	}
+	_ = CreateMemberNotification(
+		ctx,
+		db,
+		memberID,
+		"Your request to join "+orgName+" was denied.",
+		"/messages",
+	)
+	_ = SendMessage(ctx, db, SendMessageParams{
+		SenderID:    nil,
+		SenderName:  "hopShare",
+		RecipientID: memberID,
+		MessageType: types.MessageTypeInformation,
+		Subject:     "Membership request denied",
+		Body:        "Your request to join " + orgName + " was denied.",
+	})
+
 	return nil
 }
 
@@ -733,7 +804,18 @@ func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID i
 		return ErrMembershipNotFound
 	}
 
-	// TODO: notify member of removal; audit removedBy if needed.
+	orgName := "your organization"
+	if name, _, nameErr := organizationNameAndURLNameByID(ctx, db, orgID); nameErr == nil {
+		orgName = name
+	}
+	_ = createMemberNotification(
+		ctx,
+		db,
+		memberID,
+		"You were removed from "+orgName+".",
+		"",
+	)
+
 	_ = removedBy
 	return nil
 }
@@ -755,7 +837,30 @@ func UpdateOrganizationMemberRole(ctx context.Context, db *sql.DB, orgID, member
 		role = "owner"
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin update membership role: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var currentRole string
+	if err = tx.QueryRowContext(ctx, `
+		SELECT role
+		FROM organization_memberships
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+		FOR UPDATE
+	`, orgID, memberID).Scan(&currentRole); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrMembershipNotFound
+		}
+		return fmt.Errorf("load membership role: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE organization_memberships
 		SET role = $1, is_primary_owner = CASE WHEN is_primary_owner THEN TRUE ELSE FALSE END
 		WHERE organization_id = $2 AND member_id = $3 AND left_at IS NULL
@@ -770,7 +875,101 @@ func UpdateOrganizationMemberRole(ctx context.Context, db *sql.DB, orgID, member
 	if affected == 0 {
 		return ErrMembershipNotFound
 	}
+
+	orgName := "your organization"
+	orgURLName := ""
+	if name, urlName, nameErr := organizationNameAndURLNameByID(ctx, tx, orgID); nameErr == nil {
+		orgName = name
+		orgURLName = urlName
+	}
+	if currentRole != role {
+		var text string
+		href := ""
+		if role == "owner" {
+			text = "You are now an owner in " + orgName + "."
+			if strings.TrimSpace(orgURLName) != "" {
+				href = "/organization/" + orgURLName
+			}
+		} else if currentRole == "owner" && role == "member" {
+			text = "Your owner role was revoked in " + orgName + "."
+		}
+		if text != "" {
+			_ = createMemberNotification(ctx, tx, memberID, text, href)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit update membership role: %w", err)
+	}
 	return nil
+}
+
+func organizationNameAndURLNameByID(ctx context.Context, db queryer, orgID int64) (string, string, error) {
+	var orgName string
+	var orgURLName string
+	if err := db.QueryRowContext(ctx, `
+		SELECT name, url_name
+		FROM organizations
+		WHERE id = $1
+	`, orgID).Scan(&orgName, &orgURLName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", ErrMissingOrgID
+		}
+		return "", "", fmt.Errorf("load organization details: %w", err)
+	}
+	return orgName, orgURLName, nil
+}
+
+func memberNameAndEmailByID(ctx context.Context, db queryer, memberID int64) (string, string, error) {
+	var firstName string
+	var lastName string
+	var email string
+	if err := db.QueryRowContext(ctx, `
+		SELECT first_name, last_name, email
+		FROM members
+		WHERE id = $1
+	`, memberID).Scan(&firstName, &lastName, &email); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", ErrMissingMemberID
+		}
+		return "", "", fmt.Errorf("load member details: %w", err)
+	}
+	return memberDisplayName(firstName, lastName, email), strings.TrimSpace(email), nil
+}
+
+func activeOwnerMemberIDsForOrganization(ctx context.Context, db *sql.DB, orgID int64) ([]int64, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT member_id
+		FROM organization_memberships
+		WHERE organization_id = $1
+			AND role = 'owner'
+			AND left_at IS NULL
+		ORDER BY member_id
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("list organization owners: %w", err)
+	}
+	defer rows.Close()
+
+	var ownerIDs []int64
+	for rows.Next() {
+		var ownerID int64
+		if err := rows.Scan(&ownerID); err != nil {
+			return nil, fmt.Errorf("scan organization owner: %w", err)
+		}
+		ownerIDs = append(ownerIDs, ownerID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list organization owners: %w", err)
+	}
+	return ownerIDs, nil
+}
+
+func myHopshareOrgHref(orgID int64) string {
+	if orgID <= 0 {
+		return "/my-hopshare"
+	}
+	return "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
 }
 
 // UpdateOrganization updates basic organization fields.

@@ -170,6 +170,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/invite", srv.handleInvite, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare/organizations", srv.handleMyHopshareOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/notifications/dismiss", srv.handleDismissNotification, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/profile", srv.handleProfile, srv.requireAuth(), srv.requireMethod(http.MethodGet, http.MethodPost))
 	srv.register(mux, "/members/avatar", srv.handleMemberAvatar, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -784,6 +785,39 @@ func (s *Server) handleMyHopshareOrganizations(w http.ResponseWriter, r *http.Re
 	render(w, r, templates.MyhopShareOrganizations(user.Email, orgs, currentOrgID))
 }
 
+func (s *Server) handleDismissNotification(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("org_id")), 10, 64)
+	redirectTarget := "/my-hopshare"
+	if orgID > 0 {
+		redirectTarget = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+
+	notificationID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("notification_id")), 10, 64)
+	if err != nil || notificationID <= 0 {
+		http.Redirect(w, r, redirectWithMessage(redirectTarget, "error", "Invalid notification."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.DeleteMemberNotification(r.Context(), s.db, user.ID, notificationID); err != nil {
+		log.Printf("delete member notification id=%d member=%d: %v", notificationID, user.ID, err)
+		http.Redirect(w, r, redirectWithMessage(redirectTarget, "error", "Could not dismiss notification."), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, redirectTarget, http.StatusSeeOther)
+}
+
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(s.sessions.CookieName())
 	if err == nil {
@@ -863,6 +897,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	var activeAcceptedHop *types.Hop
 	activeAcceptedViewKey := "requested"
 	var activityCount int
+	var notifications []types.MemberNotification
 
 	if currentOrgID != 0 {
 		// TODO: We should expire old hops asynchronously through a delay-configurable goroutine, not whenever we render the myhopshare page
@@ -917,6 +952,11 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			}
 		}
 	}
+	notifications, err = service.ListMemberNotifications(r.Context(), s.db, user.ID, 20)
+	if err != nil {
+		log.Printf("list member notifications member=%d: %v", user.ID, err)
+		notifications = nil
+	}
 
 	render(w, r, templates.MyhopShare(
 		user.Email,
@@ -933,6 +973,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		user.ID,
 		activityCount,
 		hasPrimary,
+		notifications,
 		showInvitePrompt,
 		successMsg,
 		errorMsg,

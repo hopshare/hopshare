@@ -214,6 +214,15 @@ type Message struct {
 	CreatedAt     time.Time
 }
 
+// MemberNotification represents a dashboard notification for a member.
+type MemberNotification struct {
+	ID        int64
+	MemberID  int64
+	Text      string
+	Href      *string
+	CreatedAt time.Time
+}
+
 type OrgHopMetrics struct {
 	MemberCount         int
 	PendingCount        int

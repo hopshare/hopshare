@@ -14,6 +14,10 @@
 
 ## Bugs
 
+* On Hop Detail page, showing a Pending Hop, it says, "Unknown" user is helping. It should instead just show the Requesting user with the text, "needs help!"
+* If you are declined from your help offer, and offer again, you get a generic message "Help Offer could not be sent." - need something more specific. Or should we just allow repeated offers?
+   * Error: offer hop help failed: create hop offer: pq: duplicate key value violates unique constraint "hop_help_offers_pkey"
+* On Manage Hop page, it is possible for an Owner to Remove the primary Owner- this button should not be shown.
 * I can create Hops with a due date in the past- they are then automatically expired!
 * Accepting Help on a Hop that has been Canceled should not be an error- just a message that the Hop was canceled already.
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?

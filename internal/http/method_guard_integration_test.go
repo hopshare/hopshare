@@ -30,6 +30,7 @@ func TestHTTPMethodGuards(t *testing.T) {
 		{"forgot-password", "/forgot-password", "PUT", "GET, POST"},
 		{"reset-password", "/reset-password", "PUT", "GET, POST"},
 		{"my-hopshare", "/my-hopshare", "POST", "GET"},
+		{"notifications-dismiss", "/notifications/dismiss", "GET", "POST"},
 		{"my-hops", "/my-hops", "POST", "GET"},
 		{"profile", "/profile", "PUT", "GET, POST"},
 		{"members-avatar", "/members/avatar", "POST", "GET"},

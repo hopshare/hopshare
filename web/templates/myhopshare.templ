@@ -49,6 +49,7 @@ templ MyhopShare(
 	memberID int64,
 	activityCount int,
 	hasPrimary bool,
+	notifications []types.MemberNotification,
 	showInvitePrompt bool,
 	successMsg string,
 	errorMsg string,
@@ -68,6 +69,7 @@ templ MyhopShare(
 		memberID,
 		activityCount,
 		hasPrimary,
+		notifications,
 		showInvitePrompt,
 		successMsg,
 		errorMsg,
@@ -89,6 +91,7 @@ templ MyhopShareBody(
 	memberID int64,
 	activityCount int,
 	hasPrimary bool,
+	notifications []types.MemberNotification,
 	showInvitePrompt bool,
 	successMsg string,
 	errorMsg string,
@@ -140,6 +143,7 @@ templ MyhopShareBody(
 				memberID,
 				activityCount,
 				hasPrimary,
+				notifications,
 			)
 		}
 	</div>
@@ -191,6 +195,7 @@ templ MyhopShareDashboard(
 	memberID int64,
 	activityCount int,
 	hasPrimary bool,
+	notifications []types.MemberNotification,
 ) {
 	<div
 		class="space-y-6"
@@ -228,6 +233,29 @@ templ MyhopShareDashboard(
 					</a>
 				</div>
 			</section>
+
+			if len(notifications) > 0 {
+				<section>
+					<ul class="space-y-2">
+						for _, notification := range notifications {
+							<li class="relative rounded-lg bg-emerald-50 px-3 py-2">
+								<form class="absolute right-2 top-2" method="POST" action="/notifications/dismiss">
+									@CSRFField()
+									<input type="hidden" name="notification_id" value={ strconv.FormatInt(notification.ID, 10) }/>
+									<input type="hidden" name="org_id" value={ strconv.FormatInt(currentOrgID, 10) }/>
+									<button class="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-semibold text-slate-700 transition hover:bg-emerald-100 hover:text-slate-900" type="submit" aria-label="Dismiss notification">X</button>
+								</form>
+								<p class="pr-8 text-sm text-slate-800">
+									{ notification.Text }
+									if notification.Href != nil && *notification.Href != "" {
+										<a class="ml-1 font-semibold text-sky-700 underline hover:text-sky-800" href={ *notification.Href }>View</a>
+									}
+								</p>
+							</li>
+						}
+					</ul>
+				</section>
+			}
 
 			<section class="rounded-2xl bg-sky-100 p-8">
 				<div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -235,6 +236,13 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	if err = insertMessage(ctx, tx, createdBy, &senderID, offererName, types.MessageTypeAction, &p.HopID, nil, nil, "Hop help offer", body); err != nil {
 		return err
 	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		createdBy,
+		offererName+" offered help on your hop: "+description+".",
+		"/messages",
+	)
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit offer hop: %w", err)
@@ -598,13 +606,14 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 	var acceptedBy sql.NullInt64
 	var estimatedHours int
 	var status string
+	var title string
 	row := tx.QueryRowContext(ctx, `
-		SELECT created_by, accepted_by, estimated_hours, status
+		SELECT created_by, accepted_by, estimated_hours, status, title
 		FROM hops
 		WHERE id = $1 AND organization_id = $2
 		FOR UPDATE
 	`, p.HopID, p.OrganizationID)
-	if err = row.Scan(&createdBy, &acceptedBy, &estimatedHours, &status); err != nil {
+	if err = row.Scan(&createdBy, &acceptedBy, &estimatedHours, &status, &title); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return CompleteHopResult{}, ErrHopNotFound
 		}
@@ -692,6 +701,25 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 		return CompleteHopResult{}, fmt.Errorf("insert hop transaction: %w", err)
 	}
 
+	notifyMemberID := createdBy
+	if p.CompletedBy == createdBy {
+		notifyMemberID = acceptedBy.Int64
+	}
+	hopTitle := strings.TrimSpace(title)
+	notificationText := "One of your in-progress hops was marked complete by the other member."
+	if hopTitle != "" {
+		notificationText = "Your in-progress hop was marked complete by the other member: " + hopTitle + "."
+	}
+	if notifyMemberID != 0 && notifyMemberID != p.CompletedBy {
+		_ = createMemberNotification(
+			ctx,
+			tx,
+			notifyMemberID,
+			notificationText,
+			hopDetailsHref(p.OrganizationID, p.HopID),
+		)
+	}
+
 	if err = tx.Commit(); err != nil {
 		return CompleteHopResult{}, fmt.Errorf("commit complete hop: %w", err)
 	}
@@ -706,22 +734,85 @@ func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (in
 		return 0, ErrMissingOrgID
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin expire hops: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	rows, err := tx.QueryContext(ctx, `
 		UPDATE hops
 		SET status = $1, updated_at = NOW()
 		WHERE organization_id = $2
 			AND status IN ($3, $4)
 			AND expires_at IS NOT NULL
 			AND expires_at <= $5
+		RETURNING id, created_by, title
 	`, types.HopStatusExpired, orgID, types.HopStatusOpen, types.HopStatusAccepted, now)
 	if err != nil {
 		return 0, fmt.Errorf("expire hops: %w", err)
 	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("expire hops rows affected: %w", err)
+	defer rows.Close()
+
+	type expiredHop struct {
+		id        int64
+		createdBy int64
+		title     string
+	}
+
+	var affected int64
+	expired := make([]expiredHop, 0)
+	for rows.Next() {
+		var hopID int64
+		var createdBy int64
+		var title string
+		if err := rows.Scan(&hopID, &createdBy, &title); err != nil {
+			return 0, fmt.Errorf("scan expired hop: %w", err)
+		}
+		affected++
+		expired = append(expired, expiredHop{
+			id:        hopID,
+			createdBy: createdBy,
+			title:     title,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("expire hops rows: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, fmt.Errorf("close expired hops rows: %w", err)
+	}
+
+	for _, hop := range expired {
+		hopTitle := strings.TrimSpace(hop.title)
+		notificationText := "One of your pending hops expired."
+		if hopTitle != "" {
+			notificationText = "Your pending hop expired: " + hopTitle + "."
+		}
+		_ = createMemberNotification(
+			ctx,
+			tx,
+			hop.createdBy,
+			notificationText,
+			hopDetailsHref(orgID, hop.id),
+		)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit expire hops: %w", err)
 	}
 	return affected, nil
+}
+
+func hopDetailsHref(orgID, hopID int64) string {
+	if orgID <= 0 || hopID <= 0 {
+		return myHopshareOrgHref(orgID)
+	}
+	return "/hops/view?org_id=" + strconv.FormatInt(orgID, 10) + "&hop_id=" + strconv.FormatInt(hopID, 10)
 }
 
 func AdminExpireHop(ctx context.Context, db *sql.DB, orgID, hopID int64) error {

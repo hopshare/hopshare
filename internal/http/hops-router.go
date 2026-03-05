@@ -655,6 +655,22 @@ func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	notifyMemberIDs := map[int64]struct{}{}
+	if hop.CreatedBy != user.ID {
+		notifyMemberIDs[hop.CreatedBy] = struct{}{}
+	}
+	if hop.AcceptedBy != nil && *hop.AcceptedBy != user.ID {
+		notifyMemberIDs[*hop.AcceptedBy] = struct{}{}
+	}
+	commenterName := memberDisplayName(user)
+	notificationText := fmt.Sprintf("%s commented on your hop: %s.", commenterName, hop.Title)
+	notificationHref := fmt.Sprintf("/hops/view?org_id=%d&hop_id=%d", orgID, hopID)
+	for recipientID := range notifyMemberIDs {
+		if err := service.CreateMemberNotification(r.Context(), s.db, recipientID, notificationText, notificationHref); err != nil {
+			log.Printf("create hop comment notification failed recipient=%d hop=%d: %v", recipientID, hopID, err)
+		}
+	}
+
 	http.Redirect(w, r, hopDetailsRedirect(orgID, hopID, r.FormValue("from"), r.FormValue("view")), http.StatusSeeOther)
 }
 
