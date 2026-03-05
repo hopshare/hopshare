@@ -178,6 +178,9 @@ type Hop struct {
 	UpdatedAt time.Time
 
 	HasPendingOffer bool
+
+	CreatedByLeftOrganization  bool
+	AcceptedByLeftOrganization bool
 }
 
 // HopComment represents a comment on a hop.

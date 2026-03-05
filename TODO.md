@@ -43,8 +43,7 @@
     * Need a way to remove an owned Organization- need to think a bit about this one- to ensure it doesn't get abused.
     * If the User is not primary owner of their own Organization, give them a button at bottom of "Organizations" tab that lets them create their own Organization. 
     * Remove "Preferred Contact" field- and database
-    * Organiations tab- need a way to leave an Organization
-
+ 
 * Hop Detail Page
 
 * My HopShare Dashboard

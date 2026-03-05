@@ -113,6 +113,15 @@ func hasPrimaryOwnedOrganization(orgs []types.MemberOrganization) bool {
 	return false
 }
 
+func hasLeaveableOrganization(orgs []types.MemberOrganization) bool {
+	for _, org := range orgs {
+		if !org.IsPrimaryOwner {
+			return true
+		}
+	}
+	return false
+}
+
 templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
 	@Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, skills, selectedSkillIDs, avatarMaxUploadBytes, successMsg, errorMsg))
 }
@@ -139,22 +148,35 @@ func profileImageSizeLabel(maxBytes int64) string {
 }
 
 templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
-	<div
-		class="space-y-6"
-		x-data="{
-			activeTab: 'details',
-			deleteModalOpen: false,
-			deleteConfirmation: '',
-			requiredDeletePhrase: 'I want to leave hopShare',
-			init() {
-				const tab = new URLSearchParams(window.location.search).get('tab');
-				if (tab === 'details' || tab === 'organizations' || tab === 'skills' || tab === 'account') {
-					this.activeTab = tab;
+		<div
+			class="space-y-6"
+			x-data="{
+				activeTab: 'details',
+				leaveModalOpen: false,
+				leaveOrgID: 0,
+				leaveOrgName: '',
+				deleteModalOpen: false,
+				deleteConfirmation: '',
+				requiredDeletePhrase: 'I want to leave hopShare',
+				openLeaveModal(id, name) {
+					this.leaveOrgID = id;
+					this.leaveOrgName = name;
+					this.leaveModalOpen = true;
+				},
+				closeLeaveModal() {
+					this.leaveModalOpen = false;
+					this.leaveOrgID = 0;
+					this.leaveOrgName = '';
+				},
+				init() {
+					const tab = new URLSearchParams(window.location.search).get('tab');
+					if (tab === 'details' || tab === 'organizations' || tab === 'skills' || tab === 'account') {
+						this.activeTab = tab;
+					}
 				}
-			}
-		}"
-		x-on:keydown.escape.window="deleteModalOpen = false; deleteConfirmation = ''"
-	>
+			}"
+			x-on:keydown.escape.window="deleteModalOpen = false; deleteConfirmation = ''; closeLeaveModal()"
+		>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
 		}
@@ -412,8 +434,17 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 										<span class="text-sm font-semibold text-slate-900">{ org.Name }</span>
 									}
 								</div>
-								if org.Role != "owner" {
-									<a class="text-sm font-semibold text-slate-400 hover:text-slate-500" href="#" aria-disabled="true">Leave...</a>
+								if !org.IsPrimaryOwner {
+										<button
+											class="text-sm font-semibold text-red-700 hover:text-red-800"
+											type="button"
+											data-testid={ "leave-org-button-" + strconv.FormatInt(org.ID, 10) }
+											data-org-id={ strconv.FormatInt(org.ID, 10) }
+											data-org-name={ org.Name }
+											x-on:click="openLeaveModal(parseInt($el.dataset.orgId, 10), $el.dataset.orgName)"
+										>
+											Leave
+										</button>
 								}
 							</div>
 						}
@@ -467,7 +498,7 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 			</section>
 		</div>
 
-		<div x-show="activeTab === 'account'">
+			<div x-show="activeTab === 'account'">
 			<section class="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm">
 				<h2 class="text-lg font-semibold text-red-800">Danger Zone!</h2>
 				<p class="mt-2 text-sm text-red-700">Deleting your account disables your access immediately.</p>
@@ -478,11 +509,47 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 				>
 					Delete my Account
 				</button>
-			</section>
-		</div>
+				</section>
+			</div>
 
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
+			if hasLeaveableOrganization(orgs) {
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
+					x-show="leaveModalOpen"
+					x-on:click.self="closeLeaveModal()"
+					style="display: none;"
+				>
+					<div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+						<h3 class="text-lg font-semibold text-slate-900">Leave organization?</h3>
+						<p class="mt-2 text-sm text-slate-700">
+							Are you sure you want to leave Organization <span class="font-semibold text-slate-900" x-text="leaveOrgName"></span>?
+						</p>
+						<form method="POST" action="/profile" class="mt-4 space-y-4">
+							@CSRFField()
+							<input type="hidden" name="action" value="leave_organization" />
+							<input type="hidden" name="org_id" x-bind:value="leaveOrgID" />
+							<div class="flex items-center justify-end gap-3">
+								<button
+									type="button"
+									class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
+									x-on:click="closeLeaveModal()"
+								>
+									No
+								</button>
+								<button
+									type="submit"
+									class="inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800"
+								>
+									Yes
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			}
+
+			<div
+				class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
 			x-show="deleteModalOpen"
 			x-on:click.self="deleteModalOpen = false; deleteConfirmation = ''"
 			style="display: none;"

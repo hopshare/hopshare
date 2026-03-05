@@ -199,6 +199,12 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	recentCompleted = mergeRecentOrganizationHops(recentCompleted, recentAccepted, 25)
+	recentCompleted, err = service.MarkLeftOrganizationParticipants(r.Context(), s.db, org.ID, recentCompleted)
+	if err != nil {
+		log.Printf("annotate left organization hop participants org=%d: %v", org.ID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
 	if showPendingPanel {
 		pendingHops, err = service.RecentPendingHops(r.Context(), s.db, org.ID, 100)
 		if err != nil {
@@ -213,6 +219,12 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 			} else {
 				pendingHops = sortedHops
 			}
+		}
+		pendingHops, err = service.MarkLeftOrganizationParticipants(r.Context(), s.db, org.ID, pendingHops)
+		if err != nil {
+			log.Printf("annotate left organization pending hop participants org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
 		}
 	}
 

@@ -58,6 +58,31 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		requireStatus(t, anon.Get("/organization/does-not-exist-"+uniqueTestSuffix()), 404)
 	})
 
+	t.Run("ORG-04A organization activity marks departed members with left tooltip", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
+		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["owner"].Member.ID, members["helper"].Member.ID, "Left avatar marker "+suffix)
+		if err := service.CompleteHop(ctx, db, service.CompleteHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			CompletedBy:    members["owner"].Member.ID,
+			Comment:        "done",
+			CompletedHours: 1,
+		}); err != nil {
+			t.Fatalf("complete hop: %v", err)
+		}
+		if err := service.RemoveOrganizationMember(ctx, db, org.ID, members["helper"].Member.ID, members["owner"].Member.ID); err != nil {
+			t.Fatalf("remove helper membership: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		body := requireStatus(t, anon.Get("/organization/"+org.URLName), 200)
+		requireBodyContains(t, body, "Left organization")
+	})
+
 	t.Run("ORG-05 POST /organizations/request submits membership request", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()

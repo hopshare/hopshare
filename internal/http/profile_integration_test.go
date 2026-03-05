@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 
 	"hopshare/internal/service"
@@ -420,6 +421,205 @@ func TestProfileHTTPMatrix(t *testing.T) {
 			"password", member.Password,
 		)), http.StatusOK)
 		requireBodyContains(t, loginBody, "Invalid email or password.")
+	})
+
+	t.Run("PROF-14A GET /profile organizations tab shows leave button for non-primary memberships only", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+		server := newHTTPServer(t, db)
+
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		memberActor.Login()
+		memberBody := requireStatus(t, memberActor.Get("/profile?tab=organizations"), http.StatusOK)
+		requireBodyContains(t, memberBody, "data-testid=\"leave-org-button-"+strconv.FormatInt(org.ID, 10)+"\"")
+		requireBodyContains(t, memberBody, "Are you sure you want to leave Organization")
+		requireBodyContains(t, memberBody, ">Yes</button>")
+		requireBodyContains(t, memberBody, ">No</button>")
+
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+		ownerBody := requireStatus(t, ownerActor.Get("/profile?tab=organizations"), http.StatusOK)
+		requireBodyNotContains(t, ownerBody, "data-testid=\"leave-org-button-")
+		requireBodyNotContains(t, ownerBody, "Are you sure you want to leave Organization")
+	})
+
+	t.Run("PROF-15 POST /profile action=leave_organization leaves only org and clears current org", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+		server := newHTTPServer(t, db)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		memberActor.Login()
+
+		loc := requireRedirectPath(t, memberActor.PostForm("/profile", formKV(
+			"action", "leave_organization",
+			"org_id", strconv.FormatInt(org.ID, 10),
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "success", "You have left the Organization "+org.Name)
+
+		hasMembership, err := service.MemberHasActiveMembership(ctx, db, members["member"].Member.ID, org.ID)
+		if err != nil {
+			t.Fatalf("check membership after leave: %v", err)
+		}
+		if hasMembership {
+			t.Fatalf("expected membership to be inactive after leave")
+		}
+
+		memberAfterLeave, err := service.GetMemberByID(ctx, db, members["member"].Member.ID)
+		if err != nil {
+			t.Fatalf("load member after leave: %v", err)
+		}
+		if memberAfterLeave.CurrentOrganization != nil {
+			t.Fatalf("expected current organization to be cleared, got %d", *memberAfterLeave.CurrentOrganization)
+		}
+
+		body := requireStatus(t, memberActor.Get("/my-hopshare"), http.StatusOK)
+		requireBodyContains(t, body, "Join an organization to get started!")
+
+		ownerMessages, err := service.ListMessages(ctx, db, members["owner"].Member.ID)
+		if err != nil {
+			t.Fatalf("list owner messages after leave: %v", err)
+		}
+		leaverName := strings.TrimSpace(members["member"].Member.FirstName + " " + members["member"].Member.LastName)
+		if leaverName == "" {
+			leaverName = members["member"].Member.Email
+		}
+		wantBody := "User " + leaverName + " has left the Organization " + org.Name + "."
+		found := false
+		for _, msg := range ownerMessages {
+			if msg.Subject == "Member left organization" && msg.Body == wantBody {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected owner leave message body %q", wantBody)
+		}
+	})
+
+	t.Run("PROF-16 POST /profile action=leave_organization with multiple remaining orgs picks first from DB", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		member := createSeededMember(t, ctx, db, "profile_leave_multi_member", suffix)
+		alphaOwner := createSeededMember(t, ctx, db, "profile_leave_multi_alpha_owner", suffix)
+		betaOwner := createSeededMember(t, ctx, db, "profile_leave_multi_beta_owner", suffix)
+		gammaOwner := createSeededMember(t, ctx, db, "profile_leave_multi_gamma_owner", suffix)
+
+		alphaOrg, err := service.CreateOrganization(ctx, db, "Alpha Leave "+suffix, "City", "ST", "Alpha org", alphaOwner.Member.ID)
+		if err != nil {
+			t.Fatalf("create alpha org: %v", err)
+		}
+		betaOrg, err := service.CreateOrganization(ctx, db, "Beta Leave "+suffix, "City", "ST", "Beta org", betaOwner.Member.ID)
+		if err != nil {
+			t.Fatalf("create beta org: %v", err)
+		}
+		gammaOrg, err := service.CreateOrganization(ctx, db, "Gamma Leave "+suffix, "City", "ST", "Gamma org", gammaOwner.Member.ID)
+		if err != nil {
+			t.Fatalf("create gamma org: %v", err)
+		}
+
+		approveMemberForOrganization(t, ctx, db, alphaOrg.ID, alphaOwner.Member.ID, member.Member.ID)
+		approveMemberForOrganization(t, ctx, db, betaOrg.ID, betaOwner.Member.ID, member.Member.ID)
+		approveMemberForOrganization(t, ctx, db, gammaOrg.ID, gammaOwner.Member.ID, member.Member.ID)
+
+		if err := service.UpdateMemberCurrentOrganization(ctx, db, member.Member.ID, betaOrg.ID); err != nil {
+			t.Fatalf("set current org to beta: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "profile_leave_multi_member", server.URL, member.Member.Email, member.Password)
+		actor.Login()
+		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
+			"action", "leave_organization",
+			"org_id", strconv.FormatInt(betaOrg.ID, 10),
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "success", "You have left the Organization "+betaOrg.Name)
+
+		memberAfterLeave, err := service.GetMemberByID(ctx, db, member.Member.ID)
+		if err != nil {
+			t.Fatalf("load member after multi-org leave: %v", err)
+		}
+		if memberAfterLeave.CurrentOrganization == nil {
+			t.Fatalf("expected current organization to be set to first remaining org")
+		}
+		if *memberAfterLeave.CurrentOrganization != alphaOrg.ID {
+			t.Fatalf("expected current organization to be first remaining org (alpha=%d), got %d", alphaOrg.ID, *memberAfterLeave.CurrentOrganization)
+		}
+	})
+
+	t.Run("PROF-17 POST /profile action=leave_organization primary owner is blocked", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+		server := newHTTPServer(t, db)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		loc := requireRedirectPath(t, ownerActor.PostForm("/profile", formKV(
+			"action", "leave_organization",
+			"org_id", strconv.FormatInt(org.ID, 10),
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "error", "Primary owner cannot leave this organization.")
+
+		hasMembership, err := service.MemberHasActiveMembership(ctx, db, members["owner"].Member.ID, org.ID)
+		if err != nil {
+			t.Fatalf("check primary owner membership after leave attempt: %v", err)
+		}
+		if !hasMembership {
+			t.Fatalf("expected primary owner membership to remain active")
+		}
+	})
+
+	t.Run("PROF-18 POST /profile action=leave_organization notifies all owners", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "owner2", "member")
+		if err := service.UpdateOrganizationMemberRole(ctx, db, org.ID, members["owner2"].Member.ID, true); err != nil {
+			t.Fatalf("promote owner2: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		memberActor := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		memberActor.Login()
+		loc := requireRedirectPath(t, memberActor.PostForm("/profile", formKV(
+			"action", "leave_organization",
+			"org_id", strconv.FormatInt(org.ID, 10),
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "organizations")
+		requireQueryValue(t, loc, "success", "You have left the Organization "+org.Name)
+
+		leaverName := strings.TrimSpace(members["member"].Member.FirstName + " " + members["member"].Member.LastName)
+		if leaverName == "" {
+			leaverName = members["member"].Member.Email
+		}
+		wantBody := "User " + leaverName + " has left the Organization " + org.Name + "."
+
+		ownerIDs := []int64{members["owner"].Member.ID, members["owner2"].Member.ID}
+		for _, ownerID := range ownerIDs {
+			ownerMessages, err := service.ListMessages(ctx, db, ownerID)
+			if err != nil {
+				t.Fatalf("list owner messages owner=%d: %v", ownerID, err)
+			}
+			found := false
+			for _, msg := range ownerMessages {
+				if msg.Subject == "Member left organization" && msg.Body == wantBody {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected owner %d to receive leave message body %q", ownerID, wantBody)
+			}
+		}
 	})
 
 	t.Run("PROF-13 GET /members/avatar shared-org member is visible", func(t *testing.T) {

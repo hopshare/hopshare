@@ -162,6 +162,35 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Skills updated."), http.StatusSeeOther)
+		case "leave_organization":
+			orgID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("org_id")), 10, 64)
+			if err != nil || orgID <= 0 {
+				http.Redirect(w, r, "/profile?tab=organizations&error="+url.QueryEscape("Invalid organization."), http.StatusSeeOther)
+				return
+			}
+			orgName := ""
+			if org, nameErr := service.GetOrganizationByID(r.Context(), s.db, orgID); nameErr == nil {
+				orgName = strings.TrimSpace(org.Name)
+			}
+
+			if _, err := service.LeaveOrganization(r.Context(), s.db, orgID, user.ID); err != nil {
+				log.Printf("leave organization org=%d member=%d: %v", orgID, user.ID, err)
+				msg := "Could not leave organization."
+				switch {
+				case errors.Is(err, service.ErrMembershipNotFound):
+					msg = "Membership not found."
+				case errors.Is(err, service.ErrInvalidRoleChange):
+					msg = "Primary owner cannot leave this organization."
+				}
+				http.Redirect(w, r, "/profile?tab=organizations&error="+url.QueryEscape(msg), http.StatusSeeOther)
+				return
+			}
+
+			successMsg := "Organization left."
+			if orgName != "" {
+				successMsg = "You have left the Organization " + orgName
+			}
+			http.Redirect(w, r, "/profile?tab=organizations&success="+url.QueryEscape(successMsg), http.StatusSeeOther)
 		case "delete_account":
 			confirmation := r.FormValue("delete_account_confirmation")
 			if confirmation != deleteAccountConfirmationPhrase {

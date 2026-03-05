@@ -753,6 +753,179 @@ func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.
 	return members, nil
 }
 
+// LeaveOrganization marks the member's membership as left and reselects current_organization.
+// If there are remaining active organizations, the first row returned from the database is used.
+// If there are none, current_organization is cleared.
+func LeaveOrganization(ctx context.Context, db *sql.DB, orgID, memberID int64) (*int64, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin leave organization: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE organization_memberships
+		SET left_at = NOW()
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = FALSE
+	`, orgID, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("leave organization: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("leave organization rows affected: %w", err)
+	}
+	if affected == 0 {
+		var isPrimaryOwner bool
+		var exists bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT
+				EXISTS (
+					SELECT 1
+					FROM organization_memberships
+					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+				),
+				EXISTS (
+					SELECT 1
+					FROM organization_memberships
+					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = TRUE
+				)
+		`, orgID, memberID).Scan(&exists, &isPrimaryOwner); err != nil {
+			return nil, fmt.Errorf("check organization membership before leave: %w", err)
+		}
+		if isPrimaryOwner {
+			return nil, ErrInvalidRoleChange
+		}
+		if !exists {
+			return nil, ErrMembershipNotFound
+		}
+		return nil, ErrMembershipNotFound
+	}
+
+	var nextOrgID *int64
+	var nextOrg sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT o.id
+		FROM organizations o
+		JOIN organization_memberships om ON om.organization_id = o.id
+		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
+		ORDER BY o.name
+		LIMIT 1
+	`, memberID).Scan(&nextOrg); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("load first remaining organization after leave: %w", err)
+		}
+	} else if nextOrg.Valid {
+		id := nextOrg.Int64
+		nextOrgID = &id
+	}
+
+	var currentOrgValue any
+	if nextOrgID != nil {
+		currentOrgValue = *nextOrgID
+	}
+	memberRes, err := tx.ExecContext(ctx, `
+		UPDATE members
+		SET current_organization = $1, updated_at = NOW()
+		WHERE id = $2
+	`, currentOrgValue, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("update member current organization after leave: %w", err)
+	}
+	memberAffected, err := memberRes.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("update member current organization after leave rows affected: %w", err)
+	}
+	if memberAffected == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	orgName := "your organization"
+	if name, _, nameErr := organizationNameAndURLNameByID(ctx, tx, orgID); nameErr == nil {
+		orgName = name
+	}
+	leaverName := "User"
+	if displayName, _, displayErr := memberNameAndEmailByID(ctx, tx, memberID); displayErr == nil && strings.TrimSpace(displayName) != "" {
+		leaverName = displayName
+	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		memberID,
+		"You left "+orgName+".",
+		"",
+	)
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT member_id
+		FROM organization_memberships
+		WHERE organization_id = $1
+			AND role = 'owner'
+			AND left_at IS NULL
+		ORDER BY member_id
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("list owner recipients for leave message: %w", err)
+	}
+
+	ownerIDs := make([]int64, 0)
+	for rows.Next() {
+		var ownerID int64
+		if err := rows.Scan(&ownerID); err != nil {
+			_ = rows.Close()
+			return nil, fmt.Errorf("scan owner recipient for leave message: %w", err)
+		}
+		ownerIDs = append(ownerIDs, ownerID)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, fmt.Errorf("list owner recipients for leave message: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close owner recipients for leave message: %w", err)
+	}
+
+	const leaveSubject = "Member left organization"
+	leaveBody := "User " + leaverName + " has left the Organization " + orgName + "."
+	for _, ownerID := range ownerIDs {
+		if err := insertMessage(
+			ctx,
+			tx,
+			ownerID,
+			nil,
+			"hopShare",
+			types.MessageTypeInformation,
+			nil,
+			nil,
+			nil,
+			leaveSubject,
+			leaveBody,
+		); err != nil {
+			return nil, fmt.Errorf("send owner leave message: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit leave organization: %w", err)
+	}
+
+	return nextOrgID, nil
+}
+
 // RemoveOrganizationMember marks a membership as left.
 func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID int64, removedBy int64) error {
 	if db == nil {

@@ -48,6 +48,18 @@ func organizationFirstName(displayName string) string {
 	return parts[0]
 }
 
+func organizationAvatarInitial(displayName string) string {
+	first := organizationFirstName(displayName)
+	if first == "" {
+		return "M"
+	}
+	runes := []rune(first)
+	if len(runes) == 0 {
+		return "M"
+	}
+	return strings.ToUpper(string(runes[0]))
+}
+
 func organizationHelperName(hop types.Hop) string {
 	if hop.AcceptedByName != nil && strings.TrimSpace(*hop.AcceptedByName) != "" {
 		return *hop.AcceptedByName
@@ -108,6 +120,23 @@ func organizationCompletedWhen(completedAt *time.Time) string {
 		return "last year"
 	}
 	return fmt.Sprintf("%d years ago", years)
+}
+
+templ OrganizationMemberAvatar(orgID int64, memberID int64, displayName string, leftOrganization bool, sizeClass string) {
+	if leftOrganization {
+		<div
+			class={ sizeClass + " flex items-center justify-center rounded-full bg-slate-200 text-slate-500 font-semibold ring-1 ring-slate-200 grayscale opacity-70" }
+			title="Left organization"
+		>
+			{ organizationAvatarInitial(displayName) }
+		</div>
+	} else {
+		<img
+			class={ sizeClass + " rounded-full object-cover ring-1 ring-slate-200 bg-white" }
+			src={ "/members/avatar/public?org_id=" + strconv.FormatInt(orgID, 10) + "&member_id=" + strconv.FormatInt(memberID, 10) }
+			alt={ organizationFirstName(displayName) + " avatar" }
+		/>
+	}
 }
 
 templ Organization(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {
@@ -190,11 +219,7 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 										class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:bg-white hover:border-slate-300 transition"
 										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
 									>
-										<img
-											class="h-10 w-10 rounded-full object-cover ring-1 ring-slate-200 bg-white shrink-0"
-											src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-											alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
-										/>
+										@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10 shrink-0")
 										<div class="min-w-0">
 											<p class="text-sm font-semibold text-slate-900 truncate">{ hop.Title }</p>
 											<p class="text-xs text-slate-600 truncate">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
@@ -226,26 +251,22 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 									>
 										<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
 											<div class="text-center space-y-2">
-												if hop.AcceptedBy != nil {
-													<img
-														class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-														src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
-														alt={ organizationFirstName(organizationHelperName(hop)) + " avatar" }
-													/>
-												} else {
-													<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
-												}
+													if hop.AcceptedBy != nil {
+														<div class="mx-auto">
+															@OrganizationMemberAvatar(org.ID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
+														</div>
+													} else {
+														<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
+													}
 												<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
 											</div>
 											<div class="flex h-14 items-center justify-center px-1">
 												<p class="text-lg font-semibold text-slate-500 leading-none">helped</p>
 											</div>
 											<div class="text-center space-y-2">
-												<img
-													class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-													src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-													alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
-												/>
+												<div class="mx-auto">
+													@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
+												</div>
 												<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
 											</div>
 										</div>
@@ -260,11 +281,9 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 									<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
 										<div class="text-center space-y-2">
 											if hop.AcceptedBy != nil {
-												<img
-													class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-													src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10) }
-													alt={ organizationFirstName(organizationHelperName(hop)) + " avatar" }
-												/>
+												<div class="mx-auto">
+													@OrganizationMemberAvatar(org.ID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
+												</div>
 											} else {
 												<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
 											}
@@ -274,11 +293,9 @@ templ OrganizationBody(userEmail *string, org types.Organization, metrics types.
 											<p class="text-lg font-semibold text-slate-500 leading-none">is helping</p>
 										</div>
 										<div class="text-center space-y-2">
-											<img
-												class="mx-auto h-14 w-14 rounded-full object-cover ring-1 ring-slate-200 bg-white"
-												src={ "/members/avatar/public?org_id=" + strconv.FormatInt(org.ID, 10) + "&member_id=" + strconv.FormatInt(hop.CreatedBy, 10) }
-												alt={ organizationFirstName(hop.CreatedByName) + " avatar" }
-											/>
+											<div class="mx-auto">
+												@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
+											</div>
 											<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
 										</div>
 									</div>

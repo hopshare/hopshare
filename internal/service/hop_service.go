@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
 	"hopshare/internal/types"
 )
 
@@ -1596,6 +1598,76 @@ func RecentPublicPendingHops(ctx context.Context, db *sql.DB, orgID int64, limit
 		return nil, fmt.Errorf("list recent public pending hops: %w", err)
 	}
 	return out, nil
+}
+
+// MarkLeftOrganizationParticipants annotates hops with whether creator/helper left the organization.
+func MarkLeftOrganizationParticipants(ctx context.Context, db *sql.DB, orgID int64, hops []types.Hop) ([]types.Hop, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if len(hops) == 0 {
+		return hops, nil
+	}
+
+	memberSet := make(map[int64]struct{}, len(hops)*2)
+	for _, hop := range hops {
+		if hop.CreatedBy != 0 {
+			memberSet[hop.CreatedBy] = struct{}{}
+		}
+		if hop.AcceptedBy != nil && *hop.AcceptedBy != 0 {
+			memberSet[*hop.AcceptedBy] = struct{}{}
+		}
+	}
+	if len(memberSet) == 0 {
+		return hops, nil
+	}
+
+	memberIDs := make([]int64, 0, len(memberSet))
+	for memberID := range memberSet {
+		memberIDs = append(memberIDs, memberID)
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT member_id
+		FROM organization_memberships
+		WHERE organization_id = $1
+			AND left_at IS NULL
+			AND member_id = ANY($2)
+	`, orgID, pq.Array(memberIDs))
+	if err != nil {
+		return nil, fmt.Errorf("list active members for hop annotation: %w", err)
+	}
+	defer rows.Close()
+
+	activeMembers := make(map[int64]struct{}, len(memberIDs))
+	for rows.Next() {
+		var memberID int64
+		if err := rows.Scan(&memberID); err != nil {
+			return nil, fmt.Errorf("scan active member for hop annotation: %w", err)
+		}
+		activeMembers[memberID] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list active members for hop annotation: %w", err)
+	}
+
+	for i := range hops {
+		if hops[i].CreatedBy != 0 {
+			if _, ok := activeMembers[hops[i].CreatedBy]; !ok {
+				hops[i].CreatedByLeftOrganization = true
+			}
+		}
+		if hops[i].AcceptedBy != nil && *hops[i].AcceptedBy != 0 {
+			if _, ok := activeMembers[*hops[i].AcceptedBy]; !ok {
+				hops[i].AcceptedByLeftOrganization = true
+			}
+		}
+	}
+
+	return hops, nil
 }
 
 func OrgMetrics(ctx context.Context, db *sql.DB, orgID int64) (types.OrgHopMetrics, error) {
