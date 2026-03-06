@@ -377,7 +377,7 @@ func AdminDeleteMember(ctx context.Context, db *sql.DB, memberID, actorMemberID 
 
 	membershipRes, err := tx.ExecContext(ctx, `
 		UPDATE organization_memberships
-		SET left_at = $2
+		SET left_at = GREATEST($2, joined_at + INTERVAL '1 microsecond')
 		WHERE member_id = $1
 			AND left_at IS NULL
 	`, memberID, now)
