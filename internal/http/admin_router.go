@@ -362,7 +362,11 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 		actionMetadata["ended_membership_count"] = deleteResult.EndedMembershipCount
 		actionMetadata["permanent_delete"] = true
 		auditAction = service.AdminAuditActionUserDelete
-		successMessage = "User permanently deleted. Their email can now be reused."
+		targetDisplayName := strings.TrimSpace(targetMember.FirstName + " " + targetMember.LastName)
+		if targetDisplayName == "" {
+			targetDisplayName = "Unknown User"
+		}
+		successMessage = fmt.Sprintf("User %s (%s) has been permanently deleted.", targetDisplayName, targetMember.Email)
 	case adminUserActionForcePasswordReset:
 		if err := service.AdminForcePasswordReset(r.Context(), s.db, memberID); err != nil {
 			handleAdminUserActionError(w, r, redirectBase, err, "Could not force password reset.")

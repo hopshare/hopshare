@@ -837,7 +837,7 @@ func TestAdminUsersHTTP(t *testing.T) {
 			"q", target.Member.Email,
 			"reason", "permanent delete request from support case",
 		)), "/admin")
-		requireQueryValue(t, deleteLoc, "success", "User permanently deleted. Their email can now be reused.")
+		requireQueryValue(t, deleteLoc, "success", fmt.Sprintf("User %s %s (%s) has been permanently deleted.", target.Member.FirstName, target.Member.LastName, target.Member.Email))
 
 		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDelete)
 		if afterAuditCount != beforeAuditCount+1 {

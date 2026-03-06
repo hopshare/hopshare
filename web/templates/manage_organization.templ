@@ -20,7 +20,7 @@ func skillLines(skills []types.Skill) string {
 
 func manageOrganizationActiveTab(tab string) string {
 	switch strings.ToLower(strings.TrimSpace(tab)) {
-	case "details", "skills", "timebank", "invite":
+	case "details", "members", "skills", "timebank", "invite":
 		return strings.ToLower(strings.TrimSpace(tab))
 	case "invites":
 		return "invite"
@@ -75,6 +75,14 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					x-on:click="activeTab = 'details'"
 				>
 					Details
+				</button>
+				<button
+					type="button"
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'members' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					x-on:click="activeTab = 'members'"
+				>
+					Members
 				</button>
 				<button
 					type="button"
@@ -286,6 +294,9 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				</div>
 			</div>
 
+		</div>
+
+		<div x-show="activeTab === 'members'" class="space-y-6">
 			<div class="space-y-3">
 				<h2 class="text-lg font-semibold text-slate-900">Pending membership requests</h2>
 				if len(requests) == 0 {
@@ -334,11 +345,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				} else {
 					<div class="rounded-lg border border-slate-200 divide-y divide-slate-100">
 						for _, m := range members {
-								<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-									<div>
-										<p class="font-semibold text-slate-900">{ m.DisplayName }</p>
-										<p class="text-xs text-slate-600">{ m.Email }{ " • Joined " }{ formatInAppTime(m.JoinedAt, "Jan 2, 2006") }{ " • " }{ m.Role }</p>
-									</div>
+							<div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+								<div>
+									<p class="font-semibold text-slate-900">{ m.DisplayName }</p>
+									<p class="text-xs text-slate-600">{ m.Email }{ " • Joined " }{ formatInAppTime(m.JoinedAt, "Jan 2, 2006") }{ " • " }{ m.Role }</p>
+								</div>
 								<div class="flex flex-wrap gap-2">
 									if m.Role == "member" {
 										<form method="POST" action="/organizations/manage/member/role" class="inline-flex">

@@ -28,7 +28,7 @@ func skillLines(skills []types.Skill) string {
 
 func manageOrganizationActiveTab(tab string) string {
 	switch strings.ToLower(strings.TrimSpace(tab)) {
-	case "details", "skills", "timebank", "invite":
+	case "details", "members", "skills", "timebank", "invite":
 		return strings.ToLower(strings.TrimSpace(tab))
 	case "invites":
 		return "invite"
@@ -184,7 +184,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Manage organization tabs\"><button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'details'\">Details</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'skills'\">Skills</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'timebank'\">Time Bank</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Manage organization tabs\"><button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'details'\">Details</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'members' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'members'\">Members</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'skills'\">Skills</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'timebank'\">Time Bank</button> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -209,7 +209,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 138, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 146, Col: 52}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -222,7 +222,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 141, Col: 187}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 149, Col: 187}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -235,7 +235,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.City)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 146, Col: 179}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 154, Col: 179}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -248,7 +248,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(org.State)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 150, Col: 182}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 158, Col: 182}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -261,7 +261,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(org.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 155, Col: 207}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 163, Col: 207}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -274,7 +274,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 160, Col: 205}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 168, Col: 205}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -287,7 +287,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 160, Col: 232}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 168, Col: 232}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -300,7 +300,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationDeleteXData())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 202, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 210, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -313,7 +313,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 209, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 217, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -334,13 +334,13 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 254, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 262, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"> <input type=\"hidden\" name=\"delete_organization_confirmation\" x-bind:value=\"deleteOrgPhrase\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_organization_confirmation_phrase\">Confirmation phrase</label> <input id=\"delete_organization_confirmation_phrase\" type=\"text\" required x-model=\"deleteOrgPhrase\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to remove ...\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeDeleteOrgModal()\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteOrgPhrase !== deleteOrgRequiredPhrase\">Delete organization permanently</button></div></form></div></div></div><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Pending membership requests</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"> <input type=\"hidden\" name=\"delete_organization_confirmation\" x-bind:value=\"deleteOrgPhrase\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_organization_confirmation_phrase\">Confirmation phrase</label> <input id=\"delete_organization_confirmation_phrase\" type=\"text\" required x-model=\"deleteOrgPhrase\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to remove ...\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeDeleteOrgModal()\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteOrgPhrase !== deleteOrgRequiredPhrase\">Delete organization permanently</button></div></form></div></div></div></div><div x-show=\"activeTab === 'members'\" class=\"space-y-6\"><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Pending membership requests</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -362,7 +362,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 299, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 310, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -375,7 +375,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberEmail)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 300, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 311, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -388,7 +388,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(req.RequestedAt, "Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 302, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 313, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -409,7 +409,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 307, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 318, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -422,7 +422,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 308, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 319, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -443,7 +443,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 316, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 327, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -456,7 +456,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 317, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 328, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -494,7 +494,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(m.DisplayName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 339, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 350, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -507,7 +507,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(m.Email)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 340, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 52}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -516,7 +516,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(" • Joined ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 340, Col: 71}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -525,7 +525,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(m.JoinedAt, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 340, Col: 117}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 116}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -534,7 +534,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(" • ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 340, Col: 128}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 127}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -543,7 +543,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(m.Role)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 340, Col: 138}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -569,7 +569,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var30 string
 					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 346, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 357, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 					if templ_7745c5c3_Err != nil {
@@ -582,7 +582,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var31 string
 					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 347, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 358, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 					if templ_7745c5c3_Err != nil {
@@ -608,7 +608,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var32 string
 					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 356, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 367, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 					if templ_7745c5c3_Err != nil {
@@ -621,7 +621,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var33 string
 					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 357, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 368, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 					if templ_7745c5c3_Err != nil {
@@ -648,7 +648,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 367, Col: 67}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 378, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -661,7 +661,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var35 string
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 368, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 379, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -697,7 +697,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 388, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 399, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -710,7 +710,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(skillLines(orgSkills))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 391, Col: 199}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 402, Col: 199}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -731,7 +731,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var38 string
 		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 407, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 418, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 		if templ_7745c5c3_Err != nil {
@@ -744,7 +744,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var39 string
 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMinBalance))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 419, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 430, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 		if templ_7745c5c3_Err != nil {
@@ -757,7 +757,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMaxBalance))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 434, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 445, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -770,7 +770,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var41 string
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankStartingBalance))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 449, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 460, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
@@ -788,7 +788,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 			var templ_7745c5c3_Var42 string
 			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(inviteRemaining))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 466, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 477, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 			if templ_7745c5c3_Err != nil {
@@ -809,7 +809,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 470, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 481, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 			if templ_7745c5c3_Err != nil {
@@ -827,7 +827,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationInvitePostRedirect(invitePostRedirect))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 472, Col: 119}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 483, Col: 119}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
@@ -860,7 +860,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var45 string
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(inv.InvitedEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 496, Col: 75}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 507, Col: 75}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
@@ -873,7 +873,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					var templ_7745c5c3_Var46 string
 					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs("Status: " + inv.Status + " • Invited " + formatInAppTime(inv.InvitedAt, "Jan 2, 2006 3:04 PM"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 498, Col: 109}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 509, Col: 109}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 					if templ_7745c5c3_Err != nil {
@@ -887,7 +887,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 						var templ_7745c5c3_Var47 string
 						templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(" • Expires " + formatInAppTime(inv.ExpiresAt, "Jan 2, 2006 3:04 PM"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 500, Col: 84}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 511, Col: 84}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 						if templ_7745c5c3_Err != nil {

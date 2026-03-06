@@ -793,7 +793,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 func normalizeManageOrganizationTab(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "details", "skills", "timebank", "invite":
+	case "details", "members", "skills", "timebank", "invite":
 		return strings.ToLower(strings.TrimSpace(raw))
 	case "invites":
 		return "invite"
@@ -923,16 +923,14 @@ func (s *Server) handleManageMembershipRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	manageURL := "/organizations/manage"
-	if reqOrgID > 0 {
-		manageURL = "/organizations/manage?org_id=" + strconv.FormatInt(reqOrgID, 10)
-	}
 	manageURLWith := func(key, value string) string {
-		sep := "?"
-		if strings.Contains(manageURL, "?") {
-			sep = "&"
+		query := url.Values{}
+		if reqOrgID > 0 {
+			query.Set("org_id", strconv.FormatInt(reqOrgID, 10))
 		}
-		return manageURL + sep + key + "=" + url.QueryEscape(value)
+		query.Set("tab", "members")
+		query.Set(key, value)
+		return "/organizations/manage?" + query.Encode()
 	}
 
 	switch action {
@@ -1011,11 +1009,13 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 
 	memberID, err := strconv.ParseInt(r.FormValue("member_id"), 10, 64)
 	if err != nil || memberID <= 0 {
-		redirectURL := "/organizations/manage?error=" + url.QueryEscape("Invalid member.")
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape("Invalid member.")
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("error", "Invalid member.")
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 		return
 	}
 
@@ -1027,19 +1027,23 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		} else if errors.Is(err, service.ErrInvalidRoleChange) {
 			msg = "Cannot remove the last owner from an organization."
 		}
-		redirectURL := "/organizations/manage?error=" + url.QueryEscape(msg)
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape(msg)
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("error", msg)
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 		return
 	}
 
-	redirectURL := "/organizations/manage?success=" + url.QueryEscape("Member removed.")
+	query := url.Values{}
 	if org.ID != 0 {
-		redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Member removed.")
+		query.Set("org_id", strconv.FormatInt(org.ID, 10))
 	}
-	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	query.Set("tab", "members")
+	query.Set("success", "Member removed.")
+	http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 }
 
 func (s *Server) handleChangeMemberRole(w http.ResponseWriter, r *http.Request) {
@@ -1098,11 +1102,13 @@ func (s *Server) handleChangeMemberRole(w http.ResponseWriter, r *http.Request) 
 
 	memberID, err := strconv.ParseInt(r.FormValue("member_id"), 10, 64)
 	if err != nil || memberID <= 0 {
-		redirectURL := "/organizations/manage?error=" + url.QueryEscape("Invalid member.")
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape("Invalid member.")
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("error", "Invalid member.")
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 		return
 	}
 	action := strings.ToLower(strings.TrimSpace(r.FormValue("action")))
@@ -1111,39 +1117,49 @@ func (s *Server) handleChangeMemberRole(w http.ResponseWriter, r *http.Request) 
 	case "make_owner":
 		if err := service.UpdateOrganizationMemberRole(r.Context(), s.db, org.ID, memberID, true); err != nil {
 			log.Printf("make owner member=%d org=%d: %v", memberID, org.ID, err)
-			redirectURL := "/organizations/manage?error=" + url.QueryEscape("Could not update member role.")
+			query := url.Values{}
 			if org.ID != 0 {
-				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape("Could not update member role.")
+				query.Set("org_id", strconv.FormatInt(org.ID, 10))
 			}
-			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+			query.Set("tab", "members")
+			query.Set("error", "Could not update member role.")
+			http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 			return
 		}
-		redirectURL := "/organizations/manage?success=" + url.QueryEscape("Member promoted to owner.")
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Member promoted to owner.")
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("success", "Member promoted to owner.")
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 	case "revoke_owner":
 		if err := service.UpdateOrganizationMemberRole(r.Context(), s.db, org.ID, memberID, false); err != nil {
 			log.Printf("revoke owner member=%d org=%d: %v", memberID, org.ID, err)
-			redirectURL := "/organizations/manage?error=" + url.QueryEscape("Could not update member role.")
+			query := url.Values{}
 			if org.ID != 0 {
-				redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape("Could not update member role.")
+				query.Set("org_id", strconv.FormatInt(org.ID, 10))
 			}
-			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+			query.Set("tab", "members")
+			query.Set("error", "Could not update member role.")
+			http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 			return
 		}
-		redirectURL := "/organizations/manage?success=" + url.QueryEscape("Owner role revoked.")
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&success=" + url.QueryEscape("Owner role revoked.")
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("success", "Owner role revoked.")
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 	default:
-		redirectURL := "/organizations/manage?error=" + url.QueryEscape("Unknown action.")
+		query := url.Values{}
 		if org.ID != 0 {
-			redirectURL = "/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10) + "&error=" + url.QueryEscape("Unknown action.")
+			query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		}
-		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		query.Set("tab", "members")
+		query.Set("error", "Unknown action.")
+		http.Redirect(w, r, "/organizations/manage?"+query.Encode(), http.StatusSeeOther)
 	}
 }
 
