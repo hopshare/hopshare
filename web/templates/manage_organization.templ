@@ -38,9 +38,8 @@ func manageOrganizationInvitePostRedirect(raw string) string {
 	}
 }
 
-func manageOrganizationXData(tab string) string {
-	active := manageOrganizationActiveTab(tab)
-	return "{ activeTab: '" + active + "', deleteOrgModalOpen: false, deleteOrgStep: 1, deleteOrgName: '', deleteOrgRequiredPhrase: '', deleteOrgPhrase: '', openDeleteOrgModal(name) { this.deleteOrgName = name; this.deleteOrgRequiredPhrase = 'I want to remove ' + name; this.deleteOrgPhrase = ''; this.deleteOrgStep = 1; this.deleteOrgModalOpen = true; }, chooseDeleteOrg(choice) { if (choice === 'yes') { this.deleteOrgStep = 2; } else { this.closeDeleteOrgModal(); } }, closeDeleteOrgModal() { this.deleteOrgModalOpen = false; this.deleteOrgStep = 1; this.deleteOrgName = ''; this.deleteOrgRequiredPhrase = ''; this.deleteOrgPhrase = ''; } }"
+func manageOrganizationDeleteXData() string {
+	return "{ deleteOrgModalOpen: false, deleteOrgStep: 1, deleteOrgName: '', deleteOrgRequiredPhrase: '', deleteOrgPhrase: '', openDeleteOrgModal(name) { this.deleteOrgName = name; this.deleteOrgRequiredPhrase = 'I want to remove ' + name; this.deleteOrgPhrase = ''; this.deleteOrgStep = 1; this.deleteOrgModalOpen = true; }, chooseDeleteOrg(choice) { if (choice === 'yes') { this.deleteOrgStep = 2; } else { this.closeDeleteOrgModal(); } }, closeDeleteOrgModal() { this.deleteOrgModalOpen = false; this.deleteOrgStep = 1; this.deleteOrgName = ''; this.deleteOrgRequiredPhrase = ''; this.deleteOrgPhrase = ''; } }"
 }
 
 templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
@@ -52,7 +51,7 @@ templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, r
 }
 
 templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
-	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data={ manageOrganizationXData(activeTab) } x-on:keydown.escape.window="closeDeleteOrgModal()">
+	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data={ "{ activeTab: '" + manageOrganizationActiveTab(activeTab) + "' }" }>
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="space-y-1">
 				<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
@@ -200,17 +199,91 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					</button>
 				</form>
 			</div>
-			<div class="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm space-y-3">
-				<h2 class="text-lg font-semibold text-red-800">Danger Zone</h2>
-				<p class="text-sm text-red-700">Deleting an organization removes all time bank activity and the organization from all associated users. This action is not reversible.</p>
-				<button
-					type="button"
-					class="inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800"
-					data-org-name={ org.Name }
-					x-on:click="openDeleteOrgModal($el.dataset.orgName)"
+			<div x-data={ manageOrganizationDeleteXData() } x-on:keydown.escape.window="closeDeleteOrgModal()">
+				<div class="rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm space-y-3">
+					<h2 class="text-lg font-semibold text-red-800">Danger Zone</h2>
+					<p class="text-sm text-red-700">Deleting an organization removes all time bank activity and the organization from all associated users. This action is not reversible.</p>
+					<button
+						type="button"
+						class="inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800"
+						data-org-name={ org.Name }
+						x-on:click="openDeleteOrgModal($el.dataset.orgName)"
+					>
+						Delete organization
+					</button>
+				</div>
+
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
+					x-show="deleteOrgModalOpen"
+					x-on:click.self="closeDeleteOrgModal()"
+					style="display: none;"
 				>
-					Delete organization
-				</button>
+					<div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
+						<div class="space-y-2">
+							<h3 class="text-lg font-semibold text-slate-900">Delete organization?</h3>
+							<p class="text-sm text-slate-700" x-show="deleteOrgStep === 1">
+								Are you sure you want to remove the organization <span class="font-semibold text-slate-900" x-text="deleteOrgName"></span>?
+							</p>
+							<p class="text-sm text-slate-700" x-show="deleteOrgStep === 2">
+								Type this sentence exactly to continue:
+							</p>
+							<p class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900" x-show="deleteOrgStep === 2" x-text="deleteOrgRequiredPhrase"></p>
+						</div>
+
+						<div class="flex items-center justify-end gap-3" x-show="deleteOrgStep === 1">
+							<button
+								type="button"
+								class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
+								x-on:click="chooseDeleteOrg('no')"
+							>
+								No
+							</button>
+							<button
+								type="button"
+								class="inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800"
+								x-on:click="chooseDeleteOrg('yes')"
+							>
+								Yes
+							</button>
+						</div>
+
+						<form method="POST" action="/organizations/manage" class="space-y-4" x-show="deleteOrgStep === 2">
+							@CSRFField()
+							<input type="hidden" name="action" value="delete_organization" />
+							<input type="hidden" name="org_id" value={ org.ID } />
+							<input type="hidden" name="delete_organization_confirmation" x-bind:value="deleteOrgPhrase" />
+							<div class="space-y-1">
+								<label class="block text-sm font-semibold text-slate-800" for="delete_organization_confirmation_phrase">Confirmation phrase</label>
+								<input
+									id="delete_organization_confirmation_phrase"
+									type="text"
+									required
+									x-model="deleteOrgPhrase"
+									class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+									placeholder="I want to remove ..."
+								/>
+							</div>
+							<div class="flex items-center justify-end gap-3">
+								<button
+									type="button"
+									class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
+									x-on:click="closeDeleteOrgModal()"
+								>
+									Cancel
+								</button>
+								<button
+									type="submit"
+									class="inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition"
+									x-bind:class="deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'"
+									x-bind:disabled="deleteOrgPhrase !== deleteOrgRequiredPhrase"
+								>
+									Delete organization permanently
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
 			</div>
 
 			<div class="space-y-3">
@@ -435,76 +508,5 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 			</div>
 		}
 
-		<div
-			class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
-			x-show="deleteOrgModalOpen"
-			x-on:click.self="closeDeleteOrgModal()"
-			style="display: none;"
-		>
-			<div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4">
-				<div class="space-y-2">
-					<h3 class="text-lg font-semibold text-slate-900">Delete organization?</h3>
-					<p class="text-sm text-slate-700" x-show="deleteOrgStep === 1">
-						Are you sure you want to remove the organization <span class="font-semibold text-slate-900" x-text="deleteOrgName"></span>?
-					</p>
-					<p class="text-sm text-slate-700" x-show="deleteOrgStep === 2">
-						Type this sentence exactly to continue:
-					</p>
-					<p class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900" x-show="deleteOrgStep === 2" x-text="deleteOrgRequiredPhrase"></p>
-				</div>
-
-				<div class="flex items-center justify-end gap-3" x-show="deleteOrgStep === 1">
-					<button
-						type="button"
-						class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
-						x-on:click="chooseDeleteOrg('no')"
-					>
-						No
-					</button>
-					<button
-						type="button"
-						class="inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800"
-						x-on:click="chooseDeleteOrg('yes')"
-					>
-						Yes
-					</button>
-				</div>
-
-				<form method="POST" action="/organizations/manage" class="space-y-4" x-show="deleteOrgStep === 2">
-					@CSRFField()
-					<input type="hidden" name="action" value="delete_organization" />
-					<input type="hidden" name="org_id" value={ org.ID } />
-					<input type="hidden" name="delete_organization_confirmation" x-bind:value="deleteOrgPhrase" />
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="delete_organization_confirmation_phrase">Confirmation phrase</label>
-						<input
-							id="delete_organization_confirmation_phrase"
-							type="text"
-							required
-							x-model="deleteOrgPhrase"
-							class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-							placeholder="I want to remove ..."
-						/>
-					</div>
-					<div class="flex items-center justify-end gap-3">
-						<button
-							type="button"
-							class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400"
-							x-on:click="closeDeleteOrgModal()"
-						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							class="inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition"
-							x-bind:class="deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'"
-							x-bind:disabled="deleteOrgPhrase !== deleteOrgRequiredPhrase"
-						>
-							Delete organization permanently
-						</button>
-					</div>
-				</form>
-			</div>
-		</div>
 	</section>
 }
