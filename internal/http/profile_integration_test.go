@@ -649,6 +649,26 @@ func TestProfileHTTPMatrix(t *testing.T) {
 
 		requireStatus(t, actorA.Get("/members/avatar?member_id="+strconv.FormatInt(membersB["member_b"].Member.ID, 10)), 404)
 	})
+
+	t.Run("PROF-15 GET /members/avatar deleted member returns generic deleted avatar", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		_, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member_a", "member_b")
+
+		if _, err := service.AdminDeleteMember(ctx, db, members["member_b"].Member.ID, members["owner"].Member.ID, "Test Admin"); err != nil {
+			t.Fatalf("delete member_b: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		actorA := newTestActor(t, "member_a", server.URL, members["member_a"].Member.Email, members["member_a"].Password)
+		actorA.Login()
+
+		resp := actorA.Get("/members/avatar?member_id=" + strconv.FormatInt(members["member_b"].Member.ID, 10))
+		body := requireStatus(t, resp, 200)
+		requireBodyContains(t, body, "Deleted user")
+		requireBodyContains(t, body, "aria-label=\"Deleted user avatar\"")
+	})
 }
 
 func tinyPNGData() []byte {

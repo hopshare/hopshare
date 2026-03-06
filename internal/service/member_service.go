@@ -129,6 +129,7 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 			updated_at
 		FROM members
 		WHERE id = $1
+			AND deleted_at IS NULL
 	`, memberID)
 
 	var m types.Member
@@ -167,6 +168,27 @@ func GetMemberByID(ctx context.Context, db *sql.DB, memberID int64) (types.Membe
 	return m, nil
 }
 
+// IsMemberDeleted reports whether the member exists and has been tombstoned.
+func IsMemberDeleted(ctx context.Context, db *sql.DB, memberID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if memberID == 0 {
+		return false, ErrMissingMemberID
+	}
+
+	var deleted bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT deleted_at IS NOT NULL
+		FROM members
+		WHERE id = $1
+	`, memberID).Scan(&deleted); err != nil {
+		return false, fmt.Errorf("check member deleted: %w", err)
+	}
+
+	return deleted, nil
+}
+
 // GetMemberByEmail fetches a member by email (case-insensitive).
 func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Member, error) {
 	if db == nil {
@@ -197,6 +219,7 @@ func GetMemberByEmail(ctx context.Context, db *sql.DB, email string) (types.Memb
 			updated_at
 		FROM members
 		WHERE LOWER(email) = LOWER($1)
+			AND deleted_at IS NULL
 	`, email)
 
 	var m types.Member

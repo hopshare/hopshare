@@ -49,6 +49,7 @@ const (
 
 	adminUserActionDisable            = "disable_user"
 	adminUserActionEnable             = "enable_user"
+	adminUserActionDelete             = "delete_user"
 	adminUserActionForcePasswordReset = "force_password_reset"
 	adminUserActionSendVerification   = "send_verification_email"
 	adminUserActionRevokeSessions     = "revoke_sessions"
@@ -309,6 +310,12 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targetMember, targetMemberErr := service.GetMemberByID(r.Context(), s.db, memberID)
+	if targetMemberErr != nil {
+		handleAdminUserActionError(w, r, redirectBase, targetMemberErr, "Could not load user.")
+		return
+	}
+
 	actionMetadata := map[string]any{}
 	var auditAction string
 	var successMessage string
@@ -333,6 +340,29 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 		}
 		auditAction = service.AdminAuditActionUserEnable
 		successMessage = "User re-enabled."
+	case adminUserActionDelete:
+		if memberID == user.ID {
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "You cannot permanently delete your own admin account."), http.StatusSeeOther)
+			return
+		}
+		if s.admins.IsAdmin(targetMember.Email) {
+			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Cannot delete an account listed in HOPSHARE_ADMIN_EMAILS. Remove the email from admin config first."), http.StatusSeeOther)
+			return
+		}
+		deleteResult, err := service.AdminDeleteMember(r.Context(), s.db, memberID, user.ID, memberDisplayName(user))
+		if err != nil {
+			handleAdminUserActionError(w, r, redirectBase, err, "Could not permanently delete user.")
+			return
+		}
+		s.sessions.RevokeAllForMember(memberID)
+		actionMetadata["deleted_user_id"] = targetMember.ID
+		actionMetadata["reopened_accepted_hop_count"] = deleteResult.ReopenedAcceptedHopCount
+		actionMetadata["canceled_open_hop_count"] = deleteResult.CanceledOpenHopCount
+		actionMetadata["withdrawn_offer_count"] = deleteResult.WithdrawnOfferCount
+		actionMetadata["ended_membership_count"] = deleteResult.EndedMembershipCount
+		actionMetadata["permanent_delete"] = true
+		auditAction = service.AdminAuditActionUserDelete
+		successMessage = "User permanently deleted. Their email can now be reused."
 	case adminUserActionForcePasswordReset:
 		if err := service.AdminForcePasswordReset(r.Context(), s.db, memberID); err != nil {
 			handleAdminUserActionError(w, r, redirectBase, err, "Could not force password reset.")
@@ -341,42 +371,33 @@ func (s *Server) handleAdminUserAction(w http.ResponseWriter, r *http.Request) {
 		auditAction = service.AdminAuditActionUserForcePasswordReset
 		successMessage = "Password reset forced. User must use Forgot Password."
 	case adminUserActionSendVerification:
-		member, err := service.GetMemberByID(r.Context(), s.db, memberID)
-		if err != nil {
-			handleAdminUserActionError(w, r, redirectBase, err, "Could not load user.")
-			return
-		}
 		auditAction = service.AdminAuditActionUserVerificationEmail
-		if member.Verified {
+		if targetMember.Verified {
 			actionMetadata["already_verified"] = true
 			successMessage = "User email is already verified."
 			break
 		}
 
 		token, tokenErr := service.IssueMemberToken(r.Context(), s.db, service.IssueMemberTokenParams{
-			MemberID:    member.ID,
+			MemberID:    targetMember.ID,
 			Purpose:     service.MemberTokenPurposeEmailVerification,
 			TTL:         service.DefaultMemberTokenTTL,
 			RequestedIP: requestIPFromRequest(r),
 		})
 		if tokenErr != nil {
-			log.Printf("admin send verification email token issue failed: member_id=%d: %v", member.ID, tokenErr)
+			log.Printf("admin send verification email token issue failed: member_id=%d: %v", targetMember.ID, tokenErr)
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return
 		}
-		verifyURL := s.verifyEmailURL(token, member.Email)
-		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), member.Email, verifyURL); sendErr != nil {
-			log.Printf("admin send verification email failed: member_id=%d: %v", member.ID, sendErr)
+		verifyURL := s.verifyEmailURL(token, targetMember.Email)
+		if sendErr := s.passwordResetEmailSender.SendEmailVerification(r.Context(), targetMember.Email, verifyURL); sendErr != nil {
+			log.Printf("admin send verification email failed: member_id=%d: %v", targetMember.ID, sendErr)
 			http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not send verification email."), http.StatusSeeOther)
 			return
 		}
 		actionMetadata["verification_email_sent"] = true
 		successMessage = "Verification email sent."
 	case adminUserActionRevokeSessions:
-		if _, err := service.GetMemberByID(r.Context(), s.db, memberID); err != nil {
-			handleAdminUserActionError(w, r, redirectBase, err, "Could not revoke sessions.")
-			return
-		}
 		revokedCount := s.sessions.RevokeAllForMember(memberID)
 		actionMetadata["revoked_session_count"] = revokedCount
 		auditAction = service.AdminAuditActionUserRevokeSessions
@@ -966,6 +987,10 @@ func handleAdminUserActionError(w http.ResponseWriter, r *http.Request, redirect
 		msg = "User is not an active member of that organization."
 	case errors.Is(err, service.ErrInvalidHoursDelta):
 		msg = "Invalid hours adjustment."
+	case errors.Is(err, service.ErrMemberAlreadyDeleted):
+		msg = "User has already been permanently deleted."
+	case errors.Is(err, service.ErrMemberDeleteBlocked):
+		msg = "Cannot delete a user who is the active primary owner of an organization."
 	}
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "error", msg), http.StatusSeeOther)
 }

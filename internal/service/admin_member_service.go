@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"hopshare/internal/types"
 )
@@ -20,6 +21,13 @@ type AdjustMemberHourBalanceParams struct {
 	AdminMemberID  int64
 	HoursDelta     int
 	Reason         string
+}
+
+type AdminDeleteMemberResult struct {
+	ReopenedAcceptedHopCount int
+	CanceledOpenHopCount     int
+	WithdrawnOfferCount      int
+	EndedMembershipCount     int
 }
 
 func SearchMembersForAdmin(ctx context.Context, db *sql.DB, query string, limit int) ([]types.AdminUserSearchResult, error) {
@@ -51,6 +59,7 @@ func SearchMembersForAdmin(ctx context.Context, db *sql.DB, query string, limit 
 				OR LOWER(first_name) LIKE $1
 				OR LOWER(last_name) LIKE $1
 			)
+			AND deleted_at IS NULL
 			ORDER BY LOWER(last_name) ASC, LOWER(first_name) ASC, LOWER(email) ASC
 			LIMIT $2
 		`, searchPattern, limit)
@@ -99,6 +108,7 @@ func AdminUserDetail(ctx context.Context, db *sql.DB, memberID int64) (types.Adm
 			SELECT id, first_name, last_name, email, enabled, verified, last_login_at, created_at, updated_at
 			FROM members
 			WHERE id = $1
+				AND deleted_at IS NULL
 		`, memberID).Scan(
 		&detail.MemberID,
 		&detail.FirstName,
@@ -280,6 +290,160 @@ func AdminDisableMember(ctx context.Context, db *sql.DB, memberID, actorMemberID
 	return len(reopenedHops), nil
 }
 
+func AdminDeleteMember(ctx context.Context, db *sql.DB, memberID, actorMemberID int64, actorName string) (AdminDeleteMemberResult, error) {
+	if db == nil {
+		return AdminDeleteMemberResult{}, ErrNilDB
+	}
+	if memberID == 0 || actorMemberID == 0 {
+		return AdminDeleteMemberResult{}, ErrMissingMemberID
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("begin delete member: %w", err)
+	}
+	defer tx.Rollback()
+
+	var deletedAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `
+		SELECT deleted_at
+		FROM members
+		WHERE id = $1
+		FOR UPDATE
+	`, memberID).Scan(&deletedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return AdminDeleteMemberResult{}, sql.ErrNoRows
+		}
+		return AdminDeleteMemberResult{}, fmt.Errorf("lock member for delete: %w", err)
+	}
+	if deletedAt.Valid {
+		return AdminDeleteMemberResult{}, ErrMemberAlreadyDeleted
+	}
+
+	var isPrimaryOwner bool
+	if err := tx.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM organization_memberships
+			WHERE member_id = $1
+				AND is_primary_owner = TRUE
+				AND left_at IS NULL
+		)
+	`, memberID).Scan(&isPrimaryOwner); err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("check primary owner before delete: %w", err)
+	}
+	if isPrimaryOwner {
+		return AdminDeleteMemberResult{}, ErrMemberDeleteBlocked
+	}
+
+	actorName = strings.TrimSpace(actorName)
+	if actorName == "" {
+		actorName = "hopShare Admin"
+	}
+
+	result := AdminDeleteMemberResult{}
+
+	reopenedHops, err := ReopenAcceptedHopsForMember(ctx, tx, memberID)
+	if err != nil {
+		return AdminDeleteMemberResult{}, err
+	}
+	result.ReopenedAcceptedHopCount = len(reopenedHops)
+	if len(reopenedHops) > 0 {
+		if err := sendReopenedHopNotifications(ctx, tx, reopenedHops, memberID, actorMemberID, actorName); err != nil {
+			return AdminDeleteMemberResult{}, err
+		}
+	}
+
+	now := time.Now().UTC()
+	canceledOpenCount, err := adminCancelOpenHopsForMember(ctx, tx, memberID, actorMemberID, actorName, now)
+	if err != nil {
+		return AdminDeleteMemberResult{}, err
+	}
+	result.CanceledOpenHopCount = canceledOpenCount
+
+	withdrawnOfferCount, err := adminWithdrawPendingOffersForMember(ctx, tx, memberID, now)
+	if err != nil {
+		return AdminDeleteMemberResult{}, err
+	}
+	result.WithdrawnOfferCount = withdrawnOfferCount
+
+	membershipRes, err := tx.ExecContext(ctx, `
+		UPDATE organization_memberships
+		SET left_at = $2
+		WHERE member_id = $1
+			AND left_at IS NULL
+			AND is_primary_owner = FALSE
+	`, memberID, now)
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("close active memberships for delete: %w", err)
+	}
+	endedMemberships, err := membershipRes.RowsAffected()
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("close active memberships rows affected: %w", err)
+	}
+	result.EndedMembershipCount = int(endedMemberships)
+
+	placeholderSecret, err := randomAdminResetSecret()
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("generate tombstone password secret: %w", err)
+	}
+	placeholderHash, err := HashPassword(placeholderSecret)
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("generate tombstone password hash: %w", err)
+	}
+	tombstoneEmail := deletedMemberEmail(memberID, now)
+
+	memberRes, err := tx.ExecContext(ctx, `
+		UPDATE members
+		SET first_name = $1,
+			last_name = $2,
+			email = $3,
+			password_hash = $4,
+			preferred_contact = $5,
+			profile_picture_url = NULL,
+			avatar_content_type = NULL,
+			avatar_data = NULL,
+			city = NULL,
+			state = NULL,
+			current_organization = NULL,
+			enabled = FALSE,
+			verified = FALSE,
+			deleted_at = $6,
+			updated_at = $6
+		WHERE id = $7
+			AND deleted_at IS NULL
+	`, "Deleted", "User", tombstoneEmail, placeholderHash, "", now, memberID)
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("tombstone member: %w", err)
+	}
+	memberAffected, err := memberRes.RowsAffected()
+	if err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("tombstone member rows affected: %w", err)
+	}
+	if memberAffected == 0 {
+		return AdminDeleteMemberResult{}, ErrMemberAlreadyDeleted
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM member_tokens
+		WHERE member_id = $1
+	`, memberID); err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("delete member tokens: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM member_sessions
+		WHERE member_id = $1
+	`, memberID); err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("delete member sessions: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("commit delete member: %w", err)
+	}
+
+	return result, nil
+}
+
 func adminUserMembershipTimeline(ctx context.Context, db *sql.DB, memberID int64) ([]types.AdminUserMembershipTimelineEntry, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT
@@ -414,6 +578,169 @@ func sendReopenedHopNotifications(ctx context.Context, tx *sql.Tx, hops []Reopen
 	}
 
 	return nil
+}
+
+func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, actorMemberID int64, actorName string, now time.Time) (int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		UPDATE hops
+		SET status = $1,
+			canceled_by = $2,
+			canceled_at = $3,
+			updated_at = $3
+		WHERE created_by = $4
+			AND status = $5
+		RETURNING id, title
+	`, types.HopStatusCanceled, actorMemberID, now, memberID, types.HopStatusOpen)
+	if err != nil {
+		return 0, fmt.Errorf("cancel open hops for deleted member: %w", err)
+	}
+	defer rows.Close()
+
+	type canceledHop struct {
+		ID    int64
+		Title string
+	}
+	canceled := make([]canceledHop, 0)
+	for rows.Next() {
+		var hop canceledHop
+		if err := rows.Scan(&hop.ID, &hop.Title); err != nil {
+			return 0, fmt.Errorf("scan canceled hop for deleted member: %w", err)
+		}
+		canceled = append(canceled, hop)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("cancel open hops for deleted member: %w", err)
+	}
+
+	senderName := strings.TrimSpace(actorName)
+	if senderName == "" {
+		senderName = "hopShare Admin"
+	}
+	var senderID *int64
+	if actorMemberID > 0 {
+		senderID = &actorMemberID
+	}
+
+	for _, hop := range canceled {
+		offerRows, err := tx.QueryContext(ctx, `
+			SELECT member_id
+			FROM hop_help_offers
+			WHERE hop_id = $1
+				AND status IS NULL
+			FOR UPDATE
+		`, hop.ID)
+		if err != nil {
+			return 0, fmt.Errorf("list pending offerers for canceled deleted-member hop: %w", err)
+		}
+		recipients := make([]int64, 0)
+		for offerRows.Next() {
+			var recipientID int64
+			if err := offerRows.Scan(&recipientID); err != nil {
+				offerRows.Close()
+				return 0, fmt.Errorf("scan pending offerer for canceled deleted-member hop: %w", err)
+			}
+			recipients = append(recipients, recipientID)
+		}
+		if err := offerRows.Err(); err != nil {
+			offerRows.Close()
+			return 0, fmt.Errorf("list pending offerers for canceled deleted-member hop: %w", err)
+		}
+		if err := offerRows.Close(); err != nil {
+			return 0, fmt.Errorf("close pending offerers for canceled deleted-member hop: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE hop_help_offers
+			SET status = $1,
+				denied_at = $2
+			WHERE hop_id = $3
+				AND status IS NULL
+		`, types.HopOfferStatusDenied, now, hop.ID); err != nil {
+			return 0, fmt.Errorf("close pending offers for canceled deleted-member hop: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE messages
+			SET action_status = $1,
+				action_taken_at = $2,
+				read_at = COALESCE(read_at, $2)
+			WHERE recipient_member_id = $3
+				AND hop_id = $4
+				AND message_type = $5
+				AND action_status IS NULL
+		`, types.MessageActionDeclined, now, memberID, hop.ID, types.MessageTypeAction); err != nil {
+			return 0, fmt.Errorf("close pending action messages for canceled deleted-member hop: %w", err)
+		}
+
+		subject := "Hop canceled by administrator: " + truncateRunes(strings.TrimSpace(hop.Title), 80)
+		body := fmt.Sprintf(
+			"An administrator permanently deleted the account that created this hop, so the hop was canceled.\n\nHop: %s\nHop ID: %d",
+			strings.TrimSpace(hop.Title),
+			hop.ID,
+		)
+		for _, recipientID := range recipients {
+			if err := insertMessage(ctx, tx, recipientID, senderID, senderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+				return 0, err
+			}
+		}
+	}
+
+	return len(canceled), nil
+}
+
+func adminWithdrawPendingOffersForMember(ctx context.Context, tx *sql.Tx, memberID int64, now time.Time) (int, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT hop_id
+		FROM hop_help_offers
+		WHERE member_id = $1
+			AND status IS NULL
+		FOR UPDATE
+	`, memberID)
+	if err != nil {
+		return 0, fmt.Errorf("list pending offers for deleted member: %w", err)
+	}
+	defer rows.Close()
+
+	hopIDs := make([]int64, 0)
+	for rows.Next() {
+		var hopID int64
+		if err := rows.Scan(&hopID); err != nil {
+			return 0, fmt.Errorf("scan pending offer for deleted member: %w", err)
+		}
+		hopIDs = append(hopIDs, hopID)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("list pending offers for deleted member: %w", err)
+	}
+	if len(hopIDs) == 0 {
+		return 0, nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE hop_help_offers
+		SET status = $1,
+			denied_at = $2
+		WHERE member_id = $3
+			AND status IS NULL
+	`, types.HopOfferStatusDenied, now, memberID); err != nil {
+		return 0, fmt.Errorf("withdraw pending offers for deleted member: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1,
+			action_taken_at = $2,
+			read_at = COALESCE(read_at, $2)
+		WHERE sender_member_id = $3
+			AND message_type = $4
+			AND action_status IS NULL
+	`, types.MessageActionDeclined, now, memberID, types.MessageTypeAction); err != nil {
+		return 0, fmt.Errorf("close pending action messages from deleted member offers: %w", err)
+	}
+
+	return len(hopIDs), nil
+}
+
+func deletedMemberEmail(memberID int64, now time.Time) string {
+	return fmt.Sprintf("deleted+%d-%d@deleted.hopshare.local", memberID, now.UnixNano())
 }
 
 func randomAdminResetSecret() (string, error) {

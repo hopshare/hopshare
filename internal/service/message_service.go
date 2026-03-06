@@ -88,7 +88,7 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, sender_member_id, sender_name, message_type, hop_id, action_status, action_taken_at, subject, read_at, created_at
+		SELECT id, sender_member_id, sender_name, message_type, hop_id, action_status, action_taken_at, subject, body, read_at, created_at
 		FROM messages
 		WHERE recipient_member_id = $1
 		ORDER BY created_at DESC
@@ -115,6 +115,7 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 			&actionStatus,
 			&actionTakenAt,
 			&msg.Subject,
+			&msg.Body,
 			&readAt,
 			&msg.CreatedAt,
 		); err != nil {

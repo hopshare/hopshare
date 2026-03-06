@@ -22,6 +22,7 @@ const (
 	AdminAuditActionModerationImageDelete   = "admin.moderation.image.delete"
 	AdminAuditActionUserDisable             = "admin.user.disable"
 	AdminAuditActionUserEnable              = "admin.user.enable"
+	AdminAuditActionUserDelete              = "admin.user.delete"
 	AdminAuditActionUserForcePasswordReset  = "admin.user.password.force_reset"
 	AdminAuditActionUserVerificationEmail   = "admin.user.email_verification.send"
 	AdminAuditActionUserRevokeSessions      = "admin.user.sessions.revoke"

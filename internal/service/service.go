@@ -31,6 +31,8 @@ var (
 	ErrInviteExpired        = errors.New("invite expired")
 	ErrInviteEmailMismatch  = errors.New("invite email mismatch")
 	ErrInviteAlreadyExists  = errors.New("invite already exists")
+	ErrMemberAlreadyDeleted = errors.New("member already deleted")
+	ErrMemberDeleteBlocked  = errors.New("member deletion blocked")
 
 	ErrHopNotFound      = errors.New("hop not found")
 	ErrHopForbidden     = errors.New("hop forbidden")

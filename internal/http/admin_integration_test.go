@@ -783,6 +783,249 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("expected non-empty verification token")
 		}
 	})
+
+	t.Run("ADMIN-04B users tab permanently deletes users while preserving hop integrity and freeing email", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		admin := createSeededMember(t, ctx, db, "admin_users_delete_admin", suffix)
+		requester := createSeededMember(t, ctx, db, "admin_users_delete_requester", suffix)
+		target := createSeededMember(t, ctx, db, "admin_users_delete_target", suffix)
+		helper := createSeededMember(t, ctx, db, "admin_users_delete_helper", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Admin Users Delete Org "+suffix, "City", "ST", "Org for admin user delete integration coverage.", requester.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, org.ID, requester.Member.ID, target.Member.ID)
+		approveMemberForOrganization(t, ctx, db, org.ID, requester.Member.ID, helper.Member.ID)
+
+		targetAcceptedHop := createAdminOverviewHop(t, ctx, db, org.ID, requester.Member.ID, "Delete target accepted hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.AcceptHop(ctx, db, org.ID, targetAcceptedHop.ID, target.Member.ID); err != nil {
+			t.Fatalf("accept target-involved hop: %v", err)
+		}
+
+		targetOpenHop := createAdminOverviewHop(t, ctx, db, org.ID, target.Member.ID, "Delete target open hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          targetOpenHop.ID,
+			OffererID:      helper.Member.ID,
+			OffererName:    strings.TrimSpace(helper.Member.FirstName + " " + helper.Member.LastName),
+		}); err != nil {
+			t.Fatalf("helper offer on target-created hop: %v", err)
+		}
+
+		requesterOpenHop := createAdminOverviewHop(t, ctx, db, org.ID, requester.Member.ID, "Delete target pending offer hop "+suffix, types.HopNeededByAnytime, nil)
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          requesterOpenHop.ID,
+			OffererID:      target.Member.ID,
+			OffererName:    strings.TrimSpace(target.Member.FirstName + " " + target.Member.LastName),
+		}); err != nil {
+			t.Fatalf("target pending offer on requester hop: %v", err)
+		}
+
+		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
+		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
+		adminActor.Login()
+
+		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDelete)
+		deleteLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "delete_user",
+			"member_id", strconv.FormatInt(target.Member.ID, 10),
+			"q", target.Member.Email,
+			"reason", "permanent delete request from support case",
+		)), "/admin")
+		requireQueryValue(t, deleteLoc, "success", "User permanently deleted. Their email can now be reused.")
+
+		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionUserDelete)
+		if afterAuditCount != beforeAuditCount+1 {
+			t.Fatalf("expected one user-delete audit event, before=%d after=%d", beforeAuditCount, afterAuditCount)
+		}
+		var deleteAuditMetadataRaw []byte
+		if err := db.QueryRowContext(ctx, `
+			SELECT metadata
+			FROM admin_audit_events
+			WHERE actor_member_id = $1
+				AND action = $2
+			ORDER BY id DESC
+			LIMIT 1
+		`, admin.Member.ID, service.AdminAuditActionUserDelete).Scan(&deleteAuditMetadataRaw); err != nil {
+			t.Fatalf("load user-delete audit metadata: %v", err)
+		}
+		var deleteAuditMetadata map[string]any
+		if err := json.Unmarshal(deleteAuditMetadataRaw, &deleteAuditMetadata); err != nil {
+			t.Fatalf("unmarshal user-delete audit metadata: %v", err)
+		}
+		deletedUserIDRaw, ok := deleteAuditMetadata["deleted_user_id"]
+		if !ok {
+			t.Fatalf("expected user-delete audit metadata to include deleted_user_id")
+		}
+		deletedUserID, ok := deletedUserIDRaw.(float64)
+		if !ok {
+			t.Fatalf("expected deleted_user_id to be numeric, got %T", deletedUserIDRaw)
+		}
+		if int64(deletedUserID) != target.Member.ID {
+			t.Fatalf("expected deleted_user_id=%d, got %d", target.Member.ID, int64(deletedUserID))
+		}
+
+		var tombstoneEmail string
+		var enabled bool
+		var deletedAt sql.NullTime
+		if err := db.QueryRowContext(ctx, `
+			SELECT email, enabled, deleted_at
+			FROM members
+			WHERE id = $1
+		`, target.Member.ID).Scan(&tombstoneEmail, &enabled, &deletedAt); err != nil {
+			t.Fatalf("load deleted member row: %v", err)
+		}
+		if enabled {
+			t.Fatalf("expected permanently deleted member to be disabled")
+		}
+		if !deletedAt.Valid {
+			t.Fatalf("expected permanently deleted member to have deleted_at")
+		}
+		if strings.EqualFold(tombstoneEmail, target.Member.Email) {
+			t.Fatalf("expected tombstone email to differ from original email")
+		}
+
+		if _, err := service.GetMemberByID(ctx, db, target.Member.ID); !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("expected GetMemberByID to hide deleted member, got err=%v", err)
+		}
+
+		var activeMemberships int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM organization_memberships
+			WHERE member_id = $1
+				AND left_at IS NULL
+		`, target.Member.ID).Scan(&activeMemberships); err != nil {
+			t.Fatalf("count active memberships after delete: %v", err)
+		}
+		if activeMemberships != 0 {
+			t.Fatalf("expected deleted member to have no active memberships, got %d", activeMemberships)
+		}
+
+		targetAcceptedHopAfterDelete, err := service.GetHopByID(ctx, db, org.ID, targetAcceptedHop.ID)
+		if err != nil {
+			t.Fatalf("load accepted hop after delete: %v", err)
+		}
+		if targetAcceptedHopAfterDelete.Status != types.HopStatusOpen || targetAcceptedHopAfterDelete.AcceptedBy != nil {
+			t.Fatalf("expected accepted hop to reopen after delete, got status=%q accepted_by=%v", targetAcceptedHopAfterDelete.Status, targetAcceptedHopAfterDelete.AcceptedBy)
+		}
+
+		targetOpenHopAfterDelete, err := service.GetHopByID(ctx, db, org.ID, targetOpenHop.ID)
+		if err != nil {
+			t.Fatalf("load target open hop after delete: %v", err)
+		}
+		if targetOpenHopAfterDelete.Status != types.HopStatusCanceled {
+			t.Fatalf("expected target-created open hop to be canceled, got status=%q", targetOpenHopAfterDelete.Status)
+		}
+
+		var pendingTargetOffers int
+		if err := db.QueryRowContext(ctx, `
+			SELECT COUNT(*)
+			FROM hop_help_offers
+			WHERE member_id = $1
+				AND status IS NULL
+		`, target.Member.ID).Scan(&pendingTargetOffers); err != nil {
+			t.Fatalf("count pending offers for deleted member: %v", err)
+		}
+		if pendingTargetOffers != 0 {
+			t.Fatalf("expected deleted member to have no pending offers, got %d", pendingTargetOffers)
+		}
+
+		var requesterActionStatus sql.NullString
+		if err := db.QueryRowContext(ctx, `
+			SELECT action_status
+			FROM messages
+			WHERE recipient_member_id = $1
+				AND sender_member_id = $2
+				AND hop_id = $3
+				AND message_type = $4
+			ORDER BY id DESC
+			LIMIT 1
+		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, types.MessageTypeAction).Scan(&requesterActionStatus); err != nil {
+			t.Fatalf("load requester action message status after delete: %v", err)
+		}
+		if !requesterActionStatus.Valid || requesterActionStatus.String != types.MessageActionDeclined {
+			t.Fatalf("expected requester action message to be declined after delete, got status=%q", requesterActionStatus.String)
+		}
+
+		loginActor := newTestActor(t, "deleted-target-login", server.URL, target.Member.Email, target.Password)
+		loginBody := requireStatus(t, loginActor.PostForm("/login", formKV(
+			"email", target.Member.Email,
+			"password", target.Password,
+		)), http.StatusOK)
+		requireBodyContains(t, loginBody, "Invalid email or password.")
+
+		passwordHash, err := service.HashPassword("ReusePassword123!")
+		if err != nil {
+			t.Fatalf("hash reuse password: %v", err)
+		}
+		if _, err := service.CreateMember(ctx, db, types.Member{
+			FirstName:        "Reuse",
+			LastName:         "Member",
+			Email:            target.Member.Email,
+			PasswordHash:     passwordHash,
+			PreferredContact: target.Member.Email,
+			Enabled:          true,
+			Verified:         true,
+		}); err != nil {
+			t.Fatalf("create member with reused email after delete: %v", err)
+		}
+	})
+
+	t.Run("ADMIN-04C users tab permanent delete guardrails block self, allowlisted admins, and primary owners", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+
+		suffix := uniqueTestSuffix()
+		adminOne := createSeededMember(t, ctx, db, "admin_users_delete_guard_admin_one", suffix)
+		adminTwo := createSeededMember(t, ctx, db, "admin_users_delete_guard_admin_two", suffix)
+		primaryOwner := createSeededMember(t, ctx, db, "admin_users_delete_guard_primary", suffix)
+
+		if _, err := service.CreateOrganization(ctx, db, "Admin Delete Guard Org "+suffix, "City", "ST", "Org for primary-owner delete guard coverage.", primaryOwner.Member.ID); err != nil {
+			t.Fatalf("create primary-owner organization: %v", err)
+		}
+
+		server := newHTTPServerWithAdmins(t, db, []string{adminOne.Member.Email, adminTwo.Member.Email})
+		adminActor := newTestActor(t, "admin-one", server.URL, adminOne.Member.Email, adminOne.Password)
+		adminActor.Login()
+
+		selfLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "delete_user",
+			"member_id", strconv.FormatInt(adminOne.Member.ID, 10),
+			"q", adminOne.Member.Email,
+			"reason", "self delete should be blocked",
+		)), "/admin")
+		requireQueryValue(t, selfLoc, "error", "You cannot permanently delete your own admin account.")
+
+		allowlistedLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "delete_user",
+			"member_id", strconv.FormatInt(adminTwo.Member.ID, 10),
+			"q", adminTwo.Member.Email,
+			"reason", "allowlisted admin delete should be blocked",
+		)), "/admin")
+		requireQueryValue(t, allowlistedLoc, "error", "Cannot delete an account listed in HOPSHARE_ADMIN_EMAILS. Remove the email from admin config first.")
+
+		primaryOwnerLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+			"action", "delete_user",
+			"member_id", strconv.FormatInt(primaryOwner.Member.ID, 10),
+			"q", primaryOwner.Member.Email,
+			"reason", "primary owner delete should be blocked",
+		)), "/admin")
+		requireQueryValue(t, primaryOwnerLoc, "error", "Cannot delete a user who is the active primary owner of an organization.")
+
+		primaryOwnerRow, err := service.GetMemberByID(ctx, db, primaryOwner.Member.ID)
+		if err != nil {
+			t.Fatalf("load primary owner after blocked delete: %v", err)
+		}
+		if !primaryOwnerRow.Enabled {
+			t.Fatalf("expected blocked-delete primary owner to remain enabled")
+		}
+	})
 }
 
 func TestAdminMessagesHTTP(t *testing.T) {

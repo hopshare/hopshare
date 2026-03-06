@@ -1,6 +1,7 @@
 package http
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"html"
@@ -237,11 +238,36 @@ func (s *Server) handleMemberAvatar(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !shared {
+				deleted, err := service.IsMemberDeleted(r.Context(), s.db, memberID)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						http.NotFound(w, r)
+						return
+					}
+					log.Printf("check deleted member avatar member=%d: %v", memberID, err)
+					http.Error(w, "could not load avatar", http.StatusInternalServerError)
+					return
+				}
+				if deleted {
+					w.Header().Set("Cache-Control", "no-store")
+					w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+					_, _ = w.Write(deletedAvatarSVG())
+					return
+				}
 				http.NotFound(w, r)
 				return
 			}
 			member, err := service.GetMemberByID(r.Context(), s.db, memberID)
 			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					deleted, deletedErr := service.IsMemberDeleted(r.Context(), s.db, memberID)
+					if deletedErr == nil && deleted {
+						w.Header().Set("Cache-Control", "no-store")
+						w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+						_, _ = w.Write(deletedAvatarSVG())
+						return
+					}
+				}
 				log.Printf("load member %d: %v", memberID, err)
 				http.NotFound(w, r)
 				return
@@ -385,6 +411,10 @@ func avatarPlaceholderSVG(initial string) []byte {
 		safe,
 	)
 	return []byte(svg)
+}
+
+func deletedAvatarSVG() []byte {
+	return []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Deleted user avatar"><title>Deleted user</title><rect width="128" height="128" rx="64" fill="#e5e7eb"/><circle cx="64" cy="48" r="20" fill="#9ca3af"/><rect x="36" y="76" width="56" height="28" rx="14" fill="#9ca3af"/><line x1="28" y1="28" x2="100" y2="100" stroke="#6b7280" stroke-width="8" stroke-linecap="round"/></svg>`)
 }
 
 func parseSkillIDs(values []string) ([]int64, error) {

@@ -745,6 +745,14 @@ templ AdminUsersTab(data types.AdminUsersTabData) {
 				}
 				<button
 					type="button"
+					class="inline-flex items-center rounded-md border border-red-400 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-100"
+					data-testid={ "admin-user-delete-" + strconv.FormatInt(detail.MemberID, 10) }
+					x-on:click={ adminOpenUserActionModalCall("delete_user", detail.MemberID, "Permanently delete user?", "This permanently deletes account access, scrubs profile data, cancels open hops they created, and frees the email for reuse. This cannot be undone.", "Delete user permanently", "bg-red-700 hover:bg-red-800") }
+				>
+					Delete user
+				</button>
+				<button
+					type="button"
 					class="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
 					data-testid={ "admin-user-force-reset-" + strconv.FormatInt(detail.MemberID, 10) }
 					x-on:click={ adminOpenUserActionModalCall("force_password_reset", detail.MemberID, "Force password reset?", "The current password will stop working. The user must use Forgot Password to set a new one.", "Force reset", "bg-amber-700 hover:bg-amber-800") }
