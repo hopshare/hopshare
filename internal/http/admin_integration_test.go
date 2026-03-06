@@ -280,6 +280,7 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 		adminBody := requireStatus(t, adminActor.Get("/admin?tab=organizations&org_id="+strconv.FormatInt(org.ID, 10)+"&q="+url.QueryEscape("Admin Org")), http.StatusOK)
 		requireBodyContains(t, adminBody, "Organizations")
 		requireBodyContains(t, adminBody, org.Name)
+		requireBodyContains(t, adminBody, "href=\"/organization/"+org.URLName+"\"")
 		requireBodyContains(t, adminBody, "aria-label=\"Confirm admin action\"")
 		requireBodyContains(t, adminBody, "data-testid=\"admin-hop-expire-"+strconv.FormatInt(acceptedHop.ID, 10)+"\"")
 		requireBodyContains(t, adminBody, "data-testid=\"admin-hop-delete-"+strconv.FormatInt(openHop.ID, 10)+"\"")
