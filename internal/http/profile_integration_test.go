@@ -423,7 +423,35 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, loginBody, "Invalid email or password.")
 	})
 
-	t.Run("PROF-14A GET /profile organizations tab shows leave button for non-primary memberships only", func(t *testing.T) {
+	t.Run("PROF-12D POST /profile action=delete_account blocks sole active owners", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		_, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+
+		server := newHTTPServer(t, db)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		loc := requireRedirectPath(t, ownerActor.PostForm("/profile", formKV(
+			"action", "delete_account",
+			"delete_account_confirmation", "I want to leave hopShare",
+		)), "/profile")
+		requireQueryValue(t, loc, "tab", "account")
+		requireQueryValue(t, loc, "error", "Cannot delete your account while you are the sole active owner of an organization. Add another owner first.")
+
+		stillEnabled, err := service.GetMemberByID(ctx, db, members["owner"].Member.ID)
+		if err != nil {
+			t.Fatalf("load member after blocked delete action: %v", err)
+		}
+		if !stillEnabled.Enabled {
+			t.Fatalf("expected member to remain enabled after blocked delete action")
+		}
+
+		requireStatus(t, ownerActor.Get("/my-hopshare"), http.StatusOK)
+	})
+
+	t.Run("PROF-14A GET /profile organizations tab shows leave button only for leaveable memberships", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -553,7 +581,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("PROF-17 POST /profile action=leave_organization primary owner is blocked", func(t *testing.T) {
+	t.Run("PROF-17 POST /profile action=leave_organization last owner is blocked", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -567,14 +595,14 @@ func TestProfileHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 		)), "/profile")
 		requireQueryValue(t, loc, "tab", "organizations")
-		requireQueryValue(t, loc, "error", "Primary owner cannot leave this organization.")
+		requireQueryValue(t, loc, "error", "Cannot leave this organization because you are the last owner.")
 
 		hasMembership, err := service.MemberHasActiveMembership(ctx, db, members["owner"].Member.ID, org.ID)
 		if err != nil {
-			t.Fatalf("check primary owner membership after leave attempt: %v", err)
+			t.Fatalf("check owner membership after leave attempt: %v", err)
 		}
 		if !hasMembership {
-			t.Fatalf("expected primary owner membership to remain active")
+			t.Fatalf("expected owner membership to remain active")
 		}
 	})
 

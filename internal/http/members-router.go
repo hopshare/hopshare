@@ -44,6 +44,16 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
+		leaveBlockedOrgMap, err := service.MemberLeaveBlockedOrganizationIDs(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("load leave-blocked organizations %d: %v", user.ID, err)
+			http.Error(w, "could not load profile", http.StatusInternalServerError)
+			return
+		}
+		leaveBlockedOrgIDs := make([]int64, 0, len(leaveBlockedOrgMap))
+		for orgID := range leaveBlockedOrgMap {
+			leaveBlockedOrgIDs = append(leaveBlockedOrgIDs, orgID)
+		}
 		availableSkills, err := service.ListAvailableSkillsForMember(r.Context(), s.db, user.ID)
 		if err != nil {
 			log.Printf("load member available skills %d: %v", user.ID, err)
@@ -56,7 +66,13 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		render(w, r, templates.MyProfile(user.Email, member, orgs, availableSkills, selectedSkillIDs, s.avatarImageMaxBytes, successMsg, errorMsg))
+		hasCreatedOrganization, err := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+		if err != nil {
+			log.Printf("check member created organization %d: %v", user.ID, err)
+			http.Error(w, "could not load profile", http.StatusInternalServerError)
+			return
+		}
+		render(w, r, templates.MyProfile(user.Email, member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, availableSkills, selectedSkillIDs, s.avatarImageMaxBytes, successMsg, errorMsg))
 	case http.MethodPost:
 		maxAvatarUploadBytes := s.avatarImageMaxBytes
 		maxBodyBytes := maxAvatarUploadBytes + (1 << 20)
@@ -181,7 +197,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				case errors.Is(err, service.ErrMembershipNotFound):
 					msg = "Membership not found."
 				case errors.Is(err, service.ErrInvalidRoleChange):
-					msg = "Primary owner cannot leave this organization."
+					msg = "Cannot leave this organization because you are the last owner."
 				}
 				http.Redirect(w, r, "/profile?tab=organizations&error="+url.QueryEscape(msg), http.StatusSeeOther)
 				return
@@ -196,6 +212,21 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			confirmation := r.FormValue("delete_account_confirmation")
 			if confirmation != deleteAccountConfirmationPhrase {
 				http.Redirect(w, r, "/profile?tab=account&error="+url.QueryEscape("Please type \"I want to leave hopShare\" exactly to confirm account deletion."), http.StatusSeeOther)
+				return
+			}
+			leaveBlockedOrgMap, err := service.MemberLeaveBlockedOrganizationIDs(r.Context(), s.db, user.ID)
+			if err != nil {
+				log.Printf("load leave-blocked organizations for delete account member=%d: %v", user.ID, err)
+				http.Redirect(w, r, "/profile?tab=account&error="+url.QueryEscape("Could not delete account right now."), http.StatusSeeOther)
+				return
+			}
+			if len(leaveBlockedOrgMap) > 0 {
+				http.Redirect(
+					w,
+					r,
+					"/profile?tab=account&error="+url.QueryEscape("Cannot delete your account while you are the sole active owner of an organization. Add another owner first."),
+					http.StatusSeeOther,
+				)
 				return
 			}
 			if err := service.SetMemberEnabled(r.Context(), s.db, user.ID, false); err != nil {

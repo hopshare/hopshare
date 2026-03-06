@@ -122,19 +122,17 @@ type OrganizationInvitation struct {
 
 // OrganizationMember represents an active membership record.
 type OrganizationMember struct {
-	MemberID       int64
-	DisplayName    string
-	Email          string
-	Role           string
-	IsPrimaryOwner bool
-	JoinedAt       time.Time
+	MemberID    int64
+	DisplayName string
+	Email       string
+	Role        string
+	JoinedAt    time.Time
 }
 
 // MemberOrganization represents an organization plus the member's role.
 type MemberOrganization struct {
 	Organization
-	Role           string
-	IsPrimaryOwner bool
+	Role string
 }
 
 // Skill represents a selectable skill, either system default or organization-specific.
@@ -384,7 +382,6 @@ type AdminUserMembershipTimelineEntry struct {
 	OrganizationName    string
 	OrganizationURLName string
 	Role                string
-	IsPrimaryOwner      bool
 	JoinedAt            time.Time
 	LeftAt              *time.Time
 }

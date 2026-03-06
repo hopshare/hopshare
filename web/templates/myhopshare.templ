@@ -40,7 +40,7 @@ templ MyhopShare(
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
-	isPrimaryOwnerCurrent bool,
+	isOwnerCurrent bool,
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
@@ -48,7 +48,7 @@ templ MyhopShare(
 	activeAcceptedViewKey string,
 	memberID int64,
 	activityCount int,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	notifications []types.MemberNotification,
 	showInvitePrompt bool,
 	successMsg string,
@@ -60,7 +60,7 @@ templ MyhopShare(
 		lastLoginLabel,
 		orgs,
 		currentOrgID,
-		isPrimaryOwnerCurrent,
+		isOwnerCurrent,
 		metrics,
 		memberStats,
 		myHops,
@@ -68,7 +68,7 @@ templ MyhopShare(
 		activeAcceptedViewKey,
 		memberID,
 		activityCount,
-		hasPrimary,
+		hasCreatedOrganization,
 		notifications,
 		showInvitePrompt,
 		successMsg,
@@ -82,7 +82,7 @@ templ MyhopShareBody(
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
-	isPrimaryOwnerCurrent bool,
+	isOwnerCurrent bool,
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
@@ -90,7 +90,7 @@ templ MyhopShareBody(
 	activeAcceptedViewKey string,
 	memberID int64,
 	activityCount int,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	notifications []types.MemberNotification,
 	showInvitePrompt bool,
 	successMsg string,
@@ -127,14 +127,14 @@ templ MyhopShareBody(
 		}
 
 		if len(orgs) == 0 || currentOrgID == 0 {
-			@MyhopShareNoOrganizations(hasPrimary)
+			@MyhopShareNoOrganizations(hasCreatedOrganization)
 		} else {
 			@MyhopShareDashboard(
 				displayName,
 				lastLoginLabel,
 				orgs,
 				currentOrgID,
-				isPrimaryOwnerCurrent,
+				isOwnerCurrent,
 				metrics,
 				memberStats,
 				myHops,
@@ -142,14 +142,14 @@ templ MyhopShareBody(
 				activeAcceptedViewKey,
 				memberID,
 				activityCount,
-				hasPrimary,
+				hasCreatedOrganization,
 				notifications,
 			)
 		}
 	</div>
 }
 
-templ MyhopShareNoOrganizations(hasPrimary bool) {
+templ MyhopShareNoOrganizations(hasCreatedOrganization bool) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h2 class="text-xl font-bold text-slate-900">Join an organization to get started!</h2>
@@ -160,20 +160,15 @@ templ MyhopShareNoOrganizations(hasPrimary bool) {
 
 		<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 space-y-4">
 			<p><span class="font-semibold text-slate-900">Create an organization</span>{ " if you represent a real organization and want to manage it in hopShare." }</p>
-			<p>This includes organization setup and ownership responsibilities. You will be the primary owner while your account exists.</p>
+			<p>Organization creators start as owners and can invite additional owners.</p>
 			<p><span class="font-semibold text-slate-900">Find an organization</span>{ " if you want to join one that already exists." }</p>
 			<div class="flex flex-wrap gap-3">
 				<a class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" href="/organizations">
 					Find an organization
 				</a>
-				if !hasPrimary {
+				if !hasCreatedOrganization {
 					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/create">
 						Create an organization
-					</a>
-				}
-				if hasPrimary {
-					<a class="inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition" href="/organizations/manage">
-						Manage my organization
 					</a>
 				}
 			</div>
@@ -186,7 +181,7 @@ templ MyhopShareDashboard(
 	lastLoginLabel string,
 	orgs []types.Organization,
 	currentOrgID int64,
-	isPrimaryOwnerCurrent bool,
+	isOwnerCurrent bool,
 	metrics types.OrgHopMetrics,
 	memberStats types.MemberHopStats,
 	myHops []types.Hop,
@@ -194,7 +189,7 @@ templ MyhopShareDashboard(
 	activeAcceptedViewKey string,
 	memberID int64,
 	activityCount int,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	notifications []types.MemberNotification,
 ) {
 	<div

@@ -990,7 +990,7 @@ func handleAdminUserActionError(w http.ResponseWriter, r *http.Request, redirect
 	case errors.Is(err, service.ErrMemberAlreadyDeleted):
 		msg = "User has already been permanently deleted."
 	case errors.Is(err, service.ErrMemberDeleteBlocked):
-		msg = "Cannot delete a user who is the active primary owner of an organization."
+		msg = "Cannot delete a user who is the sole active owner of an organization."
 	}
 	http.Redirect(w, r, redirectWithMessage(redirectBase, "error", msg), http.StatusSeeOther)
 }

@@ -19,7 +19,7 @@ func MyHops(
 	orgs []types.Organization,
 	currentOrgID int64,
 	myHops []types.Hop,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	viewKey string,
 	viewTitle string,
 	viewDescription string,
@@ -48,7 +48,7 @@ func MyHops(
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasPrimary, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -60,7 +60,7 @@ func MyHopsBody(
 	orgs []types.Organization,
 	currentOrgID int64,
 	myHops []types.Hop,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	viewKey string,
 	viewTitle string,
 	viewDescription string,
@@ -202,7 +202,7 @@ func MyHopsBody(
 			return templ_7745c5c3_Err
 		}
 		if len(orgs) == 0 || currentOrgID == 0 {
-			templ_7745c5c3_Err = MyhopShareNoOrganizations(hasPrimary).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = MyhopShareNoOrganizations(hasCreatedOrganization).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

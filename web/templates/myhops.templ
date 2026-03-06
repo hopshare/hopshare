@@ -11,7 +11,7 @@ templ MyHops(
 	orgs []types.Organization,
 	currentOrgID int64,
 	myHops []types.Hop,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	viewKey string,
 	viewTitle string,
 	viewDescription string,
@@ -20,14 +20,14 @@ templ MyHops(
 	successMsg string,
 	errorMsg string,
 ) {
-	@Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasPrimary, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg))
+	@Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg))
 }
 
 templ MyHopsBody(
 	orgs []types.Organization,
 	currentOrgID int64,
 	myHops []types.Hop,
-	hasPrimary bool,
+	hasCreatedOrganization bool,
 	viewKey string,
 	viewTitle string,
 	viewDescription string,
@@ -65,7 +65,7 @@ templ MyHopsBody(
 		</div>
 
 		if len(orgs) == 0 || currentOrgID == 0 {
-			@MyhopShareNoOrganizations(hasPrimary)
+			@MyhopShareNoOrganizations(hasCreatedOrganization)
 		} else {
 			@HopListMyHops(currentOrgID, myHops, viewKey, viewTitle, viewDescription, emptyMessage, memberID)
 		}

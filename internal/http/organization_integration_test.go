@@ -3,6 +3,8 @@ package http_test
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -174,7 +176,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "Invalid organization.")
 	})
 
-	t.Run("ORG-08 GET /organizations/create blocked for existing primary owner", func(t *testing.T) {
+	t.Run("ORG-08 GET /organizations/create blocked for member who already created an organization", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -186,7 +188,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
 		actor.Login()
 		loc := requireRedirectPath(t, actor.Get("/organizations/create"), "/organizations/manage")
-		requireQueryValue(t, loc, "error", "You already manage an organization.")
+		requireQueryValue(t, loc, "error", "You have already created an organization.")
 	})
 
 	t.Run("ORG-09 POST /organizations/create success", func(t *testing.T) {
@@ -556,6 +558,75 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		)), "/organizations/manage")
 		requireQueryValue(t, loc, "error", "You can only manage your organization's requests.")
 	})
+
+	t.Run("ORG-23 POST /organizations/manage action=delete_organization requires exact confirmation phrase", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+
+		server := newHTTPServer(t, db)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		body := requireStatus(t, ownerActor.PostForm("/organizations/manage", formKV(
+			"action", "delete_organization",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"delete_organization_confirmation", "I want to remove something else",
+		)), http.StatusOK)
+		requireBodyContains(t, body, "Please type")
+		requireBodyContains(t, body, "exactly to confirm organization deletion.")
+
+		if _, err := service.GetEnabledOrganizationByID(ctx, db, org.ID); err != nil {
+			t.Fatalf("expected organization to remain after failed delete confirmation: %v", err)
+		}
+	})
+
+	t.Run("ORG-24 POST /organizations/manage action=delete_organization removes organization and notifies members", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+
+		server := newHTTPServer(t, db)
+		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		ownerActor.Login()
+
+		loc := requireRedirectPath(t, ownerActor.PostForm("/organizations/manage", formKV(
+			"action", "delete_organization",
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"delete_organization_confirmation", "I want to remove "+org.Name,
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Organization permanently deleted.")
+
+		if _, err := service.GetEnabledOrganizationByID(ctx, db, org.ID); !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("expected deleted organization to be unavailable, got err=%v", err)
+		}
+
+		actorName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
+		if actorName == "" {
+			actorName = members["owner"].Member.Email
+		}
+		wantSubject := "Organization permanently removed"
+		wantBody := "User " + actorName + " has permanently removed the Organization " + org.Name + "."
+
+		for _, key := range []string{"owner", "member"} {
+			msgs, err := service.ListMessages(ctx, db, members[key].Member.ID)
+			if err != nil {
+				t.Fatalf("list messages for %s: %v", key, err)
+			}
+			found := false
+			for _, msg := range msgs {
+				if msg.Subject == wantSubject && msg.Body == wantBody {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected organization delete message for %s with body %q", key, wantBody)
+			}
+		}
+	})
 }
 
 func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
@@ -745,7 +816,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		requireStatus(t, memberActor.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 403)
 	})
 
-	t.Run("ORG-M-11 removing primary owner is forbidden", func(t *testing.T) {
+	t.Run("ORG-M-11 removing the last owner is forbidden", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -759,18 +830,18 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"member_id", strconv.FormatInt(members["owner"].Member.ID, 10),
 		)), "/organizations/manage")
-		requireQueryValue(t, loc, "error", "Primary owner cannot be removed.")
+		requireQueryValue(t, loc, "error", "Cannot remove the last owner from an organization.")
 
 		hasMembership, err := service.MemberHasActiveMembership(ctx, db, members["owner"].Member.ID, org.ID)
 		if err != nil {
-			t.Fatalf("check primary owner membership: %v", err)
+			t.Fatalf("check owner membership: %v", err)
 		}
 		if !hasMembership {
-			t.Fatalf("expected primary owner membership to remain active")
+			t.Fatalf("expected owner membership to remain active")
 		}
 	})
 
-	t.Run("ORG-M-12 remove button is not shown for primary owner", func(t *testing.T) {
+	t.Run("ORG-M-12 remove button is not shown for self", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -784,7 +855,7 @@ func TestOrganizationMemberRoleHTTPMatrix(t *testing.T) {
 		secondaryOwnerActor.Login()
 
 		body := requireStatus(t, secondaryOwnerActor.Get("/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyNotContains(t, body, "name=\"member_id\" value=\""+strconv.FormatInt(members["owner"].Member.ID, 10)+"\"")
+		requireBodyNotContains(t, body, "name=\"member_id\" value=\""+strconv.FormatInt(members["member"].Member.ID, 10)+"\"")
 	})
 
 	t.Run("ORG-I-01 owner invite blast sends valid emails and skips existing members", func(t *testing.T) {

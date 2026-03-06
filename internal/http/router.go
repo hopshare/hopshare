@@ -847,14 +847,11 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		lastLoginLabel = user.LastLoginAt.Format("January 2, 2006")
 	}
 
-	primaryOrg, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
-	hasPrimary := err == nil
-	var primaryOrgID int64
-	if err == nil {
-		primaryOrgID = primaryOrg.ID
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Printf("load primary organization for member %d: %v", user.ID, err)
+	hasCreatedOrganization, err := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("check member created organization for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
 	}
 
 	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
@@ -889,7 +886,15 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		}
 	}
 
-	isPrimaryOwnerCurrent := currentOrgID != 0 && primaryOrgID == currentOrgID
+	isOwnerCurrent := false
+	if currentOrgID != 0 {
+		ownerCurrent, ownerErr := service.MemberOwnsOrganization(r.Context(), s.db, user.ID, currentOrgID)
+		if ownerErr != nil {
+			log.Printf("check member organization ownership member=%d org=%d: %v", user.ID, currentOrgID, ownerErr)
+		} else {
+			isOwnerCurrent = ownerCurrent
+		}
+	}
 
 	var metrics types.OrgHopMetrics
 	var memberStats types.MemberHopStats
@@ -964,7 +969,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		lastLoginLabel,
 		orgs,
 		currentOrgID,
-		isPrimaryOwnerCurrent,
+		isOwnerCurrent,
 		metrics,
 		memberStats,
 		myHops,
@@ -972,7 +977,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		activeAcceptedViewKey,
 		user.ID,
 		activityCount,
-		hasPrimary,
+		hasCreatedOrganization,
 		notifications,
 		showInvitePrompt,
 		successMsg,

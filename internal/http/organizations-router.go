@@ -25,12 +25,14 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if _, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID); err == nil {
-		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("You already manage an organization."), http.StatusSeeOther)
-		return
-	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Printf("check primary organization: %v", err)
+	alreadyCreated, err := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("check member created organization: %v", err)
 		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+	if alreadyCreated {
+		http.Redirect(w, r, "/organizations/manage?error="+url.QueryEscape("You have already created an organization."), http.StatusSeeOther)
 		return
 	}
 
@@ -70,8 +72,8 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 				msg = "Organization description is required."
 			case errors.Is(err, service.ErrMissingMemberID):
 				msg = "A member is required to create an organization."
-			case errors.Is(err, service.ErrAlreadyPrimaryOwner):
-				msg = "You already manage an organization."
+			case errors.Is(err, service.ErrOrganizationAlreadyCreated):
+				msg = "You have already created an organization."
 			}
 			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, city, state, description, "", msg))
 			return
@@ -85,7 +87,7 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		success := fmt.Sprintf("Created %s and set you as primary owner.", org.Name)
+		success := fmt.Sprintf("Created %s.", org.Name)
 		query := url.Values{}
 		query.Set("org_id", strconv.FormatInt(org.ID, 10))
 		query.Set("success", success)
@@ -393,10 +395,20 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			org, err = service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
+					createdOrg, createdErr := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+					if createdErr != nil {
+						log.Printf("check member created organization: %v", createdErr)
+						http.Error(w, "could not load organization", http.StatusInternalServerError)
+						return
+					}
+					if createdOrg {
+						http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("You are not an owner of any organization."), http.StatusSeeOther)
+						return
+					}
 					http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
 					return
 				}
-				log.Printf("load primary organization: %v", err)
+				log.Printf("load default owned organization: %v", err)
 				http.Error(w, "could not load organization", http.StatusInternalServerError)
 				return
 			}
@@ -468,10 +480,20 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			org, err = service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
+					createdOrg, createdErr := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+					if createdErr != nil {
+						log.Printf("check member created organization: %v", createdErr)
+						http.Error(w, "could not load organization", http.StatusInternalServerError)
+						return
+					}
+					if createdOrg {
+						http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("You are not an owner of any organization."), http.StatusSeeOther)
+						return
+					}
 					http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
 					return
 				}
-				log.Printf("load primary organization: %v", err)
+				log.Printf("load default owned organization: %v", err)
 				http.Error(w, "could not load organization", http.StatusInternalServerError)
 				return
 			}
@@ -597,6 +619,63 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 			redirectURL := manageOrganizationRedirectURL(org.ID, "Time bank settings updated.", activeTab)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+		case "delete_organization":
+			confirmation := r.FormValue("delete_organization_confirmation")
+			required := "I want to remove " + org.Name
+			if confirmation != required {
+				msg := fmt.Sprintf("Please type \"%s\" exactly to confirm organization deletion.", required)
+				render(
+					w,
+					r,
+					templates.ManageOrganizationWithMembers(
+						s.currentUserEmailPtr(r),
+						org,
+						requests,
+						members,
+						orgSkills,
+						invitations,
+						inviteRemaining,
+						s.featureEmail,
+						user.ID,
+						"",
+						msg,
+						"details",
+						invitePostRedirect,
+					),
+				)
+				return
+			}
+
+			if err := service.DeleteOrganization(r.Context(), s.db, org.ID, user.ID); err != nil {
+				log.Printf("delete organization org=%d actor=%d: %v", org.ID, user.ID, err)
+				msg := "Could not delete organization."
+				if errors.Is(err, sql.ErrNoRows) || errors.Is(err, service.ErrMissingOrgID) {
+					msg = "Invalid organization."
+				}
+				render(
+					w,
+					r,
+					templates.ManageOrganizationWithMembers(
+						s.currentUserEmailPtr(r),
+						org,
+						requests,
+						members,
+						orgSkills,
+						invitations,
+						inviteRemaining,
+						s.featureEmail,
+						user.ID,
+						"",
+						msg,
+						"details",
+						invitePostRedirect,
+					),
+				)
+				return
+			}
+
+			http.Redirect(w, r, "/my-hopshare?success="+url.QueryEscape("Organization permanently deleted."), http.StatusSeeOther)
+			return
 		case "invites":
 			if !s.featureEmail {
 				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Invitations are currently unavailable.", activeTab, invitePostRedirect))
@@ -911,10 +990,20 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		org, err = service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
+				createdOrg, createdErr := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+				if createdErr != nil {
+					log.Printf("check member created organization: %v", createdErr)
+					http.Error(w, "could not load organization", http.StatusInternalServerError)
+					return
+				}
+				if createdOrg {
+					http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("You are not an owner of any organization."), http.StatusSeeOther)
+					return
+				}
 				http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
 				return
 			}
-			log.Printf("load primary organization: %v", err)
+			log.Printf("load default owned organization: %v", err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
 			return
 		}
@@ -936,7 +1025,7 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, service.ErrMembershipNotFound) {
 			msg = "Membership not found."
 		} else if errors.Is(err, service.ErrInvalidRoleChange) {
-			msg = "Primary owner cannot be removed."
+			msg = "Cannot remove the last owner from an organization."
 		}
 		redirectURL := "/organizations/manage?error=" + url.QueryEscape(msg)
 		if org.ID != 0 {
@@ -988,10 +1077,20 @@ func (s *Server) handleChangeMemberRole(w http.ResponseWriter, r *http.Request) 
 		org, err = service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
+				createdOrg, createdErr := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+				if createdErr != nil {
+					log.Printf("check member created organization: %v", createdErr)
+					http.Error(w, "could not load organization", http.StatusInternalServerError)
+					return
+				}
+				if createdOrg {
+					http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("You are not an owner of any organization."), http.StatusSeeOther)
+					return
+				}
 				http.Redirect(w, r, "/organizations/create?error="+url.QueryEscape("You need to create an organization first."), http.StatusSeeOther)
 				return
 			}
-			log.Printf("load primary organization: %v", err)
+			log.Printf("load default owned organization: %v", err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
 			return
 		}

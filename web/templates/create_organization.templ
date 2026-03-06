@@ -8,7 +8,7 @@ templ CreateOrganizationBody(orgName string, city string, state string, descript
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 		<div class="space-y-1">
 			<h1 class="text-2xl font-bold text-slate-900">Create an organization</h1>
-			<p class="text-slate-600">Set up a new organization and become its primary owner.</p>
+			<p class="text-slate-600">Set up a new organization and become an owner.</p>
 		</div>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
@@ -96,7 +96,7 @@ templ CreateOrganizationBody(orgName string, city string, state string, descript
 					Back to My hopShare
 				</a>
 			</div>
-			<p class="text-xs text-slate-500">You can only manage one organization as the primary owner.</p>
+			<p class="text-xs text-slate-500">You can only create one organization per account.</p>
 		</form>
 	</section>
 }

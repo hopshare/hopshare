@@ -744,8 +744,8 @@ func ensureActiveMembershipAndStartingBalance(ctx context.Context, tx *sql.Tx, o
 	}
 	if !exists {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-			VALUES ($1, $2, 'member', FALSE)
+			INSERT INTO organization_memberships (organization_id, member_id, role)
+			VALUES ($1, $2, 'member')
 		`, orgID, memberID); err != nil {
 			return false, fmt.Errorf("create membership: %w", err)
 		}

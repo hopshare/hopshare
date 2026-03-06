@@ -86,8 +86,8 @@ func Load(ctx context.Context, db *sql.DB, memberCount, orgCount int) (Result, e
 	membershipsCreated := 0
 
 	stmt, err := db.PrepareContext(ctx, `
-		INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-		VALUES ($1, $2, 'member', FALSE)
+		INSERT INTO organization_memberships (organization_id, member_id, role)
+		VALUES ($1, $2, 'member')
 		ON CONFLICT DO NOTHING
 	`)
 	if err != nil {

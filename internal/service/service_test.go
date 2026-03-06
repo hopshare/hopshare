@@ -138,12 +138,12 @@ func TestCreateOrganization(t *testing.T) {
 	var membershipCount int
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM organization_memberships
-		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND role = 'owner' AND is_primary_owner
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND role = 'owner'
 	`, org.ID, member.ID).Scan(&membershipCount); err != nil {
 		t.Fatalf("query membership: %v", err)
 	}
 	if membershipCount != 1 {
-		t.Fatalf("expected primary owner membership, got %d", membershipCount)
+		t.Fatalf("expected owner membership, got %d", membershipCount)
 	}
 
 	orgs, err := ActiveOrganizationsForMember(ctx, db, member.ID)

@@ -977,17 +977,17 @@ func TestAdminUsersHTTP(t *testing.T) {
 		}
 	})
 
-	t.Run("ADMIN-04C users tab permanent delete guardrails block self, allowlisted admins, and primary owners", func(t *testing.T) {
+	t.Run("ADMIN-04C users tab permanent delete guardrails block self, allowlisted admins, and sole owners", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 
 		suffix := uniqueTestSuffix()
 		adminOne := createSeededMember(t, ctx, db, "admin_users_delete_guard_admin_one", suffix)
 		adminTwo := createSeededMember(t, ctx, db, "admin_users_delete_guard_admin_two", suffix)
-		primaryOwner := createSeededMember(t, ctx, db, "admin_users_delete_guard_primary", suffix)
+		soleOwner := createSeededMember(t, ctx, db, "admin_users_delete_guard_primary", suffix)
 
-		if _, err := service.CreateOrganization(ctx, db, "Admin Delete Guard Org "+suffix, "City", "ST", "Org for primary-owner delete guard coverage.", primaryOwner.Member.ID); err != nil {
-			t.Fatalf("create primary-owner organization: %v", err)
+		if _, err := service.CreateOrganization(ctx, db, "Admin Delete Guard Org "+suffix, "City", "ST", "Org for sole-owner delete guard coverage.", soleOwner.Member.ID); err != nil {
+			t.Fatalf("create sole-owner organization: %v", err)
 		}
 
 		server := newHTTPServerWithAdmins(t, db, []string{adminOne.Member.Email, adminTwo.Member.Email})
@@ -1010,20 +1010,20 @@ func TestAdminUsersHTTP(t *testing.T) {
 		)), "/admin")
 		requireQueryValue(t, allowlistedLoc, "error", "Cannot delete an account listed in HOPSHARE_ADMIN_EMAILS. Remove the email from admin config first.")
 
-		primaryOwnerLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
+		soleOwnerLoc := requireRedirectPath(t, adminActor.PostForm("/admin/users/action", formKV(
 			"action", "delete_user",
-			"member_id", strconv.FormatInt(primaryOwner.Member.ID, 10),
-			"q", primaryOwner.Member.Email,
-			"reason", "primary owner delete should be blocked",
+			"member_id", strconv.FormatInt(soleOwner.Member.ID, 10),
+			"q", soleOwner.Member.Email,
+			"reason", "sole owner delete should be blocked",
 		)), "/admin")
-		requireQueryValue(t, primaryOwnerLoc, "error", "Cannot delete a user who is the active primary owner of an organization.")
+		requireQueryValue(t, soleOwnerLoc, "error", "Cannot delete a user who is the sole active owner of an organization.")
 
-		primaryOwnerRow, err := service.GetMemberByID(ctx, db, primaryOwner.Member.ID)
+		soleOwnerRow, err := service.GetMemberByID(ctx, db, soleOwner.Member.ID)
 		if err != nil {
-			t.Fatalf("load primary owner after blocked delete: %v", err)
+			t.Fatalf("load sole owner after blocked delete: %v", err)
 		}
-		if !primaryOwnerRow.Enabled {
-			t.Fatalf("expected blocked-delete primary owner to remain enabled")
+		if !soleOwnerRow.Enabled {
+			t.Fatalf("expected blocked-delete sole owner to remain enabled")
 		}
 	})
 }

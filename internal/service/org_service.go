@@ -20,7 +20,8 @@ const (
 	organizationURLNameMaxAttempts      = 1000
 )
 
-// PrimaryOwnedOrganization returns the organization where the member is the primary owner.
+// PrimaryOwnedOrganization returns one enabled organization where the member is an active owner.
+// When multiple organizations match, the first by name is returned.
 func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (types.Organization, error) {
 	if db == nil {
 		return types.Organization{}, ErrNilDB
@@ -33,7 +34,9 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
-		WHERE om.member_id = $1 AND om.is_primary_owner = TRUE AND om.left_at IS NULL AND o.enabled = TRUE
+		WHERE om.member_id = $1 AND om.role = 'owner' AND om.left_at IS NULL AND o.enabled = TRUE
+		ORDER BY o.name ASC
+		LIMIT 1
 	`, memberID)
 
 	var o types.Organization
@@ -41,6 +44,28 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 		return types.Organization{}, err
 	}
 	return o, nil
+}
+
+// MemberCreatedOrganization reports whether the member has created any organization.
+func MemberCreatedOrganization(ctx context.Context, db *sql.DB, memberID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if memberID == 0 {
+		return false, ErrMissingMemberID
+	}
+
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM organizations
+			WHERE created_by = $1
+		)
+	`, memberID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("check member created organization: %w", err)
+	}
+	return exists, nil
 }
 
 // ActiveOrganizationsForMember returns all organizations the member currently belongs to (left_at IS NULL).
@@ -90,7 +115,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
-		       om.role, om.is_primary_owner
+		       om.role
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
@@ -104,7 +129,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	var orgs []types.MemberOrganization
 	for rows.Next() {
 		var o types.MemberOrganization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role, &o.IsPrimaryOwner); err != nil {
+		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role); err != nil {
 			return nil, fmt.Errorf("scan member organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -167,6 +192,20 @@ func MemberOwnsOrganization(ctx context.Context, db *sql.DB, memberID, orgID int
 	return exists, nil
 }
 
+func activeOwnerCountTx(ctx context.Context, tx *sql.Tx, orgID int64) (int, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM organization_memberships
+		WHERE organization_id = $1
+			AND left_at IS NULL
+			AND role = 'owner'
+	`, orgID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count active owners: %w", err)
+	}
+	return count, nil
+}
+
 // MemberHasActiveMembership reports whether the member belongs to the organization.
 func MemberHasActiveMembership(ctx context.Context, db *sql.DB, memberID, orgID int64) (bool, error) {
 	if db == nil {
@@ -191,6 +230,50 @@ func MemberHasActiveMembership(ctx context.Context, db *sql.DB, memberID, orgID 
 		return false, fmt.Errorf("check member organization membership: %w", err)
 	}
 	return exists, nil
+}
+
+// MemberLeaveBlockedOrganizationIDs returns active organization IDs the member cannot leave
+// because they are currently the sole active owner.
+func MemberLeaveBlockedOrganizationIDs(ctx context.Context, db *sql.DB, memberID int64) (map[int64]struct{}, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT om.organization_id
+		FROM organization_memberships om
+		WHERE om.member_id = $1
+			AND om.left_at IS NULL
+			AND om.role = 'owner'
+			AND NOT EXISTS (
+				SELECT 1
+				FROM organization_memberships other
+				WHERE other.organization_id = om.organization_id
+					AND other.role = 'owner'
+					AND other.left_at IS NULL
+					AND other.member_id <> $1
+			)
+	`, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list leave-blocked organizations for member: %w", err)
+	}
+	defer rows.Close()
+
+	blocked := make(map[int64]struct{})
+	for rows.Next() {
+		var orgID int64
+		if err := rows.Scan(&orgID); err != nil {
+			return nil, fmt.Errorf("scan leave-blocked organization: %w", err)
+		}
+		blocked[orgID] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list leave-blocked organizations for member: %w", err)
+	}
+	return blocked, nil
 }
 
 // MembersShareOrganization reports whether two members share an active organization.
@@ -727,12 +810,11 @@ func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.
 				COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
 				m.email,
 				om.role,
-				om.is_primary_owner,
 				om.joined_at
 			FROM organization_memberships om
 			JOIN members m ON m.id = om.member_id
 			WHERE om.organization_id = $1 AND om.left_at IS NULL
-			ORDER BY om.is_primary_owner DESC, om.role DESC, LOWER(m.last_name) ASC, LOWER(m.first_name) ASC, LOWER(m.email) ASC
+			ORDER BY om.role DESC, LOWER(m.last_name) ASC, LOWER(m.first_name) ASC, LOWER(m.email) ASC
 		`, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list organization members: %w", err)
@@ -742,7 +824,7 @@ func OrganizationMembers(ctx context.Context, db *sql.DB, orgID int64) ([]types.
 	var members []types.OrganizationMember
 	for rows.Next() {
 		var om types.OrganizationMember
-		if err := rows.Scan(&om.MemberID, &om.DisplayName, &om.Email, &om.Role, &om.IsPrimaryOwner, &om.JoinedAt); err != nil {
+		if err := rows.Scan(&om.MemberID, &om.DisplayName, &om.Email, &om.Role, &om.JoinedAt); err != nil {
 			return nil, fmt.Errorf("scan organization member: %w", err)
 		}
 		members = append(members, om)
@@ -777,10 +859,33 @@ func LeaveOrganization(ctx context.Context, db *sql.DB, orgID, memberID int64) (
 		}
 	}()
 
+	var role string
+	if err := tx.QueryRowContext(ctx, `
+		SELECT role
+		FROM organization_memberships
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+		FOR UPDATE
+	`, orgID, memberID).Scan(&role); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrMembershipNotFound
+		}
+		return nil, fmt.Errorf("load membership before leave: %w", err)
+	}
+
+	if role == "owner" {
+		ownerCount, countErr := activeOwnerCountTx(ctx, tx, orgID)
+		if countErr != nil {
+			return nil, countErr
+		}
+		if ownerCount <= 1 {
+			return nil, ErrInvalidRoleChange
+		}
+	}
+
 	res, err := tx.ExecContext(ctx, `
 		UPDATE organization_memberships
 		SET left_at = NOW()
-		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = FALSE
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
 	`, orgID, memberID)
 	if err != nil {
 		return nil, fmt.Errorf("leave organization: %w", err)
@@ -790,29 +895,6 @@ func LeaveOrganization(ctx context.Context, db *sql.DB, orgID, memberID int64) (
 		return nil, fmt.Errorf("leave organization rows affected: %w", err)
 	}
 	if affected == 0 {
-		var isPrimaryOwner bool
-		var exists bool
-		if err := tx.QueryRowContext(ctx, `
-			SELECT
-				EXISTS (
-					SELECT 1
-					FROM organization_memberships
-					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
-				),
-				EXISTS (
-					SELECT 1
-					FROM organization_memberships
-					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = TRUE
-				)
-		`, orgID, memberID).Scan(&exists, &isPrimaryOwner); err != nil {
-			return nil, fmt.Errorf("check organization membership before leave: %w", err)
-		}
-		if isPrimaryOwner {
-			return nil, ErrInvalidRoleChange
-		}
-		if !exists {
-			return nil, ErrMembershipNotFound
-		}
 		return nil, ErrMembershipNotFound
 	}
 
@@ -938,10 +1020,42 @@ func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID i
 		return ErrMissingMemberID
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin remove organization member: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var role string
+	if err = tx.QueryRowContext(ctx, `
+		SELECT role
+		FROM organization_memberships
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
+		FOR UPDATE
+	`, orgID, memberID).Scan(&role); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrMembershipNotFound
+		}
+		return fmt.Errorf("load membership before remove: %w", err)
+	}
+	if role == "owner" {
+		ownerCount, countErr := activeOwnerCountTx(ctx, tx, orgID)
+		if countErr != nil {
+			return countErr
+		}
+		if ownerCount <= 1 {
+			return ErrInvalidRoleChange
+		}
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE organization_memberships
 		SET left_at = NOW()
-		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = FALSE
+		WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
 	`, orgID, memberID)
 	if err != nil {
 		return fmt.Errorf("remove organization member: %w", err)
@@ -951,43 +1065,24 @@ func RemoveOrganizationMember(ctx context.Context, db *sql.DB, orgID, memberID i
 		return fmt.Errorf("remove organization member rows affected: %w", err)
 	}
 	if affected == 0 {
-		var isPrimaryOwner bool
-		var exists bool
-		if err := db.QueryRowContext(ctx, `
-			SELECT
-				EXISTS (
-					SELECT 1
-					FROM organization_memberships
-					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL
-				),
-				EXISTS (
-					SELECT 1
-					FROM organization_memberships
-					WHERE organization_id = $1 AND member_id = $2 AND left_at IS NULL AND is_primary_owner = TRUE
-				)
-		`, orgID, memberID).Scan(&exists, &isPrimaryOwner); err != nil {
-			return fmt.Errorf("check organization membership before remove: %w", err)
-		}
-		if isPrimaryOwner {
-			return ErrInvalidRoleChange
-		}
-		if !exists {
-			return ErrMembershipNotFound
-		}
 		return ErrMembershipNotFound
 	}
 
 	orgName := "your organization"
-	if name, _, nameErr := organizationNameAndURLNameByID(ctx, db, orgID); nameErr == nil {
+	if name, _, nameErr := organizationNameAndURLNameByID(ctx, tx, orgID); nameErr == nil {
 		orgName = name
 	}
 	_ = createMemberNotification(
 		ctx,
-		db,
+		tx,
 		memberID,
 		"You were removed from "+orgName+".",
 		"",
 	)
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit remove organization member: %w", err)
+	}
 
 	_ = removedBy
 	return nil
@@ -1032,10 +1127,19 @@ func UpdateOrganizationMemberRole(ctx context.Context, db *sql.DB, orgID, member
 		}
 		return fmt.Errorf("load membership role: %w", err)
 	}
+	if currentRole == "owner" && role != "owner" {
+		ownerCount, countErr := activeOwnerCountTx(ctx, tx, orgID)
+		if countErr != nil {
+			return countErr
+		}
+		if ownerCount <= 1 {
+			return ErrInvalidRoleChange
+		}
+	}
 
 	res, err := tx.ExecContext(ctx, `
 		UPDATE organization_memberships
-		SET role = $1, is_primary_owner = CASE WHEN is_primary_owner THEN TRUE ELSE FALSE END
+		SET role = $1
 		WHERE organization_id = $2 AND member_id = $3 AND left_at IS NULL
 	`, role, orgID, memberID)
 	if err != nil {
@@ -1179,6 +1283,109 @@ func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization)
 	return nil
 }
 
+// DeleteOrganization permanently removes an organization and all organization-scoped data.
+// A message is sent to all active owners and members indicating who removed the organization.
+func DeleteOrganization(ctx context.Context, db *sql.DB, orgID, actorMemberID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if actorMemberID == 0 {
+		return ErrMissingMemberID
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete organization: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var orgName string
+	if err = tx.QueryRowContext(ctx, `
+		SELECT name
+		FROM organizations
+		WHERE id = $1
+		FOR UPDATE
+	`, orgID).Scan(&orgName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return fmt.Errorf("load organization for delete: %w", err)
+	}
+
+	recipientRows, err := tx.QueryContext(ctx, `
+		SELECT DISTINCT member_id
+		FROM organization_memberships
+		WHERE organization_id = $1
+			AND left_at IS NULL
+		ORDER BY member_id
+	`, orgID)
+	if err != nil {
+		return fmt.Errorf("list organization recipients for delete message: %w", err)
+	}
+
+	recipientIDs := make([]int64, 0)
+	for recipientRows.Next() {
+		var recipientID int64
+		if err := recipientRows.Scan(&recipientID); err != nil {
+			_ = recipientRows.Close()
+			return fmt.Errorf("scan organization recipient for delete message: %w", err)
+		}
+		recipientIDs = append(recipientIDs, recipientID)
+	}
+	if err := recipientRows.Err(); err != nil {
+		_ = recipientRows.Close()
+		return fmt.Errorf("list organization recipients for delete message: %w", err)
+	}
+	if err := recipientRows.Close(); err != nil {
+		return fmt.Errorf("close organization recipients for delete message: %w", err)
+	}
+
+	actorName := "A user"
+	if displayName, _, nameErr := memberNameAndEmailByID(ctx, tx, actorMemberID); nameErr == nil && strings.TrimSpace(displayName) != "" {
+		actorName = displayName
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		DELETE FROM organizations
+		WHERE id = $1
+	`, orgID); err != nil {
+		return fmt.Errorf("delete organization: %w", err)
+	}
+
+	senderID := actorMemberID
+	subject := "Organization permanently removed"
+	body := "User " + actorName + " has permanently removed the Organization " + orgName + "."
+	for _, recipientID := range recipientIDs {
+		if err := insertMessage(
+			ctx,
+			tx,
+			recipientID,
+			&senderID,
+			actorName,
+			types.MessageTypeInformation,
+			nil,
+			nil,
+			nil,
+			subject,
+			body,
+		); err != nil {
+			return fmt.Errorf("send organization delete message: %w", err)
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete organization: %w", err)
+	}
+	return nil
+}
+
 // UpdateOrganizationTimebankPolicy updates min/max/starting balance settings for an organization.
 func UpdateOrganizationTimebankPolicy(ctx context.Context, db *sql.DB, orgID int64, minBalance, maxBalance, startingBalance int) error {
 	if db == nil {
@@ -1210,8 +1417,8 @@ func UpdateOrganizationTimebankPolicy(ctx context.Context, db *sql.DB, orgID int
 	return nil
 }
 
-// CreateOrganization inserts an organization and sets the given member as the primary owner.
-func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, description string, primaryOwnerMemberID int64) (types.Organization, error) {
+// CreateOrganization inserts an organization and adds the creator as an owner.
+func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, description string, creatorMemberID int64) (types.Organization, error) {
 	if db == nil {
 		return types.Organization{}, ErrNilDB
 	}
@@ -1225,7 +1432,7 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 	if description == "" {
 		return types.Organization{}, ErrMissingField
 	}
-	if primaryOwnerMemberID == 0 {
+	if creatorMemberID == 0 {
 		return types.Organization{}, ErrMissingMemberID
 	}
 	defaultPolicy := timebankPolicy{
@@ -1237,18 +1444,18 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 		return types.Organization{}, err
 	}
 
-	var alreadyPrimaryOwner bool
+	var alreadyCreatedOrganization bool
 	if err := db.QueryRowContext(ctx, `
 		SELECT EXISTS (
 			SELECT 1
-			FROM organization_memberships
-			WHERE member_id = $1 AND is_primary_owner = TRUE AND left_at IS NULL
+			FROM organizations
+			WHERE created_by = $1
 		)
-	`, primaryOwnerMemberID).Scan(&alreadyPrimaryOwner); err != nil {
-		return types.Organization{}, fmt.Errorf("check existing primary ownership: %w", err)
+	`, creatorMemberID).Scan(&alreadyCreatedOrganization); err != nil {
+		return types.Organization{}, fmt.Errorf("check existing organization creator: %w", err)
 	}
-	if alreadyPrimaryOwner {
-		return types.Organization{}, ErrAlreadyPrimaryOwner
+	if alreadyCreatedOrganization {
+		return types.Organization{}, ErrOrganizationAlreadyCreated
 	}
 
 	tx, err := db.BeginTx(ctx, nil)
@@ -1274,7 +1481,7 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 				)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 				RETURNING id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
-			`, name, urlName, city, state, description, defaultPolicy.MinBalance, defaultPolicy.MaxBalance, defaultPolicy.StartingBalance, primaryOwnerMemberID)
+			`, name, urlName, city, state, description, defaultPolicy.MinBalance, defaultPolicy.MaxBalance, defaultPolicy.StartingBalance, creatorMemberID)
 		if err = row.Scan(&org.ID, &org.Name, &org.URLName, &org.City, &org.State, &org.Description, &org.TimebankMinBalance, &org.TimebankMaxBalance, &org.TimebankStartingBalance, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
 			if isUniqueConstraintViolation(err, organizationURLNameUniqueConstraint) {
 				continue
@@ -1288,10 +1495,10 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 	}
 
 	if _, err = tx.ExecContext(ctx, `
-		INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-		VALUES ($1, $2, 'owner', TRUE)
-	`, org.ID, primaryOwnerMemberID); err != nil {
-		return types.Organization{}, fmt.Errorf("add primary owner: %w", err)
+		INSERT INTO organization_memberships (organization_id, member_id, role)
+		VALUES ($1, $2, 'owner')
+	`, org.ID, creatorMemberID); err != nil {
+		return types.Organization{}, fmt.Errorf("add organization owner: %w", err)
 	}
 
 	if org.TimebankStartingBalance > 0 {
@@ -1305,7 +1512,7 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 				is_starting_balance
 			)
 			VALUES ($1, $2, $3, $4, $5, TRUE)
-		`, org.ID, primaryOwnerMemberID, primaryOwnerMemberID, org.TimebankStartingBalance, "Organization starting balance"); err != nil {
+		`, org.ID, creatorMemberID, creatorMemberID, org.TimebankStartingBalance, "Organization starting balance"); err != nil {
 			return types.Organization{}, fmt.Errorf("insert owner starting balance adjustment: %w", err)
 		}
 	}

@@ -54,8 +54,8 @@ func TestMatchHopToMemberSelectedSkillsWithAliases(t *testing.T) {
 	}
 	member := mustCreateMemberForSkillsTest(t, ctx, db, "member")
 	if _, err := db.ExecContext(ctx, `
-		INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-		VALUES ($1, $2, 'member', FALSE)
+		INSERT INTO organization_memberships (organization_id, member_id, role)
+		VALUES ($1, $2, 'member')
 	`, org.ID, member.ID); err != nil {
 		t.Fatalf("insert organization membership: %v", err)
 	}
@@ -106,8 +106,8 @@ func TestSortHopsByMemberSkillMatch(t *testing.T) {
 	}
 	member := mustCreateMemberForSkillsTest(t, ctx, db, "member")
 	if _, err := db.ExecContext(ctx, `
-		INSERT INTO organization_memberships (organization_id, member_id, role, is_primary_owner)
-		VALUES ($1, $2, 'member', FALSE)
+		INSERT INTO organization_memberships (organization_id, member_id, role)
+		VALUES ($1, $2, 'member')
 	`, org.ID, member.ID); err != nil {
 		t.Fatalf("insert organization membership: %v", err)
 	}

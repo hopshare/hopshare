@@ -104,26 +104,17 @@ func organizationSkillsBySource(skills []types.Skill, source string) []types.Ski
 	return sortedSkillsByName(out)
 }
 
-func hasPrimaryOwnedOrganization(orgs []types.MemberOrganization) bool {
+func hasLeaveableOrganization(orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64) bool {
 	for _, org := range orgs {
-		if org.IsPrimaryOwner {
+		if !containsInt64(leaveBlockedOrgIDs, org.ID) {
 			return true
 		}
 	}
 	return false
 }
 
-func hasLeaveableOrganization(orgs []types.MemberOrganization) bool {
-	for _, org := range orgs {
-		if !org.IsPrimaryOwner {
-			return true
-		}
-	}
-	return false
-}
-
-templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
-	@Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, skills, selectedSkillIDs, avatarMaxUploadBytes, successMsg, errorMsg))
+templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
+	@Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, skills, selectedSkillIDs, avatarMaxUploadBytes, successMsg, errorMsg))
 }
 
 templ SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) {
@@ -147,7 +138,7 @@ func profileImageSizeLabel(maxBytes int64) string {
 	return strconv.FormatInt(maxBytes, 10) + " bytes"
 }
 
-templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
+templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
 		<div
 			class="space-y-6"
 			x-data="{
@@ -434,23 +425,23 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 										<span class="text-sm font-semibold text-slate-900">{ org.Name }</span>
 									}
 								</div>
-								if !org.IsPrimaryOwner {
-										<button
-											class="text-sm font-semibold text-red-700 hover:text-red-800"
-											type="button"
-											data-testid={ "leave-org-button-" + strconv.FormatInt(org.ID, 10) }
-											data-org-id={ strconv.FormatInt(org.ID, 10) }
-											data-org-name={ org.Name }
-											x-on:click="openLeaveModal(parseInt($el.dataset.orgId, 10), $el.dataset.orgName)"
-										>
-											Leave
-										</button>
+								if !containsInt64(leaveBlockedOrgIDs, org.ID) {
+									<button
+										class="text-sm font-semibold text-red-700 hover:text-red-800"
+										type="button"
+										data-testid={ "leave-org-button-" + strconv.FormatInt(org.ID, 10) }
+										data-org-id={ strconv.FormatInt(org.ID, 10) }
+										data-org-name={ org.Name }
+										x-on:click="openLeaveModal(parseInt($el.dataset.orgId, 10), $el.dataset.orgName)"
+									>
+										Leave
+									</button>
 								}
 							</div>
 						}
 					</div>
 				}
-				if !hasPrimaryOwnedOrganization(orgs) {
+				if !hasCreatedOrganization {
 					<div class="mt-4">
 						<a class="inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800" href="/organizations/create">
 							Create an Organization
@@ -512,7 +503,7 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, skills
 				</section>
 			</div>
 
-			if hasLeaveableOrganization(orgs) {
+			if hasLeaveableOrganization(orgs, leaveBlockedOrgIDs) {
 				<div
 					class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
 					x-show="leaveModalOpen"

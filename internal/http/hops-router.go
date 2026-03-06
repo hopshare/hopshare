@@ -1,7 +1,6 @@
 package http
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -27,11 +26,11 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
 
-	hasPrimary := false
-	if _, err := service.PrimaryOwnedOrganization(r.Context(), s.db, user.ID); err == nil {
-		hasPrimary = true
-	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Printf("load primary organization for member %d: %v", user.ID, err)
+	hasCreatedOrganization, err := service.MemberCreatedOrganization(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("check member created organization for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
 	}
 
 	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
@@ -116,7 +115,7 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 		orgs,
 		currentOrgID,
 		myHops,
-		hasPrimary,
+		hasCreatedOrganization,
 		view,
 		viewTitle,
 		viewDescription,

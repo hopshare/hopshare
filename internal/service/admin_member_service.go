@@ -320,19 +320,27 @@ func AdminDeleteMember(ctx context.Context, db *sql.DB, memberID, actorMemberID 
 		return AdminDeleteMemberResult{}, ErrMemberAlreadyDeleted
 	}
 
-	var isPrimaryOwner bool
+	var isSoleOwner bool
 	if err := tx.QueryRowContext(ctx, `
 		SELECT EXISTS (
 			SELECT 1
-			FROM organization_memberships
-			WHERE member_id = $1
-				AND is_primary_owner = TRUE
-				AND left_at IS NULL
+			FROM organization_memberships om
+			WHERE om.member_id = $1
+				AND om.role = 'owner'
+				AND om.left_at IS NULL
+				AND NOT EXISTS (
+					SELECT 1
+					FROM organization_memberships other
+					WHERE other.organization_id = om.organization_id
+						AND other.role = 'owner'
+						AND other.left_at IS NULL
+						AND other.member_id <> $1
+				)
 		)
-	`, memberID).Scan(&isPrimaryOwner); err != nil {
-		return AdminDeleteMemberResult{}, fmt.Errorf("check primary owner before delete: %w", err)
+	`, memberID).Scan(&isSoleOwner); err != nil {
+		return AdminDeleteMemberResult{}, fmt.Errorf("check sole owner before delete: %w", err)
 	}
-	if isPrimaryOwner {
+	if isSoleOwner {
 		return AdminDeleteMemberResult{}, ErrMemberDeleteBlocked
 	}
 
@@ -372,7 +380,6 @@ func AdminDeleteMember(ctx context.Context, db *sql.DB, memberID, actorMemberID 
 		SET left_at = $2
 		WHERE member_id = $1
 			AND left_at IS NULL
-			AND is_primary_owner = FALSE
 	`, memberID, now)
 	if err != nil {
 		return AdminDeleteMemberResult{}, fmt.Errorf("close active memberships for delete: %w", err)
@@ -451,7 +458,6 @@ func adminUserMembershipTimeline(ctx context.Context, db *sql.DB, memberID int64
 			o.name,
 			o.url_name,
 			om.role,
-			om.is_primary_owner,
 			om.joined_at,
 			om.left_at
 		FROM organization_memberships om
@@ -473,7 +479,6 @@ func adminUserMembershipTimeline(ctx context.Context, db *sql.DB, memberID int64
 			&row.OrganizationName,
 			&row.OrganizationURLName,
 			&row.Role,
-			&row.IsPrimaryOwner,
 			&row.JoinedAt,
 			&leftAt,
 		); err != nil {
