@@ -58,7 +58,7 @@ func UnauthorizedBody() templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-4\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Unauthorized</h1><p class=\"text-slate-600\">This page is only available to organization owners.</p></div><div class=\"pt-2\"><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<section class=\"rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-4\"><div class=\"space-y-2\"><h1 class=\"text-2xl font-bold text-slate-900\">Unauthorized</h1><p class=\"text-slate-600\">This page is unavailable to you at this time.</p></div><div class=\"pt-2\"><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
