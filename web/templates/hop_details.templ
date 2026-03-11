@@ -89,6 +89,23 @@ func hopDetailsHasMobileActionBar(canOfferHelp bool, canCancel bool, canComplete
 	return canOfferHelp || canCancel || canComplete
 }
 
+templ HopDetailsStatusPill(status string) {
+	switch status {
+	case types.HopStatusOpen:
+		<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 md:px-2 md:py-0.5 md:text-xs">Pending</span>
+	case types.HopStatusAccepted:
+		<span class="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800 md:px-2 md:py-0.5 md:text-xs">Accepted</span>
+	case types.HopStatusCompleted:
+		<span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 md:px-2 md:py-0.5 md:text-xs">Completed</span>
+	case types.HopStatusCanceled:
+		<span class="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-sm font-semibold text-slate-800 md:px-2 md:py-0.5 md:text-xs">Canceled</span>
+	case types.HopStatusExpired:
+		<span class="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-sm font-semibold text-slate-800 md:px-2 md:py-0.5 md:text-xs">Expired</span>
+	default:
+		<span class="inline-flex items-center rounded-full bg-slate-200 px-3 py-1 text-sm font-semibold text-slate-800 md:px-2 md:py-0.5 md:text-xs">{ status }</span>
+	}
+}
+
 templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, hop types.Hop) {
 	<form
 		method="POST"
@@ -103,7 +120,6 @@ templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string,
 		<input type="hidden" name="hop_id" value={ hopID } />
 		<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
 		<input type="hidden" name="view" value={ backView } />
-		<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Visibility</p>
 		<div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-sm">
 			<label class="block cursor-pointer">
 				<input class="peer sr-only" type="radio" name="is_private" value="false" checked?={ !hop.IsPrivate } />
@@ -287,15 +303,12 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				/>
 				<a class="text-2xl font-bold text-slate-900 truncate underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
 			</div>
-			if showBack {
-				<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ hopDetailsBackLink(org.ID, backView) }>Back to My Hops</a>
-			}
 		</div>
 
 		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 			<div class="space-y-3">
 				<div class="flex flex-wrap items-center gap-3">
-					@StatusPill(hop.Status)
+					@HopDetailsStatusPill(hop.Status)
 					if canToggle && hop.Status != types.HopStatusOpen {
 						@HopPrivacyToggle(org.ID, hop.ID, showBack, backView, hop)
 					}
@@ -344,7 +357,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 					}
 					<div class="mt-4 space-y-1 text-sm text-slate-700">
 						<p><span class="font-semibold text-slate-900">Created:</span> { formatInAppTime(&hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
-						<p><span class="font-semibold text-slate-900">Needed_by:</span> { hopNeededByDateValue(hop) }</p>
+						<p><span class="font-semibold text-slate-900">Needed by:</span> { hopNeededByDateValue(hop) }</p>
 						if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
 							<p><span class="font-semibold text-slate-900">Completed:</span> { formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM") }</p>
 						} else if hop.Status == types.HopStatusCanceled && hop.CanceledAt != nil {
@@ -383,7 +396,10 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 						<h2 class="text-lg font-bold text-slate-900">Offers to help</h2>
 						<p class="text-sm text-slate-600">Choose who you want to accept for this pending hop.</p>
 					</div>
-					<p class="text-sm font-semibold text-slate-500">{ strconv.Itoa(len(pendingOffers)) } pending</p>
+					<div class="shrink-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+						<p class="text-xl font-bold text-slate-900">{ strconv.Itoa(len(pendingOffers)) }</p>
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pending</p>
+					</div>
 				</div>
 				if len(pendingOffers) == 0 {
 					<p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">No one has offered help yet.</p>
