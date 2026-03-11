@@ -220,8 +220,10 @@ func TestProfileHTTPMatrix(t *testing.T) {
 
 		loc := requireRedirectPath(t, actor.PostForm("/profile", formKV(
 			"action", "skills",
+			"tab", "skills",
 			"skill_ids", strconv.FormatInt(skillID, 10),
 		)), "/profile")
+		requireQueryValue(t, loc, "tab", "skills")
 		requireQueryValue(t, loc, "success", "Skills updated.")
 
 		selected, err := service.ListSelectedSkillIDsForMember(ctx, db, member.Member.ID)

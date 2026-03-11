@@ -1,7 +1,7 @@
 package templates
 
 templ ResetPassword(userEmail *string, token string, errorMsg string, successMsg string) {
-	@Base("hopShare | Reset password", userEmail, ResetPasswordBody(token, errorMsg, successMsg))
+	@Base(defaultPageContext("hopShare | Reset password"), userEmail, ResetPasswordBody(token, errorMsg, successMsg))
 }
 
 templ ResetPasswordBody(token string, errorMsg string, successMsg string) {

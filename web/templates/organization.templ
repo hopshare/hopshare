@@ -160,7 +160,7 @@ templ OrganizationMemberAvatar(orgID int64, memberID int64, displayName string, 
 }
 
 templ Organization(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {
-	@Base("hopShare | Organization", userEmail, OrganizationBody(userEmail, org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
+	@Base(organizationPageContext(showPendingPanel, org), userEmail, OrganizationBody(userEmail, org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
 }
 
 templ OrganizationBody(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {

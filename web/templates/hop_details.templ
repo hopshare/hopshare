@@ -57,32 +57,94 @@ func hopHelperDisplayName(hop types.Hop) string {
 	return name
 }
 
-func hopDetailsFromValue(showBack bool) string {
-	if showBack {
-		return "my-hops"
+func hopDetailsOriginValue(from string) string {
+	switch strings.ToLower(strings.TrimSpace(from)) {
+	case "my-hops", "dashboard", "organization":
+		return strings.ToLower(strings.TrimSpace(from))
+	default:
+		return ""
 	}
-	return ""
 }
 
-func hopDetailsBackLink(orgID int64, view string) string {
-	link := "/my-hops?org_id=" + strconv.FormatInt(orgID, 10)
-	view = strings.TrimSpace(view)
-	if view != "" {
-		link += "&view=" + url.QueryEscape(view)
+func hopDetailsBackLink(org types.Organization, from string, view string) string {
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		link := "/my-hops?org_id=" + strconv.FormatInt(org.ID, 10)
+		view = strings.TrimSpace(view)
+		if view != "" {
+			link += "&view=" + url.QueryEscape(view)
+		}
+		return link
+	case "organization":
+		return organizationHref(org)
+	case "dashboard":
+		return memberRootHref(org.ID)
+	default:
+		return memberRootHref(org.ID)
 	}
-	return link
 }
 
-func hopDetailsSelfLink(orgID, hopID int64, showBack bool, view string) string {
+func hopDetailsBackLabel(from string, view string) string {
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		return "My Hops"
+	case "organization":
+		return "Organization"
+	case "dashboard":
+		switch strings.ToLower(strings.TrimSpace(view)) {
+		case "active":
+			return "Active now"
+		case "recent":
+			return "Recent activity"
+		default:
+			return "My hopShare"
+		}
+	default:
+		return "My hopShare"
+	}
+}
+
+func hopDetailsSelfLink(orgID, hopID int64, from string, view string) string {
 	link := "/hops/view?hop_id=" + strconv.FormatInt(hopID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10)
-	if showBack {
-		link += "&from=my-hops"
+	if origin := hopDetailsOriginValue(from); origin != "" {
+		link += "&from=" + origin
 	}
 	view = strings.TrimSpace(view)
 	if view != "" {
 		link += "&view=" + url.QueryEscape(view)
 	}
 	return link
+}
+
+func hopDetailsTitle(hop types.Hop) string {
+	title := strings.TrimSpace(hop.Title)
+	if title == "" {
+		return "Hop details"
+	}
+	return title
+}
+
+func hopDetailsPageContext(org types.Organization, hop types.Hop, from string, view string) PageContext {
+	breadcrumbs := []PageBreadcrumb{
+		newBreadcrumb("My hopShare", memberRootHref(org.ID)),
+		newBreadcrumb(org.Name, organizationHref(org)),
+	}
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		breadcrumbs = append(breadcrumbs, newBreadcrumb("My Hops", hopDetailsBackLink(org, from, view)))
+		if viewLabel := myHopsViewLabel(view); strings.TrimSpace(viewLabel) != "" {
+			breadcrumbs = append(breadcrumbs, newBreadcrumb(viewLabel, ""))
+		}
+	case "dashboard":
+		label := hopDetailsBackLabel(from, view)
+		if label != "My hopShare" {
+			breadcrumbs = append(breadcrumbs, newBreadcrumb(label, hopDetailsBackLink(org, from, view)))
+		}
+	case "organization":
+		breadcrumbs = append(breadcrumbs, newBreadcrumb("Organization", hopDetailsBackLink(org, from, view)))
+	}
+	breadcrumbs = append(breadcrumbs, newBreadcrumb(hopDetailsTitle(hop), ""))
+	return newPageContext("hopShare | Hop details", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromOrg(org))
 }
 
 func hopDetailsHasMobileActionBar(canOfferHelp bool, canCancel bool, canComplete bool) bool {
@@ -106,7 +168,7 @@ templ HopDetailsStatusPill(status string) {
 	}
 }
 
-templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, hop types.Hop) {
+templ HopPrivacyToggle(orgID int64, hopID int64, from string, backView string, hop types.Hop) {
 	<form
 		method="POST"
 		action="/hops/privacy"
@@ -118,7 +180,7 @@ templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string,
 		@CSRFField()
 		<input type="hidden" name="org_id" value={ orgID } />
 		<input type="hidden" name="hop_id" value={ hopID } />
-		<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+		<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 		<input type="hidden" name="view" value={ backView } />
 		<div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-sm">
 			<label class="block cursor-pointer">
@@ -133,12 +195,12 @@ templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string,
 	</form>
 }
 
-templ HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, backView string, compact bool) {
+templ HopCommentComposer(org types.Organization, hop types.Hop, from string, backView string, compact bool) {
 	<form method="POST" action="/hops/comments/create" class="space-y-3">
 		@CSRFField()
 		<input type="hidden" name="org_id" value={ org.ID } />
 		<input type="hidden" name="hop_id" value={ hop.ID } />
-		<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+		<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 		<input type="hidden" name="view" value={ backView } />
 		<div class="space-y-1">
 			<label class="block text-sm font-semibold text-slate-800" for={ "hop-comment-body-" + strconv.FormatBool(compact) }>Add a comment</label>
@@ -159,7 +221,7 @@ templ HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, b
 	</form>
 }
 
-templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, backView string, canOfferHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool) {
+templ HopMobileActionBar(org types.Organization, hop types.Hop, from string, backView string, canOfferHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool) {
 	if hopDetailsHasMobileActionBar(canOfferHelp, canCancel, canComplete) {
 		<div
 			class="md:hidden"
@@ -179,7 +241,7 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 						@CSRFField()
 						<input type="hidden" name="org_id" value={ org.ID } />
 						<input type="hidden" name="hop_id" value={ hop.ID } />
-						<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+						<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 						<input type="hidden" name="view" value={ backView } />
 						<button class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help</button>
 					</form>
@@ -245,7 +307,7 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 							<template x-if="confirmKind === 'complete'">
 								<a
 									class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
-									href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
+									href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, from, backView)) }
 									data-hop-id={ hop.ID }
 									data-hop-title={ hop.Title }
 									data-hop-hours={ hop.EstimatedHours }
@@ -261,7 +323,7 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 									@CSRFField()
 									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="hop_id" value={ hop.ID } />
-									<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+									<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, from, backView) } />
 									<button class="inline-flex w-full items-center justify-center rounded-xl bg-rose-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-rose-800" type="submit">Yes, cancel hop</button>
 								</form>
 							</template>
@@ -281,11 +343,11 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 	}
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
-	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+	@Base(hopDetailsPageContext(org, hop, from, backView), userEmail, HopDetailsBody(org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6 pb-32 md:pb-0">
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ successMsg }</div>
@@ -309,8 +371,8 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			<div class="space-y-3">
 				<div class="flex flex-wrap items-center gap-3">
 					@HopDetailsStatusPill(hop.Status)
-					if canToggle && hop.Status != types.HopStatusOpen {
-						@HopPrivacyToggle(org.ID, hop.ID, showBack, backView, hop)
+						if canToggle && hop.Status != types.HopStatusOpen {
+							@HopPrivacyToggle(org.ID, hop.ID, from, backView, hop)
 					}
 				</div>
 				<h1 class="text-2xl font-bold text-slate-900">{ hop.Title }</h1>
@@ -425,7 +487,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 											<input type="hidden" name="org_id" value={ org.ID } />
 											<input type="hidden" name="hop_id" value={ hop.ID } />
 											<input type="hidden" name="offer_member_id" value={ offer.MemberID } />
-											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, from, backView) } />
 											<button class="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-white" type="submit">Decline</button>
 										</form>
 										<form method="POST" action="/hops/offers/accept">
@@ -433,7 +495,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 											<input type="hidden" name="org_id" value={ org.ID } />
 											<input type="hidden" name="hop_id" value={ hop.ID } />
 											<input type="hidden" name="offer_member_id" value={ offer.MemberID } />
-											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, from, backView) } />
 											<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700" type="submit">Accept</button>
 										</form>
 									</div>
@@ -451,7 +513,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
-					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+					<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 					<input type="hidden" name="view" value={ backView } />
 					<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-6 py-4 text-xl font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help...</button>
 				</form>
@@ -461,7 +523,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			<section class="hidden bg-white border border-slate-200 rounded-xl shadow-sm p-8 md:block">
 				<a
 					class="inline-flex w-full items-center justify-center rounded-lg bg-sky-700 px-6 py-4 text-xl font-semibold text-white transition hover:bg-sky-800"
-					href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
+					href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, from, backView)) }
 					data-hop-id={ hop.ID }
 					data-hop-title={ hop.Title }
 					data-hop-hours={ hop.EstimatedHours }
@@ -477,7 +539,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
 					<input type="hidden" name="hop_id" value={ hop.ID } />
-					<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+					<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, from, backView) } />
 					<button class="inline-flex w-full items-center justify-center rounded-lg border border-rose-200 px-6 py-4 text-xl font-semibold text-rose-700 transition hover:bg-rose-50" type="submit">Cancel</button>
 				</form>
 			</section>
@@ -513,7 +575,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 							@CSRFField()
 							<input type="hidden" name="org_id" value={ org.ID } />
 							<input type="hidden" name="hop_id" value={ hop.ID } />
-							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+							<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 							<input type="hidden" name="view" value={ backView } />
 							<input class="w-full sm:w-auto text-sm" type="file" name="image" accept="image/*" required />
 							<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Upload</button>
@@ -541,7 +603,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 											<input type="hidden" name="org_id" value={ org.ID } />
 											<input type="hidden" name="hop_id" value={ hop.ID } />
 											<input type="hidden" name="image_id" value={ img.ID } />
-											<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+											<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 											<input type="hidden" name="view" value={ backView } />
 											<button class="text-xs font-semibold text-rose-600 hover:text-rose-700" type="submit">Remove</button>
 										</form>
@@ -551,7 +613,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 										<input type="hidden" name="org_id" value={ org.ID } />
 										<input type="hidden" name="hop_id" value={ hop.ID } />
 										<input type="hidden" name="image_id" value={ img.ID } />
-										<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+										<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 										<input type="hidden" name="view" value={ backView } />
 										<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this image</button>
 									</form>
@@ -592,7 +654,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 
 			if canComment {
 				<div class="md:hidden">
-					@HopCommentComposer(org, hop, showBack, backView, true)
+					@HopCommentComposer(org, hop, from, backView, true)
 				</div>
 			}
 
@@ -618,7 +680,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 									<input type="hidden" name="org_id" value={ org.ID } />
 									<input type="hidden" name="hop_id" value={ hop.ID } />
 									<input type="hidden" name="comment_id" value={ comment.ID } />
-									<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+									<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 									<input type="hidden" name="view" value={ backView } />
 									<button class="text-xs font-semibold text-slate-600 hover:text-slate-800" type="submit">Report this comment</button>
 								</form>
@@ -630,12 +692,12 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 
 			if canComment {
 				<div class="hidden md:block">
-					@HopCommentComposer(org, hop, showBack, backView, false)
+					@HopCommentComposer(org, hop, from, backView, false)
 				</div>
 			} else {
 				<p class="text-sm text-slate-500">Comments are limited to members on this hop.</p>
 			}
 		</section>
-		@HopMobileActionBar(org, hop, showBack, backView, canOfferHelp, canCancel, canComplete, canSetCompletionHours)
+		@HopMobileActionBar(org, hop, from, backView, canOfferHelp, canCancel, canComplete, canSetCompletionHours)
 	</div>
 }

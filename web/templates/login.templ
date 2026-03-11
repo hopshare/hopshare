@@ -3,7 +3,7 @@ package templates
 import "net/url"
 
 templ Login(userEmail *string, errorMsg string, successMsg string, next string, email string) {
-	@Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next, email))
+	@Base(defaultPageContext("hopShare | Login"), userEmail, LoginBody(errorMsg, successMsg, next, email))
 }
 
 templ LoginBody(errorMsg string, successMsg string, next string, email string) {

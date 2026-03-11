@@ -121,7 +121,7 @@ func hasLeaveableOrganization(orgs []types.MemberOrganization, leaveBlockedOrgID
 	return false
 }
 
-func MyProfile(email string, member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) templ.Component {
+func MyProfile(email string, member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, activeTab string, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -142,7 +142,7 @@ func MyProfile(email string, member types.Member, orgs []types.MemberOrganizatio
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, skills, selectedSkillIDs, avatarMaxUploadBytes, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(profilePageContext(activeTab), &email, MyProfileBody(member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, skills, selectedSkillIDs, avatarMaxUploadBytes, activeTab, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -243,7 +243,23 @@ func profileImageSizeLabel(maxBytes int64) string {
 	return strconv.FormatInt(maxBytes, 10) + " bytes"
 }
 
-func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) templ.Component {
+func profileTabHref(tab string) string {
+	tab = strings.ToLower(strings.TrimSpace(tab))
+	if tab == "" || tab == "details" {
+		return "/profile"
+	}
+	return "/profile?tab=" + tab
+}
+
+func profilePageXData(activeTab string) string {
+	activeTab = strings.ToLower(strings.TrimSpace(activeTab))
+	if activeTab == "" {
+		activeTab = "details"
+	}
+	return "{ activeTab: '" + activeTab + "', leaveModalOpen: false, leaveOrgID: 0, leaveOrgName: '', deleteModalOpen: false, deleteConfirmation: '', requiredDeletePhrase: 'I want to leave hopShare', openLeaveModal(id, name) { this.leaveOrgID = id; this.leaveOrgName = name; this.leaveModalOpen = true; }, closeLeaveModal() { this.leaveModalOpen = false; this.leaveOrgID = 0; this.leaveOrgName = ''; } }"
+}
+
+func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, activeTab string, successMsg string, errorMsg string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -264,187 +280,140 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 			templ_7745c5c3_Var6 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"space-y-6\" x-data=\"{\n\t\t\t\tactiveTab: 'details',\n\t\t\t\tleaveModalOpen: false,\n\t\t\t\tleaveOrgID: 0,\n\t\t\t\tleaveOrgName: '',\n\t\t\t\tdeleteModalOpen: false,\n\t\t\t\tdeleteConfirmation: '',\n\t\t\t\trequiredDeletePhrase: 'I want to leave hopShare',\n\t\t\t\topenLeaveModal(id, name) {\n\t\t\t\t\tthis.leaveOrgID = id;\n\t\t\t\t\tthis.leaveOrgName = name;\n\t\t\t\t\tthis.leaveModalOpen = true;\n\t\t\t\t},\n\t\t\t\tcloseLeaveModal() {\n\t\t\t\t\tthis.leaveModalOpen = false;\n\t\t\t\t\tthis.leaveOrgID = 0;\n\t\t\t\t\tthis.leaveOrgName = '';\n\t\t\t\t},\n\t\t\t\tinit() {\n\t\t\t\t\tconst tab = new URLSearchParams(window.location.search).get('tab');\n\t\t\t\t\tif (tab === 'details' || tab === 'organizations' || tab === 'skills' || tab === 'account') {\n\t\t\t\t\t\tthis.activeTab = tab;\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\" x-on:keydown.escape.window=\"deleteModalOpen = false; deleteConfirmation = ''; closeLeaveModal()\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"space-y-6\" x-data=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(profilePageXData(activeTab))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 160, Col: 39}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" x-on:keydown.escape.window=\"deleteModalOpen = false; deleteConfirmation = ''; closeLeaveModal()\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if successMsg != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 172, Col: 106}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		if errorMsg != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div class=\"rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 175, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 164, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><div><h1 class=\"text-2xl font-bold text-slate-900\">My Profile</h1><p class=\"text-sm text-slate-600\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if errorMsg != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var9 string
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 167, Col: 92}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 181, Col: 56}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><div><h1 class=\"text-2xl font-bold text-slate-900\">My Profile</h1><p class=\"text-sm text-slate-600\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 181, Col: 76}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 173, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div><div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Profile tabs\"><button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'details'\">Details</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'organizations' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'organizations'\">Organizations</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'skills'\">Skills</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'account' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'account'\">My Account</button></nav></div><div class=\"grid gap-6 lg:grid-cols-2\" x-show=\"activeTab === 'details'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Profile details</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\" enctype=\"multipart/form-data\" x-data=\"{\n\t\t\t\t\t\tavatarChanged: false,\n\t\t\t\t\t\tavatarName: '',\n\t\t\t\t\t\tavatarPreview: '',\n\t\t\t\t\t\thandleAvatarChange(e) {\n\t\t\t\t\t\t\tconst f = e.target.files && e.target.files[0];\n\t\t\t\t\t\t\tif (!f) {\n\t\t\t\t\t\t\t\tthis.avatarChanged = false;\n\t\t\t\t\t\t\t\tthis.avatarName = '';\n\t\t\t\t\t\t\t\tthis.avatarPreview = '';\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tthis.avatarChanged = true;\n\t\t\t\t\t\t\tthis.avatarName = f.name;\n\t\t\t\t\t\t\tconst reader = new FileReader();\n\t\t\t\t\t\t\treader.onload = () => { this.avatarPreview = reader.result; };\n\t\t\t\t\t\t\treader.readAsDataURL(f);\n\t\t\t\t\t\t},\n\t\t\t\t\t}\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<input type=\"hidden\" name=\"action\" value=\"profile\"><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"first_name\">First name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"first_name\" name=\"first_name\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 262, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 173, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div><div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Profile tabs\"><a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
+		var templ_7745c5c3_Var12 templ.SafeURL
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(profileTabHref("details"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 273, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 183, Col: 37}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email address</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\">Details</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'organizations' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(member.Email)
+		var templ_7745c5c3_Var13 templ.SafeURL
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(profileTabHref("organizations"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 285, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 190, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"preferred_contact\">Preferred contact</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"preferred_contact\" name=\"preferred_contact\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\">Organizations</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(member.PreferredContact)
+		var templ_7745c5c3_Var14 templ.SafeURL
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinURLErrs(profileTabHref("skills"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 296, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 197, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"city\">City</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"city\" name=\"city\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\">Skills</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'account' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.City))
+		var templ_7745c5c3_Var15 templ.SafeURL
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(profileTabHref("account"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 307, Col: 42}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 204, Col: 37}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"state\">State</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"state\" name=\"state\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.State))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 317, Col: 43}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"></div></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current avatar</p><div class=\"flex items-center gap-3\"><img class=\"h-16 w-16 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" src=\"/members/avatar\" alt=\"Your avatar\"><template x-if=\"avatarChanged\"><p class=\"text-sm text-slate-600\"><span class=\"font-semibold text-slate-900\">New avatar selected:</span> <span x-text=\"avatarName\"></span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"avatar_file\">Update avatar (optional)</label><p class=\"text-xs font-semibold text-slate-700\">Maximum avatar file size: ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(profileImageSizeLabel(avatarMaxUploadBytes))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 335, Col: 125}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, ".</p><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"avatarChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new avatar here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(profileImageSizeLabel(avatarMaxUploadBytes))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 338, Col: 113}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, ")</p><template x-if=\"avatarChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" x-show=\"avatarPreview\" x-bind:src=\"avatarPreview\" alt=\"Selected avatar preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"avatarName\"></span></p></div></template><input id=\"avatar_file\" name=\"avatar_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full cursor-pointer opacity-0\" x-on:change=\"handleAvatarChange($event)\"></div><p class=\"text-xs text-slate-500\">Note: changes to your avatar may take up to an hour to take effect</p></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save profile</button></form></section><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Change password</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\">My Account</a></nav></div><div class=\"grid gap-6 lg:grid-cols-2\" x-show=\"activeTab === 'details'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Profile details</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\" enctype=\"multipart/form-data\" x-data=\"{\n\t\t\t\t\t\tavatarChanged: false,\n\t\t\t\t\t\tavatarName: '',\n\t\t\t\t\t\tavatarPreview: '',\n\t\t\t\t\t\thandleAvatarChange(e) {\n\t\t\t\t\t\t\tconst f = e.target.files && e.target.files[0];\n\t\t\t\t\t\t\tif (!f) {\n\t\t\t\t\t\t\t\tthis.avatarChanged = false;\n\t\t\t\t\t\t\t\tthis.avatarName = '';\n\t\t\t\t\t\t\t\tthis.avatarPreview = '';\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tthis.avatarChanged = true;\n\t\t\t\t\t\t\tthis.avatarName = f.name;\n\t\t\t\t\t\t\tconst reader = new FileReader();\n\t\t\t\t\t\t\treader.onload = () => { this.avatarPreview = reader.result; };\n\t\t\t\t\t\t\treader.readAsDataURL(f);\n\t\t\t\t\t\t},\n\t\t\t\t\t}\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -452,146 +421,209 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<input type=\"hidden\" name=\"action\" value=\"password\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"current_password\">Current password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"current_password\" name=\"current_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"new_password\">New password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"new_password\" name=\"new_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"confirm_password\">Confirm new password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required></div><button class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400\" type=\"submit\">Update password</button></form></section></div><div x-show=\"activeTab === 'organizations'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">My Organizations</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<input type=\"hidden\" name=\"action\" value=\"profile\"> <input type=\"hidden\" name=\"tab\" value=\"details\"><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"first_name\">First name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"first_name\" name=\"first_name\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var16 string
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(member.FirstName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 251, Col: 32}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"last_name\">Last name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"last_name\" name=\"last_name\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(member.LastName)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 262, Col: 31}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"email\">Email address</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"email\" id=\"email\" name=\"email\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(member.Email)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 274, Col: 27}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"preferred_contact\">Preferred contact</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"preferred_contact\" name=\"preferred_contact\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(member.PreferredContact)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 285, Col: 38}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\"></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"city\">City</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"city\" name=\"city\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.City))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 296, Col: 42}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"state\">State</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"state\" name=\"state\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var21 string
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(stringOrEmpty(member.State))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 306, Col: 43}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"></div></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current avatar</p><div class=\"flex items-center gap-3\"><img class=\"h-16 w-16 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" src=\"/members/avatar\" alt=\"Your avatar\"><template x-if=\"avatarChanged\"><p class=\"text-sm text-slate-600\"><span class=\"font-semibold text-slate-900\">New avatar selected:</span> <span x-text=\"avatarName\"></span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"avatar_file\">Update avatar (optional)</label><p class=\"text-xs font-semibold text-slate-700\">Maximum avatar file size: ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var22 string
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(profileImageSizeLabel(avatarMaxUploadBytes))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 324, Col: 125}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, ".</p><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"avatarChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new avatar here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var23 string
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(profileImageSizeLabel(avatarMaxUploadBytes))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 327, Col: 113}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, ")</p><template x-if=\"avatarChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded-full bg-slate-100 object-cover ring-1 ring-slate-200\" x-show=\"avatarPreview\" x-bind:src=\"avatarPreview\" alt=\"Selected avatar preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"avatarName\"></span></p></div></template><input id=\"avatar_file\" name=\"avatar_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full cursor-pointer opacity-0\" x-on:change=\"handleAvatarChange($event)\"></div><p class=\"text-xs text-slate-500\">Note: changes to your avatar may take up to an hour to take effect</p></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save profile</button></form></section><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Change password</h2><form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<input type=\"hidden\" name=\"action\" value=\"password\"> <input type=\"hidden\" name=\"tab\" value=\"details\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"current_password\">Current password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"current_password\" name=\"current_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"new_password\">New password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"new_password\" name=\"new_password\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"confirm_password\">Confirm new password</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"password\" id=\"confirm_password\" name=\"confirm_password\" required></div><button class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400\" type=\"submit\">Update password</button></form></section></div><div x-show=\"activeTab === 'organizations'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">My Organizations</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(orgs) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<p class=\"mt-2 text-sm text-slate-600\">You are not associated with any organizations yet.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<p class=\"mt-2 text-sm text-slate-600\">You are not associated with any organizations yet.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"mt-4 space-y-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<div class=\"mt-4 space-y-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, org := range orgs {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2\"><div class=\"flex items-center gap-3\"><img src=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2\"><div class=\"flex items-center gap-3\"><img src=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 418, Col: 131}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 408, Col: 131}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" alt=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 419, Col: 34}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\" alt=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" class=\"h-11 w-11 rounded bg-white object-contain ring-1 ring-slate-200\"> ")
+				var templ_7745c5c3_Var25 string
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 409, Col: 34}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" class=\"h-11 w-11 rounded bg-white object-contain ring-1 ring-slate-200\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if org.Role == "owner" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var21 templ.SafeURL
-					templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs("/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10))
+					var templ_7745c5c3_Var26 templ.SafeURL
+					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinURLErrs("/organizations/manage?org_id=" + strconv.FormatInt(org.ID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 423, Col: 155}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var22 string
-					templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 423, Col: 168}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</a>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<span class=\"text-sm font-semibold text-slate-900\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var23 string
-					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 425, Col: 71}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</span>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if !containsInt64(leaveBlockedOrgIDs, org.ID) {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<button class=\"text-sm font-semibold text-red-700 hover:text-red-800\" type=\"button\" data-testid=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var24 string
-					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("leave-org-button-" + strconv.FormatInt(org.ID, 10))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 432, Col: 75}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" data-org-id=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var25 string
-					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(org.ID, 10))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 433, Col: 53}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" data-org-name=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var26 string
-					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 434, Col: 34}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 413, Col: 155}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" x-on:click=\"openLeaveModal(parseInt($el.dataset.orgId, 10), $el.dataset.orgName)\">Leave</button>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var27 string
+					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 413, Col: 168}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</a>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<span class=\"text-sm font-semibold text-slate-900\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var28 string
+					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 415, Col: 71}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -600,29 +632,78 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				if !containsInt64(leaveBlockedOrgIDs, org.ID) {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<button class=\"text-sm font-semibold text-red-700 hover:text-red-800\" type=\"button\" data-testid=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var29 string
+					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs("leave-org-button-" + strconv.FormatInt(org.ID, 10))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 422, Col: 75}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\" data-org-id=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var30 string
+					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(org.ID, 10))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 423, Col: 53}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\" data-org-name=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var31 string
+					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 424, Col: 34}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\" x-on:click=\"openLeaveModal(parseInt($el.dataset.orgId, 10), $el.dataset.orgName)\">Leave</button>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
 		if !hasCreatedOrganization {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"mt-4\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" href=\"/organizations/create\">Create an Organization</a></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"mt-4\"><a class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" href=\"/organizations/create\">Create an Organization</a></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</section></div><div x-show=\"activeTab === 'skills'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Skills</h2><p class=\"mt-1 text-sm text-slate-600\">Select all skills that apply to you.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</section></div><div x-show=\"activeTab === 'skills'\"><section class=\"rounded-xl border border-slate-200 bg-white p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-slate-900\">Skills</h2><p class=\"mt-1 text-sm text-slate-600\">Select all skills that apply to you.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(skills) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<p class=\"mt-4 text-sm text-slate-600\">No skills are available for your account yet.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<p class=\"mt-4 text-sm text-slate-600\">No skills are available for your account yet.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<form class=\"mt-4 space-y-4\" method=\"POST\" action=\"/profile\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -630,12 +711,12 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<input type=\"hidden\" name=\"action\" value=\"skills\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<input type=\"hidden\" name=\"action\" value=\"skills\"> <input type=\"hidden\" name=\"tab\" value=\"skills\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(defaultSkills(skills)) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">Default Skills</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">Default Skills</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -645,26 +726,26 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			for _, source := range organizationSkillSources(skills) {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<div class=\"rounded-lg border border-slate-200 bg-slate-50 p-4\"><h3 class=\"text-sm font-semibold text-slate-900\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var27 string
-				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(source)
+				var templ_7745c5c3_Var32 string
+				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(source)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 476, Col: 65}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myprofile.templ`, Line: 467, Col: 65}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</h3><div class=\"mt-3 grid gap-2 sm:grid-cols-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -674,22 +755,22 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</div></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save skills</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<button class=\"inline-flex justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800\" type=\"submit\">Save skills</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</section></div><div x-show=\"activeTab === 'account'\"><section class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone!</h2><p class=\"mt-2 text-sm text-red-700\">Deleting your account disables your access immediately.</p><button type=\"button\" class=\"mt-4 inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"deleteModalOpen = true; deleteConfirmation = ''\">Delete my Account</button></section></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</section></div><div x-show=\"activeTab === 'account'\"><section class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone!</h2><p class=\"mt-2 text-sm text-red-700\">Deleting your account disables your access immediately.</p><button type=\"button\" class=\"mt-4 inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"deleteModalOpen = true; deleteConfirmation = ''\">Delete my Account</button></section></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if hasLeaveableOrganization(orgs, leaveBlockedOrgIDs) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"leaveModalOpen\" x-on:click.self=\"closeLeaveModal()\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Leave organization?</h3><p class=\"mt-2 text-sm text-slate-700\">Are you sure you want to leave Organization <span class=\"font-semibold text-slate-900\" x-text=\"leaveOrgName\"></span>?</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"leaveModalOpen\" x-on:click.self=\"closeLeaveModal()\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Leave organization?</h3><p class=\"mt-2 text-sm text-slate-700\">Are you sure you want to leave Organization <span class=\"font-semibold text-slate-900\" x-text=\"leaveOrgName\"></span>?</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -697,12 +778,12 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<input type=\"hidden\" name=\"action\" value=\"leave_organization\"> <input type=\"hidden\" name=\"org_id\" x-bind:value=\"leaveOrgID\"><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeLeaveModal()\">No</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800\">Yes</button></div></form></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<input type=\"hidden\" name=\"action\" value=\"leave_organization\"> <input type=\"hidden\" name=\"tab\" value=\"organizations\"> <input type=\"hidden\" name=\"org_id\" x-bind:value=\"leaveOrgID\"><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeLeaveModal()\">No</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800\">Yes</button></div></form></div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteModalOpen\" x-on:click.self=\"deleteModalOpen = false; deleteConfirmation = ''\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Confirm account deletion</h3><p class=\"mt-2 text-sm text-slate-700\">To continue, type this sentence exactly:</p><p class=\"mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\">I want to leave hopShare</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteModalOpen\" x-on:click.self=\"deleteModalOpen = false; deleteConfirmation = ''\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl\"><h3 class=\"text-lg font-semibold text-slate-900\">Confirm account deletion</h3><p class=\"mt-2 text-sm text-slate-700\">To continue, type this sentence exactly:</p><p class=\"mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\">I want to leave hopShare</p><form method=\"POST\" action=\"/profile\" class=\"mt-4 space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -710,7 +791,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<input type=\"hidden\" name=\"action\" value=\"delete_account\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_account_confirmation\">Confirmation phrase</label> <input id=\"delete_account_confirmation\" name=\"delete_account_confirmation\" type=\"text\" required x-model=\"deleteConfirmation\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to leave hopShare\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"deleteModalOpen = false; deleteConfirmation = ''\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteConfirmation === requiredDeletePhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteConfirmation !== requiredDeletePhrase\">Submit</button></div></form></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<input type=\"hidden\" name=\"action\" value=\"delete_account\"> <input type=\"hidden\" name=\"tab\" value=\"account\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_account_confirmation\">Confirmation phrase</label> <input id=\"delete_account_confirmation\" name=\"delete_account_confirmation\" type=\"text\" required x-model=\"deleteConfirmation\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to leave hopShare\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"deleteModalOpen = false; deleteConfirmation = ''\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteConfirmation === requiredDeletePhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteConfirmation !== requiredDeletePhrase\">Submit</button></div></form></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

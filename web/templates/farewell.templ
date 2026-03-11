@@ -1,7 +1,7 @@
 package templates
 
 templ Farewell(userEmail *string) {
-	@Base("hopShare | Farewell", userEmail, FarewellBody())
+	@Base(defaultPageContext("hopShare | Farewell"), userEmail, FarewellBody())
 }
 
 templ FarewellBody() {

@@ -27,7 +27,7 @@ templ Messages(
 	successMsg string,
 	errorMsg string,
 ) {
-	@Base("hopShare | Messages", &email, MessagesBody(messages, selected, successMsg, errorMsg))
+	@Base(messagesPageContext(selected), &email, MessagesBody(messages, selected, successMsg, errorMsg))
 }
 
 templ MessagesBody(
@@ -57,10 +57,7 @@ templ MessagesMobile(messages []types.Message, selected *types.Message) {
 			</div>
 			@MessagesMobileInbox(messages)
 		} else {
-			<div class="flex items-center gap-3">
-				<a class="inline-flex items-center gap-2 text-base font-semibold text-sky-700 underline hover:text-sky-800" href="/messages">Back</a>
-				<h1 class="text-2xl font-bold text-slate-900">Message</h1>
-			</div>
+			<h1 class="text-2xl font-bold text-slate-900">Message</h1>
 			@MessagesMobileDetail(*selected)
 		}
 	</div>

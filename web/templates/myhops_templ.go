@@ -137,7 +137,7 @@ func MyHops(
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(myHopsPageContext(orgs, currentOrgID, viewKey), &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

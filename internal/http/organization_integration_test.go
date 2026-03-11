@@ -377,9 +377,11 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/manage", formKV(
 			"action", "skills",
+			"tab", "skills",
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"skills_text", "Carpentry\nErrands\n",
 		)), "/organizations/manage")
+		requireQueryValue(t, loc, "tab", "skills")
 		requireQueryValue(t, loc, "success", "Organization skills updated.")
 
 		skills, err := service.ListOrganizationSkills(ctx, db, org.ID)
@@ -404,11 +406,13 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		actor.Login()
 		loc := requireRedirectPath(t, actor.PostForm("/organizations/manage", formKV(
 			"action", "timebank",
+			"tab", "timebank",
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"timebank_min_balance", "-4",
 			"timebank_max_balance", "12",
 			"timebank_starting_balance", "6",
 		)), "/organizations/manage")
+		requireQueryValue(t, loc, "tab", "timebank")
 		requireQueryValue(t, loc, "success", "Time bank settings updated.")
 
 		updated, err := service.GetOrganizationByID(ctx, db, org.ID)

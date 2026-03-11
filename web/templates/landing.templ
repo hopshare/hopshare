@@ -1,7 +1,7 @@
 package templates
 
 templ Landing(userEmail *string) {
-	@Base("hopShare | Timebanking made simple", userEmail, LandingBody())
+	@Base(defaultPageContext("hopShare | Timebanking made simple"), userEmail, LandingBody())
 }
 
 templ LandingBody() {

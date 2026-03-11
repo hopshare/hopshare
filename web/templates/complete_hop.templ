@@ -62,7 +62,7 @@ func completionContextLine(hop types.Hop, canSetCompletionHours bool) string {
 }
 
 templ CompleteHopPage(email string, org types.Organization, hop types.Hop, canSetCompletionHours bool, redirectTo string, errorMsg string) {
-	@Base("hopShare | Complete a hop", &email, CompleteHopPageBody(org, hop, canSetCompletionHours, redirectTo, errorMsg))
+	@Base(completeHopPageContext(org), &email, CompleteHopPageBody(org, hop, canSetCompletionHours, redirectTo, errorMsg))
 }
 
 templ CompleteHopPageBody(org types.Organization, hop types.Hop, canSetCompletionHours bool, redirectTo string, errorMsg string) {

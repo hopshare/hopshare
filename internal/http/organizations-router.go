@@ -536,7 +536,10 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		if action == "" {
 			action = "details"
 		}
-		activeTab = normalizeManageOrganizationTab(action)
+		activeTab = normalizeManageOrganizationTab(r.FormValue("tab"))
+		if activeTab == "details" && action != "details" && strings.TrimSpace(r.FormValue("tab")) == "" {
+			activeTab = normalizeManageOrganizationTab(action)
+		}
 		invitePostRedirect = normalizeManageOrganizationInvitePostRedirect(r.FormValue("post_invite_redirect"))
 
 		switch action {
@@ -573,7 +576,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				}
 			}
 
-			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization updated.", activeTab)
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization updated.", activeTab, invitePostRedirect)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		case "skills":
 			skillNames := parseSkillLines(r.FormValue("skills_text"))
@@ -582,7 +585,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not update skills.", activeTab, invitePostRedirect))
 				return
 			}
-			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization skills updated.", activeTab)
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization skills updated.", activeTab, invitePostRedirect)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		case "timebank":
 			minBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_min_balance")))
@@ -617,7 +620,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				return
 			}
 
-			redirectURL := manageOrganizationRedirectURL(org.ID, "Time bank settings updated.", activeTab)
+			redirectURL := manageOrganizationRedirectURL(org.ID, "Time bank settings updated.", activeTab, invitePostRedirect)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		case "delete_organization":
 			confirmation := r.FormValue("delete_organization_confirmation")
@@ -781,7 +784,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 				return
 			}
-			redirectURL := manageOrganizationRedirectURL(org.ID, success, activeTab)
+			redirectURL := manageOrganizationRedirectURL(org.ID, success, activeTab, invitePostRedirect)
 			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 		default:
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -811,7 +814,7 @@ func normalizeManageOrganizationInvitePostRedirect(raw string) string {
 	}
 }
 
-func manageOrganizationRedirectURL(orgID int64, successMsg, activeTab string) string {
+func manageOrganizationRedirectURL(orgID int64, successMsg, activeTab string, invitePostRedirect string) string {
 	query := url.Values{}
 	if orgID != 0 {
 		query.Set("org_id", strconv.FormatInt(orgID, 10))
@@ -822,6 +825,10 @@ func manageOrganizationRedirectURL(orgID int64, successMsg, activeTab string) st
 	tab := normalizeManageOrganizationTab(activeTab)
 	if tab != "details" {
 		query.Set("tab", tab)
+	}
+	invitePostRedirect = normalizeManageOrganizationInvitePostRedirect(invitePostRedirect)
+	if invitePostRedirect != "" {
+		query.Set("post_invite_redirect", invitePostRedirect)
 	}
 	return "/organizations/manage?" + query.Encode()
 }

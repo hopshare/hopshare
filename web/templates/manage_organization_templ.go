@@ -50,6 +50,19 @@ func manageOrganizationDeleteXData() string {
 	return "{ deleteOrgModalOpen: false, deleteOrgStep: 1, deleteOrgName: '', deleteOrgRequiredPhrase: '', deleteOrgPhrase: '', openDeleteOrgModal(name) { this.deleteOrgName = name; this.deleteOrgRequiredPhrase = 'I want to remove ' + name; this.deleteOrgPhrase = ''; this.deleteOrgStep = 1; this.deleteOrgModalOpen = true; }, chooseDeleteOrg(choice) { if (choice === 'yes') { this.deleteOrgStep = 2; } else { this.closeDeleteOrgModal(); } }, closeDeleteOrgModal() { this.deleteOrgModalOpen = false; this.deleteOrgStep = 1; this.deleteOrgName = ''; this.deleteOrgRequiredPhrase = ''; this.deleteOrgPhrase = ''; } }"
 }
 
+func manageOrganizationTabHref(orgID int64, tab string, invitePostRedirect string) string {
+	query := "?org_id=" + strconv.FormatInt(orgID, 10)
+	tab = manageOrganizationActiveTab(tab)
+	if tab != "details" {
+		query += "&tab=" + tab
+	}
+	invitePostRedirect = manageOrganizationInvitePostRedirect(invitePostRedirect)
+	if invitePostRedirect != "" {
+		query += "&post_invite_redirect=" + invitePostRedirect
+	}
+	return "/organizations/manage" + query
+}
+
 func ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -71,7 +84,7 @@ func ManageOrganization(userEmail *string, org types.Organization, requests []ty
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -100,7 +113,7 @@ func ManageOrganizationWithMembers(userEmail *string, org types.Organization, re
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -136,7 +149,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs("{ activeTab: '" + manageOrganizationActiveTab(activeTab) + "' }")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 54, Col: 160}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 67, Col: 160}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -154,7 +167,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 63, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 76, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -173,7 +186,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 66, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 79, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -184,377 +197,442 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Manage organization tabs\"><button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'details'\">Details</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'members' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'members'\">Members</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'skills'\">Skills</button> <button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'timebank'\">Time Bank</button> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Manage organization tabs\"><a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if invitesEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<button type=\"button\" class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'invite' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" x-on:click=\"activeTab = 'invite'\">Invite</button>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</nav></div><div x-show=\"activeTab === 'details'\" class=\"space-y-6\"><div class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Organization details</h2><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\" enctype=\"multipart/form-data\" x-data=\"{\n\t\t\t\t\t\tlogoChanged: false,\n\t\t\t\t\t\tlogoName: '',\n\t\t\t\t\t\tlogoPreview: '',\n\t\t\t\t\t\thandleLogoChange(e) {\n\t\t\t\t\t\t\tconst f = e.target.files && e.target.files[0];\n\t\t\t\t\t\t\tif (!f) {\n\t\t\t\t\t\t\t\tthis.logoChanged = false;\n\t\t\t\t\t\t\t\tthis.logoName = '';\n\t\t\t\t\t\t\t\tthis.logoPreview = '';\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tthis.logoChanged = true;\n\t\t\t\t\t\t\tthis.logoName = f.name;\n\t\t\t\t\t\t\tconst reader = new FileReader();\n\t\t\t\t\t\t\treader.onload = () => { this.logoPreview = reader.result; };\n\t\t\t\t\t\t\treader.readAsDataURL(f);\n\t\t\t\t},\n\t\t\t}\">")
+		var templ_7745c5c3_Var7 templ.SafeURL
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(manageOrganizationTabHref(org.ID, "details", invitePostRedirect))
 		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<input type=\"hidden\" name=\"action\" value=\"details\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 146, Col: 52}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 87, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_name\">Organization name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_name\" name=\"name\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">Details</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'members' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+		var templ_7745c5c3_Var8 templ.SafeURL
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(manageOrganizationTabHref(org.ID, "members", invitePostRedirect))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 149, Col: 187}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 94, Col: 76}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_city\">City</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_city\" name=\"city\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">Members</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.City)
+		var templ_7745c5c3_Var9 templ.SafeURL
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(manageOrganizationTabHref(org.ID, "skills", invitePostRedirect))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 154, Col: 179}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 101, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_state\">State</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_state\" name=\"state\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\">Skills</a> <a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(org.State)
+		var templ_7745c5c3_Var10 templ.SafeURL
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs(manageOrganizationTabHref(org.ID, "timebank", invitePostRedirect))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 158, Col: 182}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 108, Col: 77}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_description\">Organization description</label> <textarea class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[140px] focus:outline-none focus:ring-2 focus:ring-sky-500\" id=\"org_description\" name=\"description\" required>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\">Time Bank</a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(org.Description)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 163, Col: 207}
+		if invitesEnabled {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'invite' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 templ.SafeURL
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinURLErrs(manageOrganizationTabHref(org.ID, "invite", invitePostRedirect))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 116, Col: 76}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">Invite</a>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</nav></div><div x-show=\"activeTab === 'details'\" class=\"space-y-6\"><div class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Organization details</h2><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\" enctype=\"multipart/form-data\" x-data=\"{\n\t\t\t\t\t\tlogoChanged: false,\n\t\t\t\t\t\tlogoName: '',\n\t\t\t\t\t\tlogoPreview: '',\n\t\t\t\t\t\thandleLogoChange(e) {\n\t\t\t\t\t\t\tconst f = e.target.files && e.target.files[0];\n\t\t\t\t\t\t\tif (!f) {\n\t\t\t\t\t\t\t\tthis.logoChanged = false;\n\t\t\t\t\t\t\t\tthis.logoName = '';\n\t\t\t\t\t\t\t\tthis.logoPreview = '';\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tthis.logoChanged = true;\n\t\t\t\t\t\t\tthis.logoName = f.name;\n\t\t\t\t\t\t\tconst reader = new FileReader();\n\t\t\t\t\t\t\treader.onload = () => { this.logoPreview = reader.result; };\n\t\t\t\t\t\t\treader.readAsDataURL(f);\n\t\t\t\t},\n\t\t\t}\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</textarea></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current logo</p><div class=\"flex items-center gap-3\"><img class=\"h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200\" src=\"")
+		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<input type=\"hidden\" name=\"action\" value=\"details\"> <input type=\"hidden\" name=\"tab\" value=\"details\"> <input type=\"hidden\" name=\"org_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 168, Col: 205}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 155, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" alt=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_name\">Organization name</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_name\" name=\"name\" required value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 168, Col: 232}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 158, Col: 187}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><template x-if=\"logoChanged\"><p class=\"text-sm text-slate-700\"><span class=\"font-semibold text-slate-900\">New logo selected:</span> <span x-text=\"logoName\"></span> <span class=\"text-slate-600\">(save changes to upload)</span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"logo_file\">Update logo (optional)</label><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"logoChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new logo here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max 20MB)</p><template x-if=\"logoChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded bg-white object-contain ring-1 ring-slate-200\" x-show=\"logoPreview\" x-bind:src=\"logoPreview\" alt=\"Selected logo preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"logoName\"></span></p></div></template><input id=\"logo_file\" name=\"logo_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full opacity-0 cursor-pointer\" x-on:change=\"handleLogoChange($event)\"></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save changes</button></form></div><div x-data=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_city\">City</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_city\" name=\"city\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationDeleteXData())
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(org.City)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 210, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 163, Col: 179}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" x-on:keydown.escape.window=\"closeDeleteOrgModal()\"><div class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm space-y-3\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone</h2><p class=\"text-sm text-red-700\">Deleting an organization removes all time bank activity and the organization from all associated users. This action is not reversible.</p><button type=\"button\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" data-org-name=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_state\">State</label> <input class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" id=\"org_state\" name=\"state\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(org.State)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 217, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 167, Col: 182}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" x-on:click=\"openDeleteOrgModal($el.dataset.orgName)\">Delete organization</button></div><div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteOrgModalOpen\" x-on:click.self=\"closeDeleteOrgModal()\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4\"><div class=\"space-y-2\"><h3 class=\"text-lg font-semibold text-slate-900\">Delete organization?</h3><p class=\"text-sm text-slate-700\" x-show=\"deleteOrgStep === 1\">Are you sure you want to remove the organization <span class=\"font-semibold text-slate-900\" x-text=\"deleteOrgName\"></span>?</p><p class=\"text-sm text-slate-700\" x-show=\"deleteOrgStep === 2\">Type this sentence exactly to continue:</p><p class=\"rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\" x-show=\"deleteOrgStep === 2\" x-text=\"deleteOrgRequiredPhrase\"></p></div><div class=\"flex items-center justify-end gap-3\" x-show=\"deleteOrgStep === 1\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"chooseDeleteOrg('no')\">No</button> <button type=\"button\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"chooseDeleteOrg('yes')\">Yes</button></div><form method=\"POST\" action=\"/organizations/manage\" class=\"space-y-4\" x-show=\"deleteOrgStep === 2\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<input type=\"hidden\" name=\"action\" value=\"delete_organization\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"org_description\">Organization description</label> <textarea class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[140px] focus:outline-none focus:ring-2 focus:ring-sky-500\" id=\"org_description\" name=\"description\" required>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(org.Description)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 262, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 172, Col: 207}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"> <input type=\"hidden\" name=\"delete_organization_confirmation\" x-bind:value=\"deleteOrgPhrase\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_organization_confirmation_phrase\">Confirmation phrase</label> <input id=\"delete_organization_confirmation_phrase\" type=\"text\" required x-model=\"deleteOrgPhrase\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to remove ...\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeDeleteOrgModal()\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteOrgPhrase !== deleteOrgRequiredPhrase\">Delete organization permanently</button></div></form></div></div></div></div><div x-show=\"activeTab === 'members'\" class=\"space-y-6\"><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Pending membership requests</h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</textarea></div><div class=\"space-y-2\"><p class=\"text-sm font-semibold text-slate-800\">Current logo</p><div class=\"flex items-center gap-3\"><img class=\"h-12 w-12 rounded bg-white object-contain ring-1 ring-slate-200\" src=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 177, Col: 205}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" alt=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 177, Col: 232}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"><template x-if=\"logoChanged\"><p class=\"text-sm text-slate-700\"><span class=\"font-semibold text-slate-900\">New logo selected:</span> <span x-text=\"logoName\"></span> <span class=\"text-slate-600\">(save changes to upload)</span></p></template></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"logo_file\">Update logo (optional)</label><div class=\"relative rounded-lg border-2 border-dashed px-4 py-5 text-sm text-slate-700\" x-bind:class=\"logoChanged ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-slate-50'\"><p class=\"font-semibold text-slate-800\">Drag and drop a new logo here</p><p class=\"text-slate-600\">or click to choose a PNG/JPEG (max 20MB)</p><template x-if=\"logoChanged\"><div class=\"mt-3 flex items-center gap-3\"><img class=\"h-10 w-10 rounded bg-white object-contain ring-1 ring-slate-200\" x-show=\"logoPreview\" x-bind:src=\"logoPreview\" alt=\"Selected logo preview\"><p class=\"text-sm text-slate-800\"><span class=\"font-semibold\">Selected:</span> <span x-text=\"logoName\"></span></p></div></template><input id=\"logo_file\" name=\"logo_file\" type=\"file\" accept=\"image/png,image/jpeg\" class=\"absolute inset-0 h-full w-full opacity-0 cursor-pointer\" x-on:change=\"handleLogoChange($event)\"></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save changes</button></form></div><div x-data=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationDeleteXData())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 219, Col: 48}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\" x-on:keydown.escape.window=\"closeDeleteOrgModal()\"><div class=\"rounded-xl border border-red-200 bg-red-50 p-6 shadow-sm space-y-3\"><h2 class=\"text-lg font-semibold text-red-800\">Danger Zone</h2><p class=\"text-sm text-red-700\">Deleting an organization removes all time bank activity and the organization from all associated users. This action is not reversible.</p><button type=\"button\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2.5 font-semibold text-white transition hover:bg-red-800\" data-org-name=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var20 string
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 226, Col: 30}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" x-on:click=\"openDeleteOrgModal($el.dataset.orgName)\">Delete organization</button></div><div class=\"fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4\" x-show=\"deleteOrgModalOpen\" x-on:click.self=\"closeDeleteOrgModal()\" style=\"display: none;\"><div class=\"w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl space-y-4\"><div class=\"space-y-2\"><h3 class=\"text-lg font-semibold text-slate-900\">Delete organization?</h3><p class=\"text-sm text-slate-700\" x-show=\"deleteOrgStep === 1\">Are you sure you want to remove the organization <span class=\"font-semibold text-slate-900\" x-text=\"deleteOrgName\"></span>?</p><p class=\"text-sm text-slate-700\" x-show=\"deleteOrgStep === 2\">Type this sentence exactly to continue:</p><p class=\"rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900\" x-show=\"deleteOrgStep === 2\" x-text=\"deleteOrgRequiredPhrase\"></p></div><div class=\"flex items-center justify-end gap-3\" x-show=\"deleteOrgStep === 1\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"chooseDeleteOrg('no')\">No</button> <button type=\"button\" class=\"inline-flex justify-center rounded-lg bg-red-700 px-4 py-2 font-semibold text-white transition hover:bg-red-800\" x-on:click=\"chooseDeleteOrg('yes')\">Yes</button></div><form method=\"POST\" action=\"/organizations/manage\" class=\"space-y-4\" x-show=\"deleteOrgStep === 2\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<input type=\"hidden\" name=\"action\" value=\"delete_organization\"> <input type=\"hidden\" name=\"tab\" value=\"details\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var21 string
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 272, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"> <input type=\"hidden\" name=\"delete_organization_confirmation\" x-bind:value=\"deleteOrgPhrase\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"delete_organization_confirmation_phrase\">Confirmation phrase</label> <input id=\"delete_organization_confirmation_phrase\" type=\"text\" required x-model=\"deleteOrgPhrase\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500\" placeholder=\"I want to remove ...\"></div><div class=\"flex items-center justify-end gap-3\"><button type=\"button\" class=\"inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700 transition hover:border-slate-400\" x-on:click=\"closeDeleteOrgModal()\">Cancel</button> <button type=\"submit\" class=\"inline-flex justify-center rounded-lg px-4 py-2 font-semibold text-white transition\" x-bind:class=\"deleteOrgPhrase === deleteOrgRequiredPhrase ? 'bg-red-700 hover:bg-red-800' : 'bg-red-300 cursor-not-allowed'\" x-bind:disabled=\"deleteOrgPhrase !== deleteOrgRequiredPhrase\">Delete organization permanently</button></div></form></div></div></div></div><div x-show=\"activeTab === 'members'\" class=\"space-y-6\"><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Pending membership requests</h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if len(requests) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<p class=\"text-slate-600 text-sm\">No pending requests.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<p class=\"text-slate-600 text-sm\">No pending requests.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"space-y-3\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"space-y-3\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, req := range requests {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<div class=\"rounded-lg border border-slate-200 p-3 space-y-2\"><div class=\"flex items-center justify-between\"><div><p class=\"font-semibold text-slate-900\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var17 string
-				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberName)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 310, Col: 66}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</p><p class=\"text-sm text-slate-600\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var18 string
-				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberEmail)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 311, Col: 61}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</p></div><p class=\"text-xs text-slate-500\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(req.RequestedAt, "Jan 2, 2006 3:04 PM"))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 313, Col: 100}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</p></div><div class=\"flex flex-wrap gap-2\"><form method=\"POST\" action=\"/organizations/manage/request\" class=\"inline-flex\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<input type=\"hidden\" name=\"request_id\" value=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 318, Col: 63}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 319, Col: 59}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"> <input type=\"hidden\" name=\"action\" value=\"accept\"> <button class=\"inline-flex justify-center rounded-lg bg-emerald-600 text-white font-semibold px-3 py-1.5 hover:bg-emerald-700 transition\" type=\"submit\">Accept</button></form><form method=\"POST\" action=\"/organizations/manage/request\" class=\"inline-flex\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<input type=\"hidden\" name=\"request_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"rounded-lg border border-slate-200 p-3 space-y-2\"><div class=\"flex items-center justify-between\"><div><p class=\"font-semibold text-slate-900\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var22 string
-				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 327, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 320, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</p><p class=\"text-sm text-slate-600\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(req.MemberEmail)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 328, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 321, Col: 61}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\"> <input type=\"hidden\" name=\"action\" value=\"deny\"> <button class=\"inline-flex justify-center rounded-lg bg-red-600 text-white font-semibold px-3 py-1.5 hover:bg-red-700 transition\" type=\"submit\">Deny</button></form></div></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</div>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</div><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Members</h2>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if members == nil || len(members) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<p class=\"text-slate-600 text-sm\">No members yet.</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<div class=\"rounded-lg border border-slate-200 divide-y divide-slate-100\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			for _, m := range members {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"flex flex-wrap items-center justify-between gap-2 px-3 py-2\"><div><p class=\"font-semibold text-slate-900\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</p></div><p class=\"text-xs text-slate-500\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var24 string
-				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(m.DisplayName)
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(req.RequestedAt, "Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 350, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 323, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</p><p class=\"text-xs text-slate-600\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</p></div><div class=\"flex flex-wrap gap-2\"><form method=\"POST\" action=\"/organizations/manage/request\" class=\"inline-flex\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<input type=\"hidden\" name=\"request_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var25 string
-				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(m.Email)
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 328, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var26 string
-				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(" • Joined ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 70}
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var26 string
+				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 329, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var27 string
-				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(m.JoinedAt, "Jan 2, 2006"))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\"> <input type=\"hidden\" name=\"action\" value=\"accept\"> <button class=\"inline-flex justify-center rounded-lg bg-emerald-600 text-white font-semibold px-3 py-1.5 hover:bg-emerald-700 transition\" type=\"submit\">Accept</button></form><form method=\"POST\" action=\"/organizations/manage/request\" class=\"inline-flex\">")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 116}
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<input type=\"hidden\" name=\"request_id\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var27 string
+				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(req.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 337, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var28 string
-				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(" • ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 127}
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var28 string
+				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 338, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var29 string
-				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(m.Role)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"> <input type=\"hidden\" name=\"action\" value=\"deny\"> <button class=\"inline-flex justify-center rounded-lg bg-red-600 text-white font-semibold px-3 py-1.5 hover:bg-red-700 transition\" type=\"submit\">Deny</button></form></div></div>")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 351, Col: 137}
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</div><div class=\"space-y-3\"><h2 class=\"text-lg font-semibold text-slate-900\">Members</h2>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if members == nil || len(members) == 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<p class=\"text-slate-600 text-sm\">No members yet.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<div class=\"rounded-lg border border-slate-200 divide-y divide-slate-100\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			for _, m := range members {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"flex flex-wrap items-center justify-between gap-2 px-3 py-2\"><div><p class=\"font-semibold text-slate-900\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var29 string
+				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(m.DisplayName)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 360, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</p></div><div class=\"flex flex-wrap gap-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</p><p class=\"text-xs text-slate-600\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var30 string
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(m.Email)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 361, Col: 52}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var31 string
+				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(" • Joined ")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 361, Col: 70}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var32 string
+				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(m.JoinedAt, "Jan 2, 2006"))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 361, Col: 116}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var33 string
+				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(" • ")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 361, Col: 127}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var34 string
+				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(m.Role)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 361, Col: 137}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</p></div><div class=\"flex flex-wrap gap-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if m.Role == "member" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "<form method=\"POST\" action=\"/organizations/manage/member/role\" class=\"inline-flex\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<form method=\"POST\" action=\"/organizations/manage/member/role\" class=\"inline-flex\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -562,127 +640,127 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<input type=\"hidden\" name=\"member_id\" value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var30 string
-					templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 357, Col: 67}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var31 string
-					templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 358, Col: 60}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"> <input type=\"hidden\" name=\"action\" value=\"make_owner\"> <button class=\"inline-flex justify-center rounded-lg border border-emerald-200 text-emerald-700 font-semibold px-3 py-1.5 hover:bg-emerald-50 transition\" type=\"submit\">Make Owner</button></form>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else if m.Role == "owner" && m.MemberID != currentMemberID {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<form method=\"POST\" action=\"/organizations/manage/member/role\" class=\"inline-flex\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<input type=\"hidden\" name=\"member_id\" value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var32 string
-					templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 367, Col: 67}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var33 string
-					templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 368, Col: 60}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"> <input type=\"hidden\" name=\"action\" value=\"revoke_owner\"> <button class=\"inline-flex justify-center rounded-lg border border-amber-200 text-amber-700 font-semibold px-3 py-1.5 hover:bg-amber-50 transition\" type=\"submit\">Revoke Owner</button></form>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				if m.MemberID != currentMemberID {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<form method=\"POST\" action=\"/organizations/manage/member/remove\" class=\"inline-flex\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<input type=\"hidden\" name=\"member_id\" value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var34 string
-					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 378, Col: 67}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<input type=\"hidden\" name=\"member_id\" value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var35 string
-					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 379, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 367, Col: 67}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\"> <button class=\"inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition\" type=\"submit\">Remove</button></form>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var36 string
+					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 368, Col: 60}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\"> <input type=\"hidden\" name=\"action\" value=\"make_owner\"> <button class=\"inline-flex justify-center rounded-lg border border-emerald-200 text-emerald-700 font-semibold px-3 py-1.5 hover:bg-emerald-50 transition\" type=\"submit\">Make Owner</button></form>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else if m.Role == "owner" && m.MemberID != currentMemberID {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<form method=\"POST\" action=\"/organizations/manage/member/role\" class=\"inline-flex\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<input type=\"hidden\" name=\"member_id\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var37 string
+					templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 377, Col: 67}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var38 string
+					templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 378, Col: 60}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\"> <input type=\"hidden\" name=\"action\" value=\"revoke_owner\"> <button class=\"inline-flex justify-center rounded-lg border border-amber-200 text-amber-700 font-semibold px-3 py-1.5 hover:bg-amber-50 transition\" type=\"submit\">Revoke Owner</button></form>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</div></div>")
+				if m.MemberID != currentMemberID {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<form method=\"POST\" action=\"/organizations/manage/member/remove\" class=\"inline-flex\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<input type=\"hidden\" name=\"member_id\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var39 string
+					templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(m.MemberID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 388, Col: 67}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var40 string
+					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 389, Col: 60}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"> <button class=\"inline-flex justify-center rounded-lg border border-red-200 text-red-700 font-semibold px-3 py-1.5 hover:bg-red-50 transition\" type=\"submit\">Remove</button></form>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</div></div><div x-show=\"activeTab === 'skills'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Organization skills</h2><p class=\"text-sm text-slate-600\">Add one skill per line. Removing a skill here removes it from all member profiles for this organization.</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "</div></div><div x-show=\"activeTab === 'skills'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Organization skills</h2><p class=\"text-sm text-slate-600\">Add one skill per line. Removing a skill here removes it from all member profiles for this organization.</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -690,111 +768,111 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<input type=\"hidden\" name=\"action\" value=\"skills\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var36 string
-		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 399, Col: 53}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"skills_text\">Organization skills</label> <textarea class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[220px] focus:outline-none focus:ring-2 focus:ring-sky-500\" id=\"skills_text\" name=\"skills_text\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var37 string
-		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(skillLines(orgSkills))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 402, Col: 199}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "</textarea></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save skills</button></form></div><div x-show=\"activeTab === 'timebank'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Time bank settings</h2><p class=\"text-sm text-slate-600\">Adjust your organization's minimum, maximum, and starting balances. Changing these values does not modify existing balances automatically.</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<input type=\"hidden\" name=\"action\" value=\"timebank\"> <input type=\"hidden\" name=\"org_id\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var38 string
-		templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 418, Col: 53}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\"><div class=\"grid gap-4 sm:grid-cols-3\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_min_balance\">Minimum balance</label> <input id=\"timebank_min_balance\" name=\"timebank_min_balance\" type=\"number\" min=\"-9\" max=\"-1\" step=\"1\" required value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var39 string
-		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMinBalance))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 430, Col: 51}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be below 0 and greater than -10.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_max_balance\">Maximum balance</label> <input id=\"timebank_max_balance\" name=\"timebank_max_balance\" type=\"number\" min=\"1\" max=\"19\" step=\"1\" required value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var40 string
-		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMaxBalance))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 445, Col: 51}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be above 0 and less than 20.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_starting_balance\">Starting balance</label> <input id=\"timebank_starting_balance\" name=\"timebank_starting_balance\" type=\"number\" min=\"1\" max=\"9\" step=\"1\" required value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "<input type=\"hidden\" name=\"action\" value=\"skills\"> <input type=\"hidden\" name=\"tab\" value=\"skills\"> <input type=\"hidden\" name=\"org_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var41 string
-		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankStartingBalance))
+		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 460, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 410, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be above 0 and less than 10.</p></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save time bank settings</button></form></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"skills_text\">Organization skills</label> <textarea class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[220px] focus:outline-none focus:ring-2 focus:ring-sky-500\" id=\"skills_text\" name=\"skills_text\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var42 string
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(skillLines(orgSkills))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 413, Col: 199}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</textarea></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save skills</button></form></div><div x-show=\"activeTab === 'timebank'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Time bank settings</h2><p class=\"text-sm text-slate-600\">Adjust your organization's minimum, maximum, and starting balances. Changing these values does not modify existing balances automatically.</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = CSRFField().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<input type=\"hidden\" name=\"action\" value=\"timebank\"> <input type=\"hidden\" name=\"tab\" value=\"timebank\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var43 string
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 430, Col: 54}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\"><div class=\"grid gap-4 sm:grid-cols-3\"><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_min_balance\">Minimum balance</label> <input id=\"timebank_min_balance\" name=\"timebank_min_balance\" type=\"number\" min=\"-9\" max=\"-1\" step=\"1\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var44 string
+		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMinBalance))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 442, Col: 51}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be below 0 and greater than -10.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_max_balance\">Maximum balance</label> <input id=\"timebank_max_balance\" name=\"timebank_max_balance\" type=\"number\" min=\"1\" max=\"19\" step=\"1\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var45 string
+		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankMaxBalance))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 457, Col: 51}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be above 0 and less than 20.</p></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"timebank_starting_balance\">Starting balance</label> <input id=\"timebank_starting_balance\" name=\"timebank_starting_balance\" type=\"number\" min=\"1\" max=\"9\" step=\"1\" required value=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var46 string
+		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(org.TimebankStartingBalance))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 472, Col: 56}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><p class=\"text-xs text-slate-500\">Must be above 0 and less than 10.</p></div></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Save time bank settings</button></form></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if invitesEnabled {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<div x-show=\"activeTab === 'invite'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Invite people to your organization</h2><p class=\"text-sm text-slate-600\">Organization owners can send invitation emails in comma-separated format. You can send up to 30 successful invites each day.</p><p class=\"text-sm font-semibold text-slate-800\">Remaining invites today: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<div x-show=\"activeTab === 'invite'\" class=\"space-y-4\"><h2 class=\"text-lg font-semibold text-slate-900\">Invite people to your organization</h2><p class=\"text-sm text-slate-600\">Organization owners can send invitation emails in comma-separated format. You can send up to 30 successful invites each day.</p><p class=\"text-sm font-semibold text-slate-800\">Remaining invites today: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var42 string
-			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(inviteRemaining))
+			var templ_7745c5c3_Var47 string
+			templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(inviteRemaining))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 477, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 489, Col: 108}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</p><form class=\"space-y-4\" method=\"POST\" action=\"/organizations/manage\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -802,114 +880,114 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<input type=\"hidden\" name=\"action\" value=\"invites\"> <input type=\"hidden\" name=\"org_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<input type=\"hidden\" name=\"action\" value=\"invites\"> <input type=\"hidden\" name=\"tab\" value=\"invite\"> <input type=\"hidden\" name=\"org_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var43 string
-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
+			var templ_7745c5c3_Var48 string
+			templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 481, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 494, Col: 55}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if manageOrganizationInvitePostRedirect(invitePostRedirect) != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "<input type=\"hidden\" name=\"post_invite_redirect\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<input type=\"hidden\" name=\"post_invite_redirect\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var44 string
-				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationInvitePostRedirect(invitePostRedirect))
+				var templ_7745c5c3_Var49 string
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(manageOrganizationInvitePostRedirect(invitePostRedirect))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 483, Col: 119}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 496, Col: 119}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"invite_emails\">Email addresses</label> <textarea id=\"invite_emails\" name=\"invite_emails\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[180px] focus:outline-none focus:ring-2 focus:ring-sky-500\" placeholder=\"person1@example.com, person2@example.com, person3@example.com\"></textarea><p class=\"text-xs text-slate-500\">Use commas between addresses.</p></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Send invite blast</button></form><div class=\"space-y-3\"><h3 class=\"text-base font-semibold text-slate-900\">Recent invitations</h3>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"invite_emails\">Email addresses</label> <textarea id=\"invite_emails\" name=\"invite_emails\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[180px] focus:outline-none focus:ring-2 focus:ring-sky-500\" placeholder=\"person1@example.com, person2@example.com, person3@example.com\"></textarea><p class=\"text-xs text-slate-500\">Use commas between addresses.</p></div><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition\" type=\"submit\">Send invite blast</button></form><div class=\"space-y-3\"><h3 class=\"text-base font-semibold text-slate-900\">Recent invitations</h3>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(invitations) == 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<p class=\"text-sm text-slate-600\">No invitations sent yet.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<p class=\"text-sm text-slate-600\">No invitations sent yet.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<div class=\"rounded-lg border border-slate-200 divide-y divide-slate-100\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<div class=\"rounded-lg border border-slate-200 divide-y divide-slate-100\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, inv := range invitations {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<div class=\"px-3 py-2 space-y-1\"><p class=\"text-sm font-semibold text-slate-900\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<div class=\"px-3 py-2 space-y-1\"><p class=\"text-sm font-semibold text-slate-900\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var45 string
-					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(inv.InvitedEmail)
+					var templ_7745c5c3_Var50 string
+					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(inv.InvitedEmail)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 507, Col: 75}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 520, Col: 75}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</p><p class=\"text-xs text-slate-600\">")
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var46 string
-					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs("Status: " + inv.Status + " • Invited " + formatInAppTime(inv.InvitedAt, "Jan 2, 2006 3:04 PM"))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 509, Col: 109}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</p><p class=\"text-xs text-slate-600\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, " ")
+					var templ_7745c5c3_Var51 string
+					templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs("Status: " + inv.Status + " • Invited " + formatInAppTime(inv.InvitedAt, "Jan 2, 2006 3:04 PM"))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 522, Col: 109}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					if inv.ExpiresAt != nil {
-						var templ_7745c5c3_Var47 string
-						templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(" • Expires " + formatInAppTime(inv.ExpiresAt, "Jan 2, 2006 3:04 PM"))
+						var templ_7745c5c3_Var52 string
+						templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(" • Expires " + formatInAppTime(inv.ExpiresAt, "Jan 2, 2006 3:04 PM"))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 511, Col: 84}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/manage_organization.templ`, Line: 524, Col: 84}
 						}
-						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</p></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</p></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

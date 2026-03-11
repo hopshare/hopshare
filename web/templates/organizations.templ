@@ -7,7 +7,7 @@ import (
 )
 
 templ Organizations(userEmail *string, orgs []types.Organization, successMsg string, errorMsg string) {
-	@Base("hopShare | Organizations", userEmail, OrganizationsBody(orgs, successMsg, errorMsg))
+	@Base(organizationsPageContext(), userEmail, OrganizationsBody(orgs, successMsg, errorMsg))
 }
 
 templ OrganizationsBody(orgs []types.Organization, successMsg string, errorMsg string) {

@@ -171,7 +171,7 @@ func MyhopShare(
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | My hopShare", &email, MyhopShareBody(
+		templ_7745c5c3_Err = Base(myHopSharePageContext(orgs, currentOrgID), &email, MyhopShareBody(
 			email,
 			displayName,
 			lastLoginLabel,
@@ -1092,9 +1092,9 @@ func MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberI
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var35 templ.SafeURL
-		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs("/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=my-hops&view=" + viewKey)
+		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs("/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=dashboard&view=active")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 522, Col: 141}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 522, Col: 140}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -1105,9 +1105,9 @@ func MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberI
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var36 templ.SafeURL
-		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(orgID, hop.ID, "/my-hops?org_id="+strconv.FormatInt(orgID, 10)+"&view="+viewKey))
+		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(orgID, hop.ID, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 546, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 546, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -1120,7 +1120,7 @@ func MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberI
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 547, Col: 27}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 547, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -1536,9 +1536,9 @@ func MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) templ.Compon
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var58 templ.SafeURL
-		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinURLErrs("/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(currentOrgID, 10) + "&from=my-hops")
+		templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinURLErrs("/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(currentOrgID, 10) + "&from=dashboard&view=recent")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 692, Col: 130}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 692, Col: 144}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 		if templ_7745c5c3_Err != nil {
@@ -1652,7 +1652,7 @@ func MyhopShareOrganizations(email string, orgs []types.Organization, currentOrg
 			templ_7745c5c3_Var63 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Organization Switcher", &email, MyhopShareOrganizationsBody(orgs, currentOrgID)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(myHopShareOrganizationsPageContext(orgs, currentOrgID), &email, MyhopShareOrganizationsBody(orgs, currentOrgID)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

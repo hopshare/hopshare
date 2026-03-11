@@ -143,7 +143,7 @@ templ MyhopShare(
 	successMsg string,
 	errorMsg string,
 ) {
-	@Base("hopShare | My hopShare", &email, MyhopShareBody(
+	@Base(myHopSharePageContext(orgs, currentOrgID), &email, MyhopShareBody(
 		email,
 		displayName,
 		lastLoginLabel,
@@ -517,12 +517,12 @@ templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, member
 			}
 		</div>
 		<div class="grid grid-cols-2 gap-3">
-			<a
-				class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-				href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=my-hops&view=" + viewKey }
-			>
-				Open details
-			</a>
+				<a
+					class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+					href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=dashboard&view=active" }
+				>
+					Open details
+				</a>
 			<button
 				type="button"
 				class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-800"
@@ -541,10 +541,10 @@ templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, member
 						<p class="text-sm text-slate-600">Continue to the completion step for this Hop?</p>
 					</div>
 					<div class="grid grid-cols-1 gap-3 border-t border-slate-200 bg-slate-50 p-5">
-						<a
-							class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
-							href={ completeHopPageLink(orgID, hop.ID, "/my-hops?org_id=" + strconv.FormatInt(orgID, 10) + "&view=" + viewKey) }
-							data-hop-id={ hop.ID }
+							<a
+								class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+								href={ completeHopPageLink(orgID, hop.ID, "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)) }
+								data-hop-id={ hop.ID }
 							data-hop-title={ hop.Title }
 							data-hop-hours={ hop.EstimatedHours }
 							data-hop-requester={ hop.CreatedBy == memberID }
@@ -689,7 +689,7 @@ templ MyhopShareRecentActivity(currentOrgID int64, myHops []types.Hop, activeAcc
 templ MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) {
 	<a
 		class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-white"
-		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(currentOrgID, 10) + "&from=my-hops" }
+		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(currentOrgID, 10) + "&from=dashboard&view=recent" }
 	>
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
@@ -714,7 +714,7 @@ templ MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) {
 }
 
 templ MyhopShareOrganizations(email string, orgs []types.Organization, currentOrgID int64) {
-	@Base("hopShare | Organization Switcher", &email, MyhopShareOrganizationsBody(orgs, currentOrgID))
+	@Base(myHopShareOrganizationsPageContext(orgs, currentOrgID), &email, MyhopShareOrganizationsBody(orgs, currentOrgID))
 }
 
 templ MyhopShareOrganizationsBody(orgs []types.Organization, currentOrgID int64) {

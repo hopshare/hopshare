@@ -55,7 +55,7 @@ func Messages(
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Messages", &email, MessagesBody(messages, selected, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(messagesPageContext(selected), &email, MessagesBody(messages, selected, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -182,7 +182,7 @@ func MessagesMobile(messages []types.Message, selected *types.Message) templ.Com
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"flex items-center gap-3\"><a class=\"inline-flex items-center gap-2 text-base font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/messages\">Back</a><h1 class=\"text-2xl font-bold text-slate-900\">Message</h1></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<h1 class=\"text-2xl font-bold text-slate-900\">Message</h1>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -281,7 +281,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 		var templ_7745c5c3_Var8 templ.SafeURL
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 87, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 84, Col: 120}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -299,7 +299,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 93, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 90, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -317,7 +317,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 95, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 92, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -335,7 +335,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(msg.Subject)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 98, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 95, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -353,7 +353,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(messagePreview(msg.Body))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 100, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 97, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func MessagesMobileInboxCard(msg types.Message) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 104, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 101, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -423,7 +423,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(selected.SenderName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 115, Col: 71}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 112, Col: 71}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -436,7 +436,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 116, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 113, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -449,7 +449,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(selected.Subject)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 119, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 116, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -462,7 +462,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(selected.Body)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 125, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 122, Col: 89}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -493,7 +493,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(selected.ID, 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 135, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 132, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
@@ -519,7 +519,7 @@ func MessagesMobileDetail(selected types.Message) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(selected.ID, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 151, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 148, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -654,7 +654,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var24 templ.SafeURL
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 195, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 192, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -667,7 +667,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 195, Col: 155}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 192, Col: 155}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -680,7 +680,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var26 templ.SafeURL
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 196, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 193, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -693,7 +693,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 196, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 193, Col: 124}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -706,7 +706,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var28 templ.SafeURL
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 198, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 195, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -719,7 +719,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(msg.Subject)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 198, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 195, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -740,7 +740,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 201, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 198, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -758,7 +758,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var31 templ.SafeURL
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 208, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 205, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {
@@ -771,7 +771,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 208, Col: 155}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 205, Col: 155}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 				if templ_7745c5c3_Err != nil {
@@ -784,7 +784,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var33 templ.SafeURL
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 209, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 206, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 				if templ_7745c5c3_Err != nil {
@@ -797,7 +797,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 209, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 206, Col: 124}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 				if templ_7745c5c3_Err != nil {
@@ -810,7 +810,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var35 templ.SafeURL
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 211, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 208, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 				if templ_7745c5c3_Err != nil {
@@ -823,7 +823,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(msg.Subject)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 211, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 208, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 				if templ_7745c5c3_Err != nil {
@@ -844,7 +844,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 214, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 211, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -864,7 +864,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var38 templ.SafeURL
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 223, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 220, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 				if templ_7745c5c3_Err != nil {
@@ -877,7 +877,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var39 string
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 223, Col: 155}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 220, Col: 155}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -890,7 +890,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var40 templ.SafeURL
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 224, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 221, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -903,7 +903,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 224, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 221, Col: 124}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -916,7 +916,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var42 templ.SafeURL
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 226, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 223, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -929,7 +929,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(msg.Subject)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 226, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 223, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
@@ -950,7 +950,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 229, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 226, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
@@ -968,7 +968,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var45 templ.SafeURL
 				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 236, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 233, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 				if templ_7745c5c3_Err != nil {
@@ -981,7 +981,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(msg.CreatedAt, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 236, Col: 155}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 233, Col: 155}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
@@ -994,7 +994,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var47 templ.SafeURL
 				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 237, Col: 105}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 234, Col: 105}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
@@ -1007,7 +1007,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var48 string
 				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(msg.SenderName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 237, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 234, Col: 124}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 				if templ_7745c5c3_Err != nil {
@@ -1020,7 +1020,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var49 templ.SafeURL
 				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinURLErrs("/messages?message_id=" + strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 239, Col: 106}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 236, Col: 106}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 				if templ_7745c5c3_Err != nil {
@@ -1033,7 +1033,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var50 string
 				templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(msg.Subject)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 239, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 236, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 				if templ_7745c5c3_Err != nil {
@@ -1054,7 +1054,7 @@ func MessagesDesktopInboxRow(msg types.Message, selected *types.Message) templ.C
 				var templ_7745c5c3_Var51 string
 				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(msg.ID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 242, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 239, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
@@ -1108,7 +1108,7 @@ func MessagesDesktopDetail(selected *types.Message) templ.Component {
 			var templ_7745c5c3_Var53 string
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(" " + selected.SenderName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 259, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 256, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
@@ -1121,7 +1121,7 @@ func MessagesDesktopDetail(selected *types.Message) templ.Component {
 			var templ_7745c5c3_Var54 string
 			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(" " + formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 261, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 258, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 			if templ_7745c5c3_Err != nil {
@@ -1134,7 +1134,7 @@ func MessagesDesktopDetail(selected *types.Message) templ.Component {
 			var templ_7745c5c3_Var55 string
 			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(" " + selected.Subject)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 265, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 262, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 			if templ_7745c5c3_Err != nil {
@@ -1147,7 +1147,7 @@ func MessagesDesktopDetail(selected *types.Message) templ.Component {
 			var templ_7745c5c3_Var56 string
 			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(selected.Body)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 267, Col: 140}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 264, Col: 140}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 			if templ_7745c5c3_Err != nil {
@@ -1217,7 +1217,7 @@ func MessagesDesktopReply(selected *types.Message) templ.Component {
 			var templ_7745c5c3_Var58 string
 			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(selected.ID, 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 282, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/messages.templ`, Line: 279, Col: 85}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 			if templ_7745c5c3_Err != nil {

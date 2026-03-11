@@ -9,7 +9,7 @@ import (
 )
 
 templ Admin(userEmail *string, activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData, auditTab types.AdminAuditTabData) {
-	@Base("hopShare | Admin", userEmail, AdminBody(activeTab, overview, orgTab, moderationTab, usersTab, messagesTab, auditTab))
+	@Base(adminPageContext(activeTab), userEmail, AdminBody(activeTab, overview, orgTab, moderationTab, usersTab, messagesTab, auditTab))
 }
 
 templ AdminBody(activeTab string, overview types.AdminAppOverview, orgTab types.AdminOrganizationTabData, moderationTab types.AdminModerationTabData, usersTab types.AdminUsersTabData, messagesTab types.AdminMessagesTabData, auditTab types.AdminAuditTabData) {

@@ -65,32 +65,94 @@ func hopHelperDisplayName(hop types.Hop) string {
 	return name
 }
 
-func hopDetailsFromValue(showBack bool) string {
-	if showBack {
-		return "my-hops"
+func hopDetailsOriginValue(from string) string {
+	switch strings.ToLower(strings.TrimSpace(from)) {
+	case "my-hops", "dashboard", "organization":
+		return strings.ToLower(strings.TrimSpace(from))
+	default:
+		return ""
 	}
-	return ""
 }
 
-func hopDetailsBackLink(orgID int64, view string) string {
-	link := "/my-hops?org_id=" + strconv.FormatInt(orgID, 10)
-	view = strings.TrimSpace(view)
-	if view != "" {
-		link += "&view=" + url.QueryEscape(view)
+func hopDetailsBackLink(org types.Organization, from string, view string) string {
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		link := "/my-hops?org_id=" + strconv.FormatInt(org.ID, 10)
+		view = strings.TrimSpace(view)
+		if view != "" {
+			link += "&view=" + url.QueryEscape(view)
+		}
+		return link
+	case "organization":
+		return organizationHref(org)
+	case "dashboard":
+		return memberRootHref(org.ID)
+	default:
+		return memberRootHref(org.ID)
 	}
-	return link
 }
 
-func hopDetailsSelfLink(orgID, hopID int64, showBack bool, view string) string {
+func hopDetailsBackLabel(from string, view string) string {
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		return "My Hops"
+	case "organization":
+		return "Organization"
+	case "dashboard":
+		switch strings.ToLower(strings.TrimSpace(view)) {
+		case "active":
+			return "Active now"
+		case "recent":
+			return "Recent activity"
+		default:
+			return "My hopShare"
+		}
+	default:
+		return "My hopShare"
+	}
+}
+
+func hopDetailsSelfLink(orgID, hopID int64, from string, view string) string {
 	link := "/hops/view?hop_id=" + strconv.FormatInt(hopID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10)
-	if showBack {
-		link += "&from=my-hops"
+	if origin := hopDetailsOriginValue(from); origin != "" {
+		link += "&from=" + origin
 	}
 	view = strings.TrimSpace(view)
 	if view != "" {
 		link += "&view=" + url.QueryEscape(view)
 	}
 	return link
+}
+
+func hopDetailsTitle(hop types.Hop) string {
+	title := strings.TrimSpace(hop.Title)
+	if title == "" {
+		return "Hop details"
+	}
+	return title
+}
+
+func hopDetailsPageContext(org types.Organization, hop types.Hop, from string, view string) PageContext {
+	breadcrumbs := []PageBreadcrumb{
+		newBreadcrumb("My hopShare", memberRootHref(org.ID)),
+		newBreadcrumb(org.Name, organizationHref(org)),
+	}
+	switch hopDetailsOriginValue(from) {
+	case "my-hops":
+		breadcrumbs = append(breadcrumbs, newBreadcrumb("My Hops", hopDetailsBackLink(org, from, view)))
+		if viewLabel := myHopsViewLabel(view); strings.TrimSpace(viewLabel) != "" {
+			breadcrumbs = append(breadcrumbs, newBreadcrumb(viewLabel, ""))
+		}
+	case "dashboard":
+		label := hopDetailsBackLabel(from, view)
+		if label != "My hopShare" {
+			breadcrumbs = append(breadcrumbs, newBreadcrumb(label, hopDetailsBackLink(org, from, view)))
+		}
+	case "organization":
+		breadcrumbs = append(breadcrumbs, newBreadcrumb("Organization", hopDetailsBackLink(org, from, view)))
+	}
+	breadcrumbs = append(breadcrumbs, newBreadcrumb(hopDetailsTitle(hop), ""))
+	return newPageContext("hopShare | Hop details", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromOrg(org))
 }
 
 func hopDetailsHasMobileActionBar(canOfferHelp bool, canCancel bool, canComplete bool) bool {
@@ -152,7 +214,7 @@ func HopDetailsStatusPill(status string) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 105, Col: 151}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 167, Col: 151}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 			if templ_7745c5c3_Err != nil {
@@ -167,7 +229,7 @@ func HopDetailsStatusPill(status string) templ.Component {
 	})
 }
 
-func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, hop types.Hop) templ.Component {
+func HopPrivacyToggle(orgID int64, hopID int64, from string, backView string, hop types.Hop) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -203,7 +265,7 @@ func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, 
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(orgID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 119, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 181, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -216,7 +278,7 @@ func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, 
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(hopID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 120, Col: 50}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 182, Col: 50}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -227,9 +289,9 @@ func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, 
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 121, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 183, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -242,7 +304,7 @@ func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, 
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 122, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 184, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -276,7 +338,7 @@ func HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, 
 	})
 }
 
-func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, backView string, compact bool) templ.Component {
+func HopCommentComposer(org types.Organization, hop types.Hop, from string, backView string, compact bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -312,7 +374,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 139, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 201, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -325,7 +387,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 140, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 202, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -336,9 +398,9 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 141, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 203, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -351,7 +413,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 142, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 204, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -364,7 +426,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("hop-comment-body-" + strconv.FormatBool(compact))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 144, Col: 116}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 206, Col: 116}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -377,7 +439,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("hop-comment-body-" + strconv.FormatBool(compact))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 146, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 208, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -406,7 +468,7 @@ func HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, ba
 	})
 }
 
-func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, backView string, canOfferHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool) templ.Component {
+func HopMobileActionBar(org types.Organization, hop types.Hop, from string, backView string, canOfferHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -440,7 +502,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				"closeConfirm(){this.confirmOpen=false;this.confirmKind='';}" +
 				"}")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 171, Col: 7}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 233, Col: 7}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -466,7 +528,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 180, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 242, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -479,7 +541,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 181, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 243, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -490,9 +552,9 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 182, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 244, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -505,7 +567,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 183, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 245, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -571,9 +633,9 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var21 templ.SafeURL
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)))
+				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, from, backView)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 248, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 310, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -586,7 +648,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 249, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 311, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -599,7 +661,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 250, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 312, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -612,7 +674,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 251, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 313, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -625,7 +687,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(canSetCompletionHours)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 252, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 314, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -652,7 +714,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 262, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 324, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -665,7 +727,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 263, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 325, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -676,9 +738,9 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var28 string
-				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, showBack, backView))
+				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, from, backView))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 264, Col: 111}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 326, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -698,7 +760,7 @@ func HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, ba
 	})
 }
 
-func HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) templ.Component {
+func HopDetails(userEmail *string, org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -719,7 +781,7 @@ func HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBa
 			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(hopDetailsPageContext(org, hop, from, backView), userEmail, HopDetailsBody(org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -727,7 +789,7 @@ func HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBa
 	})
 }
 
-func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) templ.Component {
+func HopDetailsBody(org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -760,7 +822,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var31 string
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(successMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 291, Col: 106}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 353, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -779,7 +841,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var32 string
 			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(errorMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 294, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 356, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
@@ -797,7 +859,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 300, Col: 126}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 362, Col: 126}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {
@@ -810,7 +872,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 301, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 363, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -823,7 +885,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var35 templ.SafeURL
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinURLErrs("/organization/" + org.URLName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 304, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 366, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -836,7 +898,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var36 string
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 304, Col: 137}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 366, Col: 137}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -851,7 +913,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			return templ_7745c5c3_Err
 		}
 		if canToggle && hop.Status != types.HopStatusOpen {
-			templ_7745c5c3_Err = HopPrivacyToggle(org.ID, hop.ID, showBack, backView, hop).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = HopPrivacyToggle(org.ID, hop.ID, from, backView, hop).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -863,7 +925,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 316, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 378, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -881,7 +943,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 325, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 387, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
@@ -894,7 +956,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var39 string
 			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName + " avatar")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 326, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 388, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 			if templ_7745c5c3_Err != nil {
@@ -907,7 +969,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var40 string
 			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 328, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 390, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 			if templ_7745c5c3_Err != nil {
@@ -930,7 +992,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar?member_id=" + strconv.FormatInt(*hop.AcceptedBy, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 337, Col: 85}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 399, Col: 85}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -943,7 +1005,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(hopHelperDisplayName(hop) + " avatar")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 338, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 400, Col: 53}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
@@ -966,7 +1028,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(hopHelperDisplayName(hop))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 343, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 405, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 			if templ_7745c5c3_Err != nil {
@@ -979,7 +1041,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var44 string
 			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar?member_id=" + strconv.FormatInt(hop.CreatedBy, 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 351, Col: 82}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 413, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 			if templ_7745c5c3_Err != nil {
@@ -992,7 +1054,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var45 string
 			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName + " avatar")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 352, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 414, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 			if templ_7745c5c3_Err != nil {
@@ -1005,7 +1067,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var46 string
 			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(hop.CreatedByName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 354, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 416, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
@@ -1023,7 +1085,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var47 string
 		templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(&hop.CreatedAt, "Jan 2, 2006 3:04 PM"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 359, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 421, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 		if templ_7745c5c3_Err != nil {
@@ -1036,7 +1098,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var48 string
 		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(hopNeededByDateValue(hop))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 360, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 422, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 		if templ_7745c5c3_Err != nil {
@@ -1054,7 +1116,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var49 string
 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 362, Col: 128}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 424, Col: 128}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
@@ -1072,7 +1134,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var50 string
 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.CanceledAt, "Jan 2, 2006 3:04 PM"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 364, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 426, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
@@ -1091,7 +1153,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var51 string
 				templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.ExpiresAt, "Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 367, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 429, Col: 125}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 				if templ_7745c5c3_Err != nil {
@@ -1109,7 +1171,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var52 string
 				templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(&hop.UpdatedAt, "Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 369, Col: 126}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 431, Col: 126}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 				if templ_7745c5c3_Err != nil {
@@ -1133,7 +1195,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var53 string
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(*hop.Details)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 378, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 440, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
@@ -1167,7 +1229,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var54 string
 			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(pendingOffers)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 400, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 462, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 			if templ_7745c5c3_Err != nil {
@@ -1195,7 +1257,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var55 string
 					templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar?member_id=" + strconv.FormatInt(offer.MemberID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 414, Col: 85}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 476, Col: 85}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 					if templ_7745c5c3_Err != nil {
@@ -1208,7 +1270,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var56 string
 					templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(offer.MemberName + " avatar")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 415, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 477, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 					if templ_7745c5c3_Err != nil {
@@ -1221,7 +1283,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var57 string
 					templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(offer.MemberName)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 418, Col: 88}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 480, Col: 88}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 					if templ_7745c5c3_Err != nil {
@@ -1234,7 +1296,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var58 string
 					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(offer.OfferedAt, "Jan 2, 2006 3:04 PM"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 419, Col: 110}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 481, Col: 110}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 					if templ_7745c5c3_Err != nil {
@@ -1255,7 +1317,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var59 string
 					templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 425, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 487, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 					if templ_7745c5c3_Err != nil {
@@ -1268,7 +1330,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var60 string
 					templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 426, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 488, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
 					if templ_7745c5c3_Err != nil {
@@ -1281,7 +1343,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var61 string
 					templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(offer.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 427, Col: 77}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 489, Col: 77}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 					if templ_7745c5c3_Err != nil {
@@ -1292,9 +1354,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var62 string
-					templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, showBack, backView))
+					templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, from, backView))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 428, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 490, Col: 109}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 					if templ_7745c5c3_Err != nil {
@@ -1315,7 +1377,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var63 string
 					templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 433, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 495, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
 					if templ_7745c5c3_Err != nil {
@@ -1328,7 +1390,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var64 string
 					templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 434, Col: 60}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 496, Col: 60}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 					if templ_7745c5c3_Err != nil {
@@ -1341,7 +1403,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var65 string
 					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(offer.MemberID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 435, Col: 77}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 497, Col: 77}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 					if templ_7745c5c3_Err != nil {
@@ -1352,9 +1414,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var66 string
-					templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, showBack, backView))
+					templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, from, backView))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 436, Col: 113}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 498, Col: 109}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 					if templ_7745c5c3_Err != nil {
@@ -1391,7 +1453,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var67 string
 			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 452, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 514, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 			if templ_7745c5c3_Err != nil {
@@ -1404,7 +1466,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var68 string
 			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 453, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 515, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 			if templ_7745c5c3_Err != nil {
@@ -1415,9 +1477,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var69 string
-			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 454, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 516, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 			if templ_7745c5c3_Err != nil {
@@ -1430,7 +1492,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var70 string
 			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 455, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 517, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 			if templ_7745c5c3_Err != nil {
@@ -1447,9 +1509,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var71 templ.SafeURL
-			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)))
+			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinURLErrs(completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, from, backView)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 464, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 526, Col: 99}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 			if templ_7745c5c3_Err != nil {
@@ -1462,7 +1524,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var72 string
 			templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 465, Col: 25}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 527, Col: 25}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 			if templ_7745c5c3_Err != nil {
@@ -1475,7 +1537,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var73 string
 			templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(hop.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 466, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 528, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 			if templ_7745c5c3_Err != nil {
@@ -1488,7 +1550,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var74 string
 			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(hop.EstimatedHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 467, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 529, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 			if templ_7745c5c3_Err != nil {
@@ -1501,7 +1563,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var75 string
 			templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(canSetCompletionHours)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 468, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 530, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 			if templ_7745c5c3_Err != nil {
@@ -1528,7 +1590,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var76 string
 			templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 478, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 540, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 			if templ_7745c5c3_Err != nil {
@@ -1541,7 +1603,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			var templ_7745c5c3_Var77 string
 			templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 479, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 541, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 			if templ_7745c5c3_Err != nil {
@@ -1552,9 +1614,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var78 string
-			templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, showBack, backView))
+			templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsSelfLink(org.ID, hop.ID, from, backView))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 480, Col: 107}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 542, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var78))
 			if templ_7745c5c3_Err != nil {
@@ -1591,7 +1653,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				"prev(){if(this.images.length){this.index=(this.index+this.images.length-1)%this.images.length}}" +
 				"}")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 505, Col: 7}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 567, Col: 7}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 			if templ_7745c5c3_Err != nil {
@@ -1617,7 +1679,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var80 string
 				templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 514, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 576, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 				if templ_7745c5c3_Err != nil {
@@ -1630,7 +1692,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var81 string
 				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 515, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 577, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 				if templ_7745c5c3_Err != nil {
@@ -1641,9 +1703,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var82 string
-				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 516, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 578, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 				if templ_7745c5c3_Err != nil {
@@ -1656,7 +1718,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var83 string
 				templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 517, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 579, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var83))
 				if templ_7745c5c3_Err != nil {
@@ -1689,7 +1751,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var84 string
 					templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs("openAt(" + strconv.Itoa(i) + ")")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 530, Col: 160}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 592, Col: 160}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 					if templ_7745c5c3_Err != nil {
@@ -1702,7 +1764,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var85 string
 					templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs("/hops/image?image_id=" + strconv.FormatInt(img.ID, 10))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 533, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 595, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 					if templ_7745c5c3_Err != nil {
@@ -1728,7 +1790,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						var templ_7745c5c3_Var86 string
 						templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 541, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 603, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 						if templ_7745c5c3_Err != nil {
@@ -1741,7 +1803,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						var templ_7745c5c3_Var87 string
 						templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 542, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 604, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
 						if templ_7745c5c3_Err != nil {
@@ -1754,7 +1816,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						var templ_7745c5c3_Var88 string
 						templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(img.ID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 543, Col: 62}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 605, Col: 62}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
 						if templ_7745c5c3_Err != nil {
@@ -1765,9 +1827,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var89 string
-						templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+						templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 544, Col: 81}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 606, Col: 79}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
 						if templ_7745c5c3_Err != nil {
@@ -1780,7 +1842,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						var templ_7745c5c3_Var90 string
 						templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 545, Col: 60}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 607, Col: 60}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 						if templ_7745c5c3_Err != nil {
@@ -1806,7 +1868,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var91 string
 					templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 551, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 613, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 					if templ_7745c5c3_Err != nil {
@@ -1819,7 +1881,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var92 string
 					templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 552, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 614, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
 					if templ_7745c5c3_Err != nil {
@@ -1832,7 +1894,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var93 string
 					templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(img.ID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 553, Col: 61}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 615, Col: 61}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
 					if templ_7745c5c3_Err != nil {
@@ -1843,9 +1905,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var94 string
-					templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+					templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 554, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 616, Col: 78}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
 					if templ_7745c5c3_Err != nil {
@@ -1858,7 +1920,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					var templ_7745c5c3_Var95 string
 					templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 555, Col: 59}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 617, Col: 59}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
 					if templ_7745c5c3_Err != nil {
@@ -1892,7 +1954,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		var templ_7745c5c3_Var96 string
 		templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(comments)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 590, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 652, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
 		if templ_7745c5c3_Err != nil {
@@ -1907,7 +1969,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = HopCommentComposer(org, hop, showBack, backView, true).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = HopCommentComposer(org, hop, from, backView, true).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1934,7 +1996,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var97 string
 				templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs("/members/avatar?member_id=" + strconv.FormatInt(comment.MemberID, 10))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 607, Col: 84}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 669, Col: 84}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 				if templ_7745c5c3_Err != nil {
@@ -1947,7 +2009,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var98 string
 				templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(comment.MemberName + " avatar")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 608, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 670, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 				if templ_7745c5c3_Err != nil {
@@ -1960,7 +2022,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var99 string
 				templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(comment.MemberName)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 612, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 674, Col: 77}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 				if templ_7745c5c3_Err != nil {
@@ -1973,7 +2035,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var100 string
 				templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(comment.CreatedAt, "Jan 2, 2006 3:04 PM"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 613, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 675, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 				if templ_7745c5c3_Err != nil {
@@ -1986,7 +2048,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var101 string
 				templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(comment.Body)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 615, Col: 76}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 677, Col: 76}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
 				if templ_7745c5c3_Err != nil {
@@ -2007,7 +2069,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var102 string
 				templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(org.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 618, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 680, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
 				if templ_7745c5c3_Err != nil {
@@ -2020,7 +2082,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var103 string
 				templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(hop.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 619, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 681, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
 				if templ_7745c5c3_Err != nil {
@@ -2033,7 +2095,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var104 string
 				templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(comment.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 620, Col: 66}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 682, Col: 66}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
 				if templ_7745c5c3_Err != nil {
@@ -2044,9 +2106,9 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var105 string
-				templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsFromValue(showBack))
+				templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(hopDetailsOriginValue(from))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 621, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 683, Col: 77}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
 				if templ_7745c5c3_Err != nil {
@@ -2059,7 +2121,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 				var templ_7745c5c3_Var106 string
 				templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(backView)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 622, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/hop_details.templ`, Line: 684, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 				if templ_7745c5c3_Err != nil {
@@ -2080,7 +2142,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = HopCommentComposer(org, hop, showBack, backView, false).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = HopCommentComposer(org, hop, from, backView, false).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2098,7 +2160,7 @@ func HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backVi
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = HopMobileActionBar(org, hop, showBack, backView, canOfferHelp, canCancel, canComplete, canSetCompletionHours).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = HopMobileActionBar(org, hop, from, backView, canOfferHelp, canCancel, canComplete, canSetCompletionHours).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

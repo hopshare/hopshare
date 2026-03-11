@@ -1,7 +1,7 @@
 package templates
 
 templ CreateOrganization(userEmail *string, orgName string, city string, state string, description string, successMsg string, errorMsg string) {
-	@Base("hopShare | Create organization", userEmail, CreateOrganizationBody(orgName, city, state, description, successMsg, errorMsg))
+	@Base(createOrganizationPageContext(), userEmail, CreateOrganizationBody(orgName, city, state, description, successMsg, errorMsg))
 }
 
 templ CreateOrganizationBody(orgName string, city string, state string, description string, successMsg string, errorMsg string) {

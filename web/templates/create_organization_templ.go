@@ -29,7 +29,7 @@ func CreateOrganization(userEmail *string, orgName string, city string, state st
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Create organization", userEmail, CreateOrganizationBody(orgName, city, state, description, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(createOrganizationPageContext(), userEmail, CreateOrganizationBody(orgName, city, state, description, successMsg, errorMsg)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

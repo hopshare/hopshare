@@ -1,7 +1,7 @@
 package templates
 
 templ Signup(userEmail *string, form SignupForm, successMsg string, errorMsg string, next string, inviteToken string, invitedEmailLocked bool) {
-	@Base("hopShare | Request to join", userEmail, SignupBody(form, successMsg, errorMsg, next, inviteToken, invitedEmailLocked))
+	@Base(defaultPageContext("hopShare | Request to join"), userEmail, SignupBody(form, successMsg, errorMsg, next, inviteToken, invitedEmailLocked))
 }
 
 templ SignupBody(form SignupForm, successMsg string, errorMsg string, next string, inviteToken string, invitedEmailLocked bool) {
@@ -98,7 +98,7 @@ templ SignupBody(form SignupForm, successMsg string, errorMsg string, next strin
 }
 
 templ SignupSuccess(userEmail *string, loginHref string, requireEmailVerification bool) {
-	@Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref, requireEmailVerification))
+	@Base(defaultPageContext("hopShare | Request received"), userEmail, SignupSuccessBody(loginHref, requireEmailVerification))
 }
 
 templ SignupSuccessBody(loginHref string, requireEmailVerification bool) {

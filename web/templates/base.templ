@@ -1,12 +1,12 @@
 package templates
 
-templ Base(title string, userEmail *string, body templ.Component) {
+templ Base(page PageContext, userEmail *string, body templ.Component) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
 			<meta charset="utf-8" />
 			<meta name="viewport" content="width=device-width, initial-scale=1" />
-			<title>{ title }</title>
+			<title>{ page.BrowserTitle }</title>
 			<script src="https://cdn.tailwindcss.com"></script>
 			<script src="/static/assets/js/htmx.min.js" defer></script>
 			<script defer src="/static/assets/js/alpine.min-3.15.2.js"></script>
@@ -36,7 +36,7 @@ templ Base(title string, userEmail *string, body templ.Component) {
 						if userEmail != nil {
 							<div class="flex items-center gap-2 md:hidden">
 								<a
-									class="relative inline-flex h-10 w-10 items-center justify-center rounded-full ring-1 ring-slate-200 text-slate-700 transition hover:text-slate-900 hover:ring-slate-300"
+									class={ "relative inline-flex h-10 w-10 items-center justify-center rounded-full ring-1 ring-slate-200 transition hover:ring-slate-300 " + headerIconLinkClass(page.ActiveSection == pageSectionMessages) }
 									href="/messages"
 									aria-label="Messages"
 								>
@@ -66,12 +66,13 @@ templ Base(title string, userEmail *string, body templ.Component) {
 							</div>
 
 							<div class="hidden md:flex md:items-center md:gap-3">
-								<a class="hover:text-slate-900" href="/my-hopshare">My hopShare</a>
+								<a class={ headerTextLinkClass(page.ActiveSection == pageSectionMyHopShare) } href="/my-hopshare">My hopShare</a>
+								<a class={ headerTextLinkClass(page.ActiveSection == pageSectionOrganizations) } href="/organizations">Organizations</a>
 								if IsAdmin(ctx) {
-									<a class="hover:text-slate-900" href="/admin">Admin</a>
+									<a class={ headerTextLinkClass(page.ActiveSection == pageSectionAdmin) } href="/admin">Admin</a>
 								}
-								<a class="hover:text-slate-900" href="/help">Help</a>
-								<a class="relative inline-flex items-center justify-center text-slate-700 hover:text-slate-900" href="/messages" aria-label="Messages">
+								<a class={ headerTextLinkClass(page.ActiveSection == pageSectionHelp) } href="/help">Help</a>
+								<a class={ "relative inline-flex items-center justify-center rounded-full p-2 " + headerIconLinkClass(page.ActiveSection == pageSectionMessages) } href="/messages" aria-label="Messages">
 									<svg class="h-5 w-5" viewBox="0 0 512 512" aria-hidden="true">
 										<path
 											fill="currentColor"
@@ -83,7 +84,7 @@ templ Base(title string, userEmail *string, body templ.Component) {
 								<div class="relative" x-on:click.outside="profileOpen = false">
 									<button
 										type="button"
-										class="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-slate-200 hover:ring-slate-300"
+										class={ headerProfileButtonClass(page.ActiveSection == pageSectionProfile) }
 										x-on:click="profileOpen = !profileOpen; mobileMenuOpen = false"
 										x-bind:aria-expanded="profileOpen.toString()"
 										aria-label="Profile menu"
@@ -105,7 +106,8 @@ templ Base(title string, userEmail *string, body templ.Component) {
 								</div>
 							</div>
 						} else {
-							<a class="hover:text-slate-900" href="/login">Login</a>
+							<a class={ headerTextLinkClass(page.ActiveSection == pageSectionOrganizations) } href="/organizations">Organizations</a>
+							<a class="rounded-lg px-3 py-2 hover:bg-slate-50 hover:text-slate-900" href="/login">Login</a>
 						}
 					</nav>
 				</div>
@@ -119,12 +121,13 @@ templ Base(title string, userEmail *string, body templ.Component) {
 					>
 						<nav class="max-w-4xl mx-auto px-4 py-3" aria-label="Mobile navigation">
 							<div class="space-y-1">
-								<a class="block rounded-lg px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50" href="/my-hopshare" x-on:click="mobileMenuOpen = false">My hopShare</a>
-								<a class="block rounded-lg px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50" href="/help" x-on:click="mobileMenuOpen = false">Help</a>
-								<a class="block rounded-lg px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50" href="/profile" x-on:click="mobileMenuOpen = false">Profile</a>
-								<a class="block rounded-lg px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50" href="/messages" x-on:click="mobileMenuOpen = false">Messages</a>
+								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionMyHopShare) } href="/my-hopshare" x-on:click="mobileMenuOpen = false">My hopShare</a>
+								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionOrganizations) } href="/organizations" x-on:click="mobileMenuOpen = false">Organizations</a>
+								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionHelp) } href="/help" x-on:click="mobileMenuOpen = false">Help</a>
+								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionProfile) } href="/profile" x-on:click="mobileMenuOpen = false">Profile</a>
+								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionMessages) } href="/messages" x-on:click="mobileMenuOpen = false">Messages</a>
 								if IsAdmin(ctx) {
-									<a class="block rounded-lg px-4 py-3 font-semibold text-slate-800 hover:bg-slate-50" href="/admin" x-on:click="mobileMenuOpen = false">Admin</a>
+									<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionAdmin) } href="/admin" x-on:click="mobileMenuOpen = false">Admin</a>
 								}
 								<form method="POST" action="/logout" class="pt-2">
 									@CSRFField()
@@ -135,6 +138,44 @@ templ Base(title string, userEmail *string, body templ.Component) {
 					</div>
 				}
 			</header>
+			if len(page.Breadcrumbs) > 0 {
+				<div class="border-b border-slate-200 bg-slate-50">
+					<div class="max-w-4xl mx-auto px-4 py-3">
+						<div class="space-y-2 min-w-0">
+							if back := breadcrumbBack(page.Breadcrumbs); back != nil {
+								<div class="md:hidden">
+									<a class="inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-sky-800" href={ back.Href }>
+										<span aria-hidden="true">&larr;</span>
+										{ back.Label }
+									</a>
+								</div>
+							}
+							if len(page.Breadcrumbs) > 0 {
+								<nav class="hidden md:block" aria-label="Breadcrumb">
+									<ol class="flex flex-wrap items-center gap-2 text-sm">
+										for i, item := range page.Breadcrumbs {
+											if breadcrumbIsCurrent(page.Breadcrumbs, i) {
+												<li class={ breadcrumbLinkClass(true) } aria-current="page">{ item.Label }</li>
+											} else {
+												<li class="flex items-center gap-2">
+													<a class={ breadcrumbLinkClass(false) } href={ item.Href }>{ item.Label }</a>
+													<span class="text-slate-400" aria-hidden="true">/</span>
+												</li>
+											}
+										}
+									</ol>
+								</nav>
+								if current := breadcrumbCurrent(page.Breadcrumbs); current != nil {
+									<div class="md:hidden">
+										<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current page</p>
+										<p class="text-sm font-semibold text-slate-900">{ current.Label }</p>
+									</div>
+								}
+							}
+						</div>
+					</div>
+				</div>
+			}
 			<main class="max-w-4xl mx-auto px-4 py-10 flex-1 w-full">
 				@body
 			</main>

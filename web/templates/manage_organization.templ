@@ -42,12 +42,25 @@ func manageOrganizationDeleteXData() string {
 	return "{ deleteOrgModalOpen: false, deleteOrgStep: 1, deleteOrgName: '', deleteOrgRequiredPhrase: '', deleteOrgPhrase: '', openDeleteOrgModal(name) { this.deleteOrgName = name; this.deleteOrgRequiredPhrase = 'I want to remove ' + name; this.deleteOrgPhrase = ''; this.deleteOrgStep = 1; this.deleteOrgModalOpen = true; }, chooseDeleteOrg(choice) { if (choice === 'yes') { this.deleteOrgStep = 2; } else { this.closeDeleteOrgModal(); } }, closeDeleteOrgModal() { this.deleteOrgModalOpen = false; this.deleteOrgStep = 1; this.deleteOrgName = ''; this.deleteOrgRequiredPhrase = ''; this.deleteOrgPhrase = ''; } }"
 }
 
+func manageOrganizationTabHref(orgID int64, tab string, invitePostRedirect string) string {
+	query := "?org_id=" + strconv.FormatInt(orgID, 10)
+	tab = manageOrganizationActiveTab(tab)
+	if tab != "details" {
+		query += "&tab=" + tab
+	}
+	invitePostRedirect = manageOrganizationInvitePostRedirect(invitePostRedirect)
+	if invitePostRedirect != "" {
+		query += "&post_invite_redirect=" + invitePostRedirect
+	}
+	return "/organizations/manage" + query
+}
+
 templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
+	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
 }
 
 templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
-	@Base("hopShare | Manage organization", userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
+	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
 }
 
 templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
@@ -68,47 +81,42 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 
 		<div class="border-b border-slate-200">
 			<nav class="-mb-px flex flex-wrap gap-2 sm:gap-4" aria-label="Manage organization tabs">
-				<button
-					type="button"
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'details'"
+					href={ manageOrganizationTabHref(org.ID, "details", invitePostRedirect) }
 				>
 					Details
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'members' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'members'"
+					href={ manageOrganizationTabHref(org.ID, "members", invitePostRedirect) }
 				>
 					Members
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'skills'"
+					href={ manageOrganizationTabHref(org.ID, "skills", invitePostRedirect) }
 				>
 					Skills
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'timebank' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'timebank'"
+					href={ manageOrganizationTabHref(org.ID, "timebank", invitePostRedirect) }
 				>
 					Time Bank
-				</button>
+				</a>
 				if invitesEnabled {
-					<button
-						type="button"
+					<a
 						class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 						x-bind:class="activeTab === 'invite' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-						x-on:click="activeTab = 'invite'"
+						href={ manageOrganizationTabHref(org.ID, "invite", invitePostRedirect) }
 					>
 						Invite
-					</button>
+					</a>
 				}
 			</nav>
 		</div>
@@ -140,10 +148,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 							reader.readAsDataURL(f);
 				},
 			}"
-		>
-			@CSRFField()
-			<input type="hidden" name="action" value="details" />
-			<input type="hidden" name="org_id" value={ org.ID } />
+			>
+				@CSRFField()
+				<input type="hidden" name="action" value="details" />
+				<input type="hidden" name="tab" value="details" />
+				<input type="hidden" name="org_id" value={ org.ID } />
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="org_name">Organization name</label>
 						<input class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" type="text" id="org_name" name="name" required value={ org.Name } />
@@ -256,10 +265,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 							</button>
 						</div>
 
-						<form method="POST" action="/organizations/manage" class="space-y-4" x-show="deleteOrgStep === 2">
-							@CSRFField()
-							<input type="hidden" name="action" value="delete_organization" />
-							<input type="hidden" name="org_id" value={ org.ID } />
+							<form method="POST" action="/organizations/manage" class="space-y-4" x-show="deleteOrgStep === 2">
+								@CSRFField()
+								<input type="hidden" name="action" value="delete_organization" />
+								<input type="hidden" name="tab" value="details" />
+								<input type="hidden" name="org_id" value={ org.ID } />
 							<input type="hidden" name="delete_organization_confirmation" x-bind:value="deleteOrgPhrase" />
 							<div class="space-y-1">
 								<label class="block text-sm font-semibold text-slate-800" for="delete_organization_confirmation_phrase">Confirmation phrase</label>
@@ -393,10 +403,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 		<div x-show="activeTab === 'skills'" class="space-y-4">
 			<h2 class="text-lg font-semibold text-slate-900">Organization skills</h2>
 			<p class="text-sm text-slate-600">Add one skill per line. Removing a skill here removes it from all member profiles for this organization.</p>
-			<form class="space-y-4" method="POST" action="/organizations/manage">
-				@CSRFField()
-				<input type="hidden" name="action" value="skills" />
-				<input type="hidden" name="org_id" value={ org.ID } />
+				<form class="space-y-4" method="POST" action="/organizations/manage">
+					@CSRFField()
+					<input type="hidden" name="action" value="skills" />
+					<input type="hidden" name="tab" value="skills" />
+					<input type="hidden" name="org_id" value={ org.ID } />
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-slate-800" for="skills_text">Organization skills</label>
 					<textarea class="w-full rounded-lg border border-slate-300 px-3 py-2 min-h-[220px] focus:outline-none focus:ring-2 focus:ring-sky-500" id="skills_text" name="skills_text">{ skillLines(orgSkills) }</textarea>
@@ -412,10 +423,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				Adjust your organization's minimum, maximum, and starting balances. Changing these values does not
 				modify existing balances automatically.
 			</p>
-			<form class="space-y-4" method="POST" action="/organizations/manage">
-				@CSRFField()
-				<input type="hidden" name="action" value="timebank" />
-				<input type="hidden" name="org_id" value={ org.ID } />
+				<form class="space-y-4" method="POST" action="/organizations/manage">
+					@CSRFField()
+					<input type="hidden" name="action" value="timebank" />
+					<input type="hidden" name="tab" value="timebank" />
+					<input type="hidden" name="org_id" value={ org.ID } />
 				<div class="grid gap-4 sm:grid-cols-3">
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="timebank_min_balance">Minimum balance</label>
@@ -475,10 +487,11 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					Organization owners can send invitation emails in comma-separated format. You can send up to 30 successful invites each day.
 				</p>
 				<p class="text-sm font-semibold text-slate-800">Remaining invites today: { strconv.Itoa(inviteRemaining) }</p>
-				<form class="space-y-4" method="POST" action="/organizations/manage">
-					@CSRFField()
-					<input type="hidden" name="action" value="invites" />
-					<input type="hidden" name="org_id" value={ org.ID } />
+					<form class="space-y-4" method="POST" action="/organizations/manage">
+						@CSRFField()
+						<input type="hidden" name="action" value="invites" />
+						<input type="hidden" name="tab" value="invite" />
+						<input type="hidden" name="org_id" value={ org.ID } />
 					if manageOrganizationInvitePostRedirect(invitePostRedirect) != "" {
 						<input type="hidden" name="post_invite_redirect" value={ manageOrganizationInvitePostRedirect(invitePostRedirect) } />
 					}

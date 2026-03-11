@@ -20,6 +20,37 @@ import (
 
 const deleteAccountConfirmationPhrase = "I want to leave hopShare"
 
+func normalizeProfileTab(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "organizations":
+		return "organizations"
+	case "skills":
+		return "skills"
+	case "account":
+		return "account"
+	default:
+		return "details"
+	}
+}
+
+func profileRedirectURL(tab string, successMsg string, errorMsg string) string {
+	query := url.Values{}
+	tab = normalizeProfileTab(tab)
+	if tab != "details" {
+		query.Set("tab", tab)
+	}
+	if successMsg != "" {
+		query.Set("success", successMsg)
+	}
+	if errorMsg != "" {
+		query.Set("error", errorMsg)
+	}
+	if encoded := query.Encode(); encoded != "" {
+		return "/profile?" + encoded
+	}
+	return "/profile"
+}
+
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -29,6 +60,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
+	activeTab := normalizeProfileTab(r.URL.Query().Get("tab"))
 
 	switch r.Method {
 	case http.MethodGet:
@@ -72,7 +104,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "could not load profile", http.StatusInternalServerError)
 			return
 		}
-		render(w, r, templates.MyProfile(user.Email, member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, availableSkills, selectedSkillIDs, s.avatarImageMaxBytes, successMsg, errorMsg))
+		render(w, r, templates.MyProfile(user.Email, member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, availableSkills, selectedSkillIDs, s.avatarImageMaxBytes, activeTab, successMsg, errorMsg))
 	case http.MethodPost:
 		maxAvatarUploadBytes := s.avatarImageMaxBytes
 		maxBodyBytes := maxAvatarUploadBytes + (1 << 20)
@@ -83,6 +115,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		action := strings.TrimSpace(r.FormValue("action"))
+		activeTab = normalizeProfileTab(r.FormValue("tab"))
 		switch action {
 		case "profile":
 			firstName := strings.TrimSpace(r.FormValue("first_name"))
@@ -94,7 +127,7 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 
 			avatarData, avatarContentType, hasAvatar, err := readAvatarUpload(r, "avatar_file", maxAvatarUploadBytes)
 			if err != nil {
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", err.Error()), http.StatusSeeOther)
 				return
 			}
 
@@ -107,46 +140,46 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 					msg = "The email provided is already being used. Please choose another one."
 				}
 				log.Printf("update member profile %d: %v", user.ID, err)
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape(msg), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", msg), http.StatusSeeOther)
 				return
 			}
 
 			if hasAvatar {
 				if err := service.SetMemberAvatar(r.Context(), s.db, user.ID, avatarContentType, avatarData); err != nil {
 					log.Printf("set member avatar %d: %v", user.ID, err)
-					http.Redirect(w, r, "/profile?error="+url.QueryEscape("Profile updated, but avatar upload failed."), http.StatusSeeOther)
+					http.Redirect(w, r, profileRedirectURL(activeTab, "", "Profile updated, but avatar upload failed."), http.StatusSeeOther)
 					return
 				}
 			}
 
-			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Profile updated."), http.StatusSeeOther)
+			http.Redirect(w, r, profileRedirectURL(activeTab, "Profile updated.", ""), http.StatusSeeOther)
 		case "password":
 			currentPassword := r.FormValue("current_password")
 			newPassword := r.FormValue("new_password")
 			confirmPassword := r.FormValue("confirm_password")
 
 			if currentPassword == "" || newPassword == "" || confirmPassword == "" {
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Please fill out all password fields."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "Please fill out all password fields."), http.StatusSeeOther)
 				return
 			}
 			if newPassword != confirmPassword {
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("New passwords do not match."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "New passwords do not match."), http.StatusSeeOther)
 				return
 			}
 			if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Current password is incorrect."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "Current password is incorrect."), http.StatusSeeOther)
 				return
 			}
 
 			passwordHash, err := service.HashPassword(newPassword)
 			if err != nil {
 				log.Printf("hash password failed: %v", err)
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Could not update password right now."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "Could not update password right now."), http.StatusSeeOther)
 				return
 			}
 			if err := service.UpdateMemberPassword(r.Context(), s.db, user.ID, passwordHash); err != nil {
 				log.Printf("update member password %d: %v", user.ID, err)
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Could not update password right now."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "Could not update password right now."), http.StatusSeeOther)
 				return
 			}
 			if c, err := r.Cookie(s.sessions.CookieName()); err == nil {
@@ -162,11 +195,11 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Password updated."), http.StatusSeeOther)
+			http.Redirect(w, r, profileRedirectURL(activeTab, "Password updated.", ""), http.StatusSeeOther)
 		case "skills":
 			skillIDs, err := parseSkillIDs(r.Form["skill_ids"])
 			if err != nil {
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape("Invalid skill selection."), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", "Invalid skill selection."), http.StatusSeeOther)
 				return
 			}
 			if err := service.ReplaceMemberSkills(r.Context(), s.db, user.ID, skillIDs); err != nil {
@@ -175,10 +208,10 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 					msg = "One or more selected skills are not available to your account."
 				}
 				log.Printf("replace member skills %d: %v", user.ID, err)
-				http.Redirect(w, r, "/profile?error="+url.QueryEscape(msg), http.StatusSeeOther)
+				http.Redirect(w, r, profileRedirectURL(activeTab, "", msg), http.StatusSeeOther)
 				return
 			}
-			http.Redirect(w, r, "/profile?success="+url.QueryEscape("Skills updated."), http.StatusSeeOther)
+			http.Redirect(w, r, profileRedirectURL(activeTab, "Skills updated.", ""), http.StatusSeeOther)
 		case "leave_organization":
 			orgID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("org_id")), 10, 64)
 			if err != nil || orgID <= 0 {

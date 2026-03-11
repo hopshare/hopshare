@@ -29,7 +29,7 @@ func Signup(userEmail *string, form SignupForm, successMsg string, errorMsg stri
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Request to join", userEmail, SignupBody(form, successMsg, errorMsg, next, inviteToken, invitedEmailLocked)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(defaultPageContext("hopShare | Request to join"), userEmail, SignupBody(form, successMsg, errorMsg, next, inviteToken, invitedEmailLocked)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -286,7 +286,7 @@ func SignupSuccess(userEmail *string, loginHref string, requireEmailVerification
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Request received", userEmail, SignupSuccessBody(loginHref, requireEmailVerification)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(defaultPageContext("hopShare | Request received"), userEmail, SignupSuccessBody(loginHref, requireEmailVerification)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

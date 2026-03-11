@@ -215,7 +215,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
+	from := normalizeHopOrigin(r.URL.Query().Get("from"))
 	backView := strings.TrimSpace(r.URL.Query().Get("view"))
 	successMsg := strings.TrimSpace(r.URL.Query().Get("success"))
 	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
@@ -247,7 +247,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
 }
 
 func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
@@ -1093,13 +1093,22 @@ func hopDetailsRedirect(orgID, hopID int64, from string, view string) string {
 	if orgID > 0 {
 		base += "&org_id=" + strconv.FormatInt(orgID, 10)
 	}
-	if strings.EqualFold(strings.TrimSpace(from), "my-hops") {
-		base += "&from=my-hops"
+	if origin := normalizeHopOrigin(from); origin != "" {
+		base += "&from=" + origin
 		if view = strings.TrimSpace(view); view != "" {
 			base += "&view=" + url.QueryEscape(view)
 		}
 	}
 	return base
+}
+
+func normalizeHopOrigin(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "my-hops", "dashboard", "organization":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return ""
+	}
 }
 
 func safeRedirectPath(input string, fallback string) string {

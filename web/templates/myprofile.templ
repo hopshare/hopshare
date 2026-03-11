@@ -113,8 +113,8 @@ func hasLeaveableOrganization(orgs []types.MemberOrganization, leaveBlockedOrgID
 	return false
 }
 
-templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
-	@Base("hopShare | My Profile", &email, MyProfileBody(member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, skills, selectedSkillIDs, avatarMaxUploadBytes, successMsg, errorMsg))
+templ MyProfile(email string, member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, activeTab string, successMsg string, errorMsg string) {
+	@Base(profilePageContext(activeTab), &email, MyProfileBody(member, orgs, leaveBlockedOrgIDs, hasCreatedOrganization, skills, selectedSkillIDs, avatarMaxUploadBytes, activeTab, successMsg, errorMsg))
 }
 
 templ SkillCheckbox(skill types.Skill, selectedSkillIDs []int64) {
@@ -138,34 +138,26 @@ func profileImageSizeLabel(maxBytes int64) string {
 	return strconv.FormatInt(maxBytes, 10) + " bytes"
 }
 
-templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, successMsg string, errorMsg string) {
+func profileTabHref(tab string) string {
+	tab = strings.ToLower(strings.TrimSpace(tab))
+	if tab == "" || tab == "details" {
+		return "/profile"
+	}
+	return "/profile?tab=" + tab
+}
+
+func profilePageXData(activeTab string) string {
+	activeTab = strings.ToLower(strings.TrimSpace(activeTab))
+	if activeTab == "" {
+		activeTab = "details"
+	}
+	return "{ activeTab: '" + activeTab + "', leaveModalOpen: false, leaveOrgID: 0, leaveOrgName: '', deleteModalOpen: false, deleteConfirmation: '', requiredDeletePhrase: 'I want to leave hopShare', openLeaveModal(id, name) { this.leaveOrgID = id; this.leaveOrgName = name; this.leaveModalOpen = true; }, closeLeaveModal() { this.leaveModalOpen = false; this.leaveOrgID = 0; this.leaveOrgName = ''; } }"
+}
+
+templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBlockedOrgIDs []int64, hasCreatedOrganization bool, skills []types.Skill, selectedSkillIDs []int64, avatarMaxUploadBytes int64, activeTab string, successMsg string, errorMsg string) {
 		<div
 			class="space-y-6"
-			x-data="{
-				activeTab: 'details',
-				leaveModalOpen: false,
-				leaveOrgID: 0,
-				leaveOrgName: '',
-				deleteModalOpen: false,
-				deleteConfirmation: '',
-				requiredDeletePhrase: 'I want to leave hopShare',
-				openLeaveModal(id, name) {
-					this.leaveOrgID = id;
-					this.leaveOrgName = name;
-					this.leaveModalOpen = true;
-				},
-				closeLeaveModal() {
-					this.leaveModalOpen = false;
-					this.leaveOrgID = 0;
-					this.leaveOrgName = '';
-				},
-				init() {
-					const tab = new URLSearchParams(window.location.search).get('tab');
-					if (tab === 'details' || tab === 'organizations' || tab === 'skills' || tab === 'account') {
-						this.activeTab = tab;
-					}
-				}
-			}"
+			x-data={ profilePageXData(activeTab) }
 			x-on:keydown.escape.window="deleteModalOpen = false; deleteConfirmation = ''; closeLeaveModal()"
 		>
 		if successMsg != "" {
@@ -185,38 +177,34 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 
 		<div class="border-b border-slate-200">
 			<nav class="-mb-px flex flex-wrap gap-2 sm:gap-4" aria-label="Profile tabs">
-				<button
-					type="button"
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'details'"
+					href={ profileTabHref("details") }
 				>
 					Details
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'organizations' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'organizations'"
+					href={ profileTabHref("organizations") }
 				>
 					Organizations
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'skills' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'skills'"
+					href={ profileTabHref("skills") }
 				>
 					Skills
-				</button>
-				<button
-					type="button"
+				</a>
+				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
 					x-bind:class="activeTab === 'account' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
-					x-on:click="activeTab = 'account'"
+					href={ profileTabHref("account") }
 				>
 					My Account
-				</button>
+				</a>
 			</nav>
 		</div>
 
@@ -247,9 +235,10 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 							reader.readAsDataURL(f);
 						},
 					}"
-				>
-					@CSRFField()
-					<input type="hidden" name="action" value="profile" />
+					>
+						@CSRFField()
+						<input type="hidden" name="action" value="profile" />
+						<input type="hidden" name="tab" value="details" />
 					<div class="grid gap-4 sm:grid-cols-2">
 						<div class="space-y-1">
 							<label class="block text-sm font-semibold text-slate-800" for="first_name">First name</label>
@@ -364,9 +353,10 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 
 			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
 				<h2 class="text-lg font-semibold text-slate-900">Change password</h2>
-				<form class="mt-4 space-y-4" method="POST" action="/profile">
-					@CSRFField()
-					<input type="hidden" name="action" value="password" />
+					<form class="mt-4 space-y-4" method="POST" action="/profile">
+						@CSRFField()
+						<input type="hidden" name="action" value="password" />
+						<input type="hidden" name="tab" value="details" />
 					<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="current_password">Current password</label>
 						<input
@@ -458,9 +448,10 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 				if len(skills) == 0 {
 					<p class="mt-4 text-sm text-slate-600">No skills are available for your account yet.</p>
 				} else {
-					<form class="mt-4 space-y-4" method="POST" action="/profile">
-						@CSRFField()
-						<input type="hidden" name="action" value="skills" />
+						<form class="mt-4 space-y-4" method="POST" action="/profile">
+							@CSRFField()
+							<input type="hidden" name="action" value="skills" />
+							<input type="hidden" name="tab" value="skills" />
 						if len(defaultSkills(skills)) > 0 {
 							<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
 								<h3 class="text-sm font-semibold text-slate-900">Default Skills</h3>
@@ -515,10 +506,11 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 						<p class="mt-2 text-sm text-slate-700">
 							Are you sure you want to leave Organization <span class="font-semibold text-slate-900" x-text="leaveOrgName"></span>?
 						</p>
-						<form method="POST" action="/profile" class="mt-4 space-y-4">
-							@CSRFField()
-							<input type="hidden" name="action" value="leave_organization" />
-							<input type="hidden" name="org_id" x-bind:value="leaveOrgID" />
+							<form method="POST" action="/profile" class="mt-4 space-y-4">
+								@CSRFField()
+								<input type="hidden" name="action" value="leave_organization" />
+								<input type="hidden" name="tab" value="organizations" />
+								<input type="hidden" name="org_id" x-bind:value="leaveOrgID" />
 							<div class="flex items-center justify-end gap-3">
 								<button
 									type="button"
@@ -549,10 +541,11 @@ templ MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveB
 				<h3 class="text-lg font-semibold text-slate-900">Confirm account deletion</h3>
 				<p class="mt-2 text-sm text-slate-700">To continue, type this sentence exactly:</p>
 				<p class="mt-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-900">I want to leave hopShare</p>
-				<form method="POST" action="/profile" class="mt-4 space-y-4">
-					@CSRFField()
-					<input type="hidden" name="action" value="delete_account" />
-					<div class="space-y-1">
+					<form method="POST" action="/profile" class="mt-4 space-y-4">
+						@CSRFField()
+						<input type="hidden" name="action" value="delete_account" />
+						<input type="hidden" name="tab" value="account" />
+						<div class="space-y-1">
 						<label class="block text-sm font-semibold text-slate-800" for="delete_account_confirmation">Confirmation phrase</label>
 						<input
 							id="delete_account_confirmation"

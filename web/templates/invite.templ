@@ -3,7 +3,7 @@ package templates
 import "hopshare/internal/types"
 
 templ InviteLanding(userEmail *string, org types.Organization, invitedEmail string, signupHref string, loginHref string) {
-	@Base("hopShare | Organization invite", userEmail, InviteLandingBody(org, invitedEmail, signupHref, loginHref))
+	@Base(defaultPageContext("hopShare | Organization invite"), userEmail, InviteLandingBody(org, invitedEmail, signupHref, loginHref))
 }
 
 templ InviteLandingBody(org types.Organization, invitedEmail string, signupHref string, loginHref string) {
@@ -25,7 +25,7 @@ templ InviteLandingBody(org types.Organization, invitedEmail string, signupHref 
 }
 
 templ InviteStatus(userEmail *string, title string, message string, primaryHref string, primaryLabel string, secondaryHref string, secondaryLabel string) {
-	@Base("hopShare | Invitation", userEmail, InviteStatusBody(title, message, primaryHref, primaryLabel, secondaryHref, secondaryLabel))
+	@Base(defaultPageContext("hopShare | Invitation"), userEmail, InviteStatusBody(title, message, primaryHref, primaryLabel, secondaryHref, secondaryLabel))
 }
 
 templ InviteStatusBody(title string, message string, primaryHref string, primaryLabel string, secondaryHref string, secondaryLabel string) {

@@ -1,7 +1,7 @@
 package templates
 
 templ Terms(userEmail *string) {
-	@Base("hopShare | Terms", userEmail, TermsBody())
+	@Base(defaultPageContext("hopShare | Terms"), userEmail, TermsBody())
 }
 
 templ TermsBody() {

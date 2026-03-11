@@ -109,7 +109,7 @@ templ MyHops(
 	successMsg string,
 	errorMsg string,
 ) {
-	@Base("hopShare | My hops", &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg))
+	@Base(myHopsPageContext(orgs, currentOrgID, viewKey), &email, MyHopsBody(orgs, currentOrgID, myHops, hasCreatedOrganization, viewKey, viewTitle, viewDescription, emptyMessage, memberID, successMsg, errorMsg))
 }
 
 templ MyHopsBody(

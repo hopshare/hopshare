@@ -31,7 +31,7 @@ func Login(userEmail *string, errorMsg string, successMsg string, next string, e
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = Base("hopShare | Login", userEmail, LoginBody(errorMsg, successMsg, next, email)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Base(defaultPageContext("hopShare | Login"), userEmail, LoginBody(errorMsg, successMsg, next, email)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
