@@ -85,12 +85,188 @@ func hopDetailsSelfLink(orgID, hopID int64, showBack bool, view string) string {
 	return link
 }
 
+func hopDetailsHasMobileActionBar(canOfferHelp bool, canCancel bool, canComplete bool) bool {
+	return canOfferHelp || canCancel || canComplete
+}
+
+templ HopPrivacyToggle(orgID int64, hopID int64, showBack bool, backView string, hop types.Hop) {
+	<form
+		method="POST"
+		action="/hops/privacy"
+		hx-post="/hops/privacy"
+		hx-trigger="change"
+		hx-swap="none"
+		class="space-y-2"
+	>
+		@CSRFField()
+		<input type="hidden" name="org_id" value={ orgID } />
+		<input type="hidden" name="hop_id" value={ hopID } />
+		<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+		<input type="hidden" name="view" value={ backView } />
+		<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Visibility</p>
+		<div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 text-sm">
+			<label class="block cursor-pointer">
+				<input class="peer sr-only" type="radio" name="is_private" value="false" checked?={ !hop.IsPrivate } />
+				<span class="flex items-center justify-center rounded-lg px-3 py-2 font-semibold text-slate-600 transition peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm">Public</span>
+			</label>
+			<label class="block cursor-pointer">
+				<input class="peer sr-only" type="radio" name="is_private" value="true" checked?={ hop.IsPrivate } />
+				<span class="flex items-center justify-center rounded-lg px-3 py-2 font-semibold text-slate-600 transition peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm">Private</span>
+			</label>
+		</div>
+	</form>
+}
+
+templ HopCommentComposer(org types.Organization, hop types.Hop, showBack bool, backView string, compact bool) {
+	<form method="POST" action="/hops/comments/create" class="space-y-3">
+		@CSRFField()
+		<input type="hidden" name="org_id" value={ org.ID } />
+		<input type="hidden" name="hop_id" value={ hop.ID } />
+		<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+		<input type="hidden" name="view" value={ backView } />
+		<div class="space-y-1">
+			<label class="block text-sm font-semibold text-slate-800" for={ "hop-comment-body-" + strconv.FormatBool(compact) }>Add a comment</label>
+			<textarea
+				id={ "hop-comment-body-" + strconv.FormatBool(compact) }
+				name="body"
+				class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+				if compact {
+					rows="4"
+				} else {
+					rows="3"
+				}
+				required
+				placeholder="Share an update, ask a question, or say thanks."
+			></textarea>
+		</div>
+		<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Post comment</button>
+	</form>
+}
+
+templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, backView string, canOfferHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool) {
+	if hopDetailsHasMobileActionBar(canOfferHelp, canCancel, canComplete) {
+		<div
+			class="md:hidden"
+			x-data={ "{" +
+				"confirmOpen:false," +
+				"confirmKind:''," +
+				"openConfirm(kind){this.confirmKind=kind;this.confirmOpen=true;}," +
+				"closeConfirm(){this.confirmOpen=false;this.confirmKind='';}" +
+				"}" }
+			x-on:keydown.escape.window="closeConfirm()"
+		>
+		<div class="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur" style="padding-bottom: env(safe-area-inset-bottom);">
+			<div class="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-3">
+				<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Actions for this hop</p>
+				if canOfferHelp {
+					<form method="POST" action="/hops/offer">
+						@CSRFField()
+						<input type="hidden" name="org_id" value={ org.ID } />
+						<input type="hidden" name="hop_id" value={ hop.ID } />
+						<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
+						<input type="hidden" name="view" value={ backView } />
+						<button class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help</button>
+					</form>
+				}
+				if canComplete || canCancel {
+					if canComplete && canCancel {
+						<div class="grid grid-cols-2 gap-3">
+							if canComplete {
+								<button
+									type="button"
+									class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+									x-on:click="openConfirm('complete')"
+								>
+									Mark complete
+								</button>
+							}
+							if canCancel {
+								<button
+									type="button"
+									class="inline-flex w-full items-center justify-center rounded-xl border border-rose-200 px-4 py-3 text-base font-semibold text-rose-700 transition hover:bg-rose-50"
+									x-on:click="openConfirm('cancel')"
+								>
+									Cancel
+								</button>
+							}
+						</div>
+					} else {
+						<div class="grid grid-cols-1 gap-3">
+						if canComplete {
+							<button
+								type="button"
+								class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+								x-on:click="openConfirm('complete')"
+							>
+								Mark complete
+							</button>
+						}
+						if canCancel {
+							<button
+								type="button"
+								class="inline-flex w-full items-center justify-center rounded-xl border border-rose-200 px-4 py-3 text-base font-semibold text-rose-700 transition hover:bg-rose-50"
+								x-on:click="openConfirm('cancel')"
+							>
+								Cancel
+							</button>
+						}
+					</div>
+					}
+				}
+			</div>
+		</div>
+		<div class="fixed inset-0 z-50" x-show="confirmOpen" x-transition.opacity style="display: none;">
+			<div class="absolute inset-0 bg-slate-900/50" x-on:click="closeConfirm()"></div>
+			<div class="absolute inset-0 flex items-end justify-center p-4">
+				<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl" x-on:click.stop>
+					<div class="space-y-2 p-5">
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500" x-text="confirmKind === 'complete' ? 'Confirm completion' : 'Confirm cancelation'"></p>
+						<h2 class="text-lg font-bold text-slate-900" x-text="confirmKind === 'complete' ? 'Mark this hop complete?' : 'Cancel this hop?'"></h2>
+						<p class="text-sm text-slate-600" x-text="confirmKind === 'complete' ? 'This opens the completion step so you can confirm the final details.' : 'This will cancel the hop immediately for everyone involved.'"></p>
+					</div>
+					<div class="grid grid-cols-1 gap-3 border-t border-slate-200 bg-slate-50 p-5">
+						<template x-if="confirmKind === 'complete'">
+							<a
+								class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+								href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
+								data-hop-id={ hop.ID }
+								data-hop-title={ hop.Title }
+								data-hop-hours={ hop.EstimatedHours }
+								data-hop-requester={ canSetCompletionHours }
+							>
+								Continue
+							</a>
+						</template>
+						<template x-if="confirmKind === 'cancel'">
+							<form method="POST" action="/hops/cancel">
+								@CSRFField()
+								<input type="hidden" name="org_id" value={ org.ID } />
+								<input type="hidden" name="hop_id" value={ hop.ID } />
+								<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+								<button class="inline-flex w-full items-center justify-center rounded-xl bg-rose-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-rose-800" type="submit">Yes, cancel hop</button>
+							</form>
+						</template>
+						<button
+							type="button"
+							class="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 transition hover:border-slate-400"
+							x-on:click="closeConfirm()"
+						>
+							Go back
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		</div>
+	}
+}
+
 templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
 	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
 }
 
 templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
-	<div class="space-y-6">
+	<div class="space-y-6 pb-32 md:pb-0">
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
 				<img
@@ -110,30 +286,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 				<div class="flex flex-wrap items-center gap-3">
 					@StatusPill(hop.Status)
 					if canToggle && hop.Status != types.HopStatusOpen {
-						<form
-							method="POST"
-							action="/hops/privacy"
-							hx-post="/hops/privacy"
-							hx-trigger="change"
-							hx-swap="none"
-							class="space-y-2"
-						>
-							@CSRFField()
-							<input type="hidden" name="org_id" value={ org.ID } />
-							<input type="hidden" name="hop_id" value={ hop.ID } />
-							<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
-							<input type="hidden" name="view" value={ backView } />
-							<div class="flex flex-wrap items-center gap-3 text-sm text-slate-700">
-								<label class="inline-flex items-center gap-2">
-									<input class="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="radio" name="is_private" value="false" checked?={ !hop.IsPrivate } />
-									<span>Public</span>
-								</label>
-								<label class="inline-flex items-center gap-2">
-									<input class="h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="radio" name="is_private" value="true" checked?={ hop.IsPrivate } />
-									<span>Private</span>
-								</label>
-							</div>
-						</form>
+						@HopPrivacyToggle(org.ID, hop.ID, showBack, backView, hop)
 					}
 				</div>
 				<h1 class="text-2xl font-bold text-slate-900">{ hop.Title }</h1>
@@ -213,7 +366,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 		}
 
 		if canOfferHelp {
-			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
+			<section class="hidden bg-white border border-slate-200 rounded-xl shadow-sm p-8 md:block">
 				<form method="POST" action="/hops/offer">
 					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
@@ -225,7 +378,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			</section>
 		}
 		if canComplete {
-			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
+			<section class="hidden bg-white border border-slate-200 rounded-xl shadow-sm p-8 md:block">
 				<a
 					class="inline-flex w-full items-center justify-center rounded-lg bg-sky-700 px-6 py-4 text-xl font-semibold text-white transition hover:bg-sky-800"
 					href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
@@ -239,7 +392,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			</section>
 		}
 		if canCancel {
-			<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8">
+			<section class="hidden bg-white border border-slate-200 rounded-xl shadow-sm p-8 md:block">
 				<form method="POST" action="/hops/cancel">
 					@CSRFField()
 					<input type="hidden" name="org_id" value={ org.ID } />
@@ -351,11 +504,17 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			</section>
 		}
 
-		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-5">
+		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 md:p-8 space-y-5">
 			<div class="flex items-center justify-between">
 				<h2 class="text-lg font-bold text-slate-900">Comments</h2>
 				<p class="text-sm text-slate-500">{ strconv.Itoa(len(comments)) } total</p>
 			</div>
+
+			if canComment {
+				<div class="md:hidden">
+					@HopCommentComposer(org, hop, showBack, backView, true)
+				</div>
+			}
 
 			if len(comments) == 0 {
 				<p class="text-sm text-slate-600">No comments yet.</p>
@@ -390,21 +549,13 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 			}
 
 			if canComment {
-				<form method="POST" action="/hops/comments/create" class="space-y-3">
-					@CSRFField()
-					<input type="hidden" name="org_id" value={ org.ID } />
-					<input type="hidden" name="hop_id" value={ hop.ID } />
-					<input type="hidden" name="from" value={ hopDetailsFromValue(showBack) } />
-					<input type="hidden" name="view" value={ backView } />
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-slate-800" for="hop-comment-body">Add a comment</label>
-						<textarea id="hop-comment-body" name="body" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" rows="3" required placeholder="Share an update, ask a question, or say thanks."></textarea>
-					</div>
-					<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Post comment</button>
-				</form>
+				<div class="hidden md:block">
+					@HopCommentComposer(org, hop, showBack, backView, false)
+				</div>
 			} else {
 				<p class="text-sm text-slate-500">Comments are limited to members on this hop.</p>
 			}
 		</section>
+		@HopMobileActionBar(org, hop, showBack, backView, canOfferHelp, canCancel, canComplete, canSetCompletionHours)
 	</div>
 }

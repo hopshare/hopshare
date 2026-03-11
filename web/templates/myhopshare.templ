@@ -500,7 +500,7 @@ templ MyhopShareBalanceCard(displayName string, lastLoginLabel string, orgs []ty
 }
 
 templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberID int64) {
-	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4" x-data="{ completeModalOpen: false }" x-on:keydown.escape.window="completeModalOpen = false">
 		<div class="space-y-1">
 			<p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Active now</p>
 			<h2 class="text-lg font-bold text-slate-900">Accepted hop</h2>
@@ -523,16 +523,44 @@ templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, member
 			>
 				Open details
 			</a>
-			<a
+			<button
+				type="button"
 				class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-800"
-				href={ completeHopPageLink(orgID, hop.ID, "/my-hops?org_id=" + strconv.FormatInt(orgID, 10) + "&view=" + viewKey) }
-				data-hop-id={ hop.ID }
-				data-hop-title={ hop.Title }
-				data-hop-hours={ hop.EstimatedHours }
-				data-hop-requester={ hop.CreatedBy == memberID }
+				x-on:click="completeModalOpen = true"
 			>
 				Mark complete
-			</a>
+			</button>
+		</div>
+		<div class="fixed inset-0 z-50" x-show="completeModalOpen" x-transition.opacity style="display: none;">
+			<div class="absolute inset-0 bg-slate-900/50" x-on:click="completeModalOpen = false"></div>
+			<div class="absolute inset-0 flex items-end justify-center p-4">
+				<div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl" x-on:click.stop>
+					<div class="space-y-2 p-5">
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Confirm completion</p>
+						<h2 class="text-lg font-bold text-slate-900">Mark this hop complete?</h2>
+						<p class="text-sm text-slate-600">Continue to the completion step for this Hop?</p>
+					</div>
+					<div class="grid grid-cols-1 gap-3 border-t border-slate-200 bg-slate-50 p-5">
+						<a
+							class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+							href={ completeHopPageLink(orgID, hop.ID, "/my-hops?org_id=" + strconv.FormatInt(orgID, 10) + "&view=" + viewKey) }
+							data-hop-id={ hop.ID }
+							data-hop-title={ hop.Title }
+							data-hop-hours={ hop.EstimatedHours }
+							data-hop-requester={ hop.CreatedBy == memberID }
+						>
+							Continue
+						</a>
+						<button
+							type="button"
+							class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 transition hover:border-slate-400"
+							x-on:click="completeModalOpen = false"
+						>
+							Go back
+						</button>
+					</div>
+				</div>
+			</div>
 		</div>
 	</section>
 }
