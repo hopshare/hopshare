@@ -182,36 +182,5 @@ func (s *Server) handleMessageAction(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
-		return
-	}
-
-	messageID, _ := strconv.ParseInt(r.FormValue("message_id"), 10, 64)
-	action := strings.TrimSpace(r.FormValue("action"))
-	if messageID <= 0 || (action != "accept" && action != "decline") {
-		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Invalid message action."), http.StatusSeeOther)
-		return
-	}
-
-	responderName := memberDisplayName(user)
-
-	var err error
-	switch action {
-	case "accept":
-		err = service.AcceptHopOfferMessage(r.Context(), s.db, messageID, user.ID, responderName, r.FormValue("body"))
-	case "decline":
-		err = service.DeclineHopOfferMessage(r.Context(), s.db, messageID, user.ID, responderName, r.FormValue("body"))
-	}
-	if err != nil {
-		log.Printf("message action failed: %v", err)
-		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Could not update message."), http.StatusSeeOther)
-		return
-	}
-
-	successMsg := "Offer declined."
-	if action == "accept" {
-		successMsg = "Offer accepted."
-	}
-	http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&success="+url.QueryEscape(successMsg), http.StatusSeeOther)
+	http.Redirect(w, r, "/messages?error="+url.QueryEscape("Manage hop offers from the Hop Detail page."), http.StatusSeeOther)
 }

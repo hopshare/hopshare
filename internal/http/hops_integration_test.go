@@ -277,6 +277,212 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireBodyNotContains(t, memberBody, "action=\"/hops/cancel\"")
 	})
 
+	t.Run("HOP-06c pending hop details show offers only to requester", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper", "member")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Offer detail visibility " + suffix,
+			Details:        "Only the requester should see pending offers.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			OffererID:      members["helper"].Member.ID,
+			OffererName:    "Helper Person",
+		}); err != nil {
+			t.Fatalf("offer hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		owner.Login()
+		helper.Login()
+		member.Login()
+
+		helperDisplayName := strings.TrimSpace(members["helper"].Member.FirstName + " " + members["helper"].Member.LastName)
+		ownerBody := requireStatus(t, owner.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, ownerBody, "Offers to help")
+		requireBodyContains(t, ownerBody, helperDisplayName)
+		requireBodyContains(t, ownerBody, "action=\"/hops/offers/accept\"")
+		requireBodyContains(t, ownerBody, "action=\"/hops/offers/decline\"")
+
+		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, helperBody, "Offers to help")
+		requireBodyNotContains(t, helperBody, "action=\"/hops/offers/accept\"")
+
+		memberBody := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, memberBody, "Offers to help")
+		requireBodyNotContains(t, memberBody, "action=\"/hops/offers/accept\"")
+	})
+
+	t.Run("HOP-06d accepting an offer from hop details accepts one helper and declines the rest", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper", "member")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Offer detail accept " + suffix,
+			Details:        "Accepting from details should deny the other offers.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			OffererID:      members["helper"].Member.ID,
+			OffererName:    "Helper One",
+		}); err != nil {
+			t.Fatalf("offer hop helper: %v", err)
+		}
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			OffererID:      members["member"].Member.ID,
+			OffererName:    "Helper Two",
+		}); err != nil {
+			t.Fatalf("offer hop member: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		owner.Login()
+
+		redirectTo := "/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)
+		loc := requireRedirectPath(t, owner.PostForm("/hops/offers/accept", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"offer_member_id", strconv.FormatInt(members["helper"].Member.ID, 10),
+			"redirect_to", redirectTo,
+		)), "/hops/view")
+		requireQueryValue(t, loc, "success", "Offer accepted.")
+
+		hop, err = service.GetHopByID(ctx, db, org.ID, hop.ID)
+		if err != nil {
+			t.Fatalf("load hop after accept: %v", err)
+		}
+		if hop.Status != types.HopStatusAccepted {
+			t.Fatalf("expected hop status %q, got %q", types.HopStatusAccepted, hop.Status)
+		}
+		if hop.AcceptedBy == nil || *hop.AcceptedBy != members["helper"].Member.ID {
+			t.Fatalf("expected accepted_by=%d, got %v", members["helper"].Member.ID, hop.AcceptedBy)
+		}
+
+		pending, err := service.HasPendingHopOffer(ctx, db, hop.ID, members["member"].Member.ID)
+		if err != nil {
+			t.Fatalf("check remaining pending offer: %v", err)
+		}
+		if pending {
+			t.Fatalf("expected non-selected offer to be denied")
+		}
+
+		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("list accepted helper messages: %v", err)
+		}
+		foundAccepted := false
+		for _, msg := range helperMessages {
+			if strings.HasPrefix(msg.Subject, "Accepted:") {
+				foundAccepted = true
+				break
+			}
+		}
+		if !foundAccepted {
+			t.Fatalf("expected accepted helper to receive acceptance message")
+		}
+
+		memberMessages, err := service.ListMessages(ctx, db, members["member"].Member.ID)
+		if err != nil {
+			t.Fatalf("list declined helper messages: %v", err)
+		}
+		foundDeclined := false
+		for _, msg := range memberMessages {
+			if strings.HasPrefix(msg.Subject, "Declined:") {
+				foundDeclined = true
+				break
+			}
+		}
+		if !foundDeclined {
+			t.Fatalf("expected non-selected helper to receive decline message")
+		}
+	})
+
+	t.Run("HOP-06e declining an offer from hop details keeps the hop open", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "helper")
+		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       members["owner"].Member.ID,
+			Title:          "Offer detail decline " + suffix,
+			Details:        "Declining from details should keep the hop open.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+			IsPrivate:      false,
+		})
+		if err != nil {
+			t.Fatalf("create hop: %v", err)
+		}
+		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{
+			OrganizationID: org.ID,
+			HopID:          hop.ID,
+			OffererID:      members["helper"].Member.ID,
+			OffererName:    "Helper Person",
+		}); err != nil {
+			t.Fatalf("offer hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		owner.Login()
+
+		redirectTo := "/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)
+		loc := requireRedirectPath(t, owner.PostForm("/hops/offers/decline", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"offer_member_id", strconv.FormatInt(members["helper"].Member.ID, 10),
+			"redirect_to", redirectTo,
+		)), "/hops/view")
+		requireQueryValue(t, loc, "success", "Offer declined.")
+
+		hop, err = service.GetHopByID(ctx, db, org.ID, hop.ID)
+		if err != nil {
+			t.Fatalf("load hop after decline: %v", err)
+		}
+		if hop.Status != types.HopStatusOpen {
+			t.Fatalf("expected hop to remain open, got %q", hop.Status)
+		}
+
+		pending, err := service.HasPendingHopOffer(ctx, db, hop.ID, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("check declined pending offer: %v", err)
+		}
+		if pending {
+			t.Fatalf("expected helper offer to be declined")
+		}
+
+		body := requireStatus(t, owner.Get(redirectTo), 200)
+		requireBodyContains(t, body, "No one has offered help yet.")
+	})
+
 	t.Run("HOP-07 duplicate offer is rejected and HOP-08 offering own hop is rejected", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -375,26 +581,11 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		)), "/my-hopshare")
 		requireQueryValue(t, offerLoc, "success", "Offer sent.")
 
-		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
-
 		cancelLoc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
 		requireQueryValue(t, cancelLoc, "success", "Hop canceled.")
-
-		reloadedMsg, err := service.GetMessageForMember(ctx, db, actionMsg.ID, members["owner"].Member.ID)
-		if err != nil {
-			t.Fatalf("reload action message after cancel: %v", err)
-		}
-		if reloadedMsg.ActionStatus == nil || *reloadedMsg.ActionStatus != types.MessageActionDeclined {
-			t.Fatalf("expected action message status %q after cancel, got %+v", types.MessageActionDeclined, reloadedMsg.ActionStatus)
-		}
-
-		pendingCount := countPendingActionMessagesForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
-		if pendingCount != 0 {
-			t.Fatalf("expected no pending action messages after cancel, got %d", pendingCount)
-		}
 
 		var offerStatus sql.NullString
 		if err := db.QueryRowContext(ctx, `
@@ -639,9 +830,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop help: %v", err)
 		}
-		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
-		if err := service.AcceptHopOfferMessage(ctx, db, msg.ID, members["owner"].Member.ID, "owner", "accepted"); err != nil {
-			t.Fatalf("accept hop offer message: %v", err)
+		if err := service.AcceptPendingHopOffer(ctx, db, hop.ID, members["owner"].Member.ID, members["helper"].Member.ID, "owner", "accepted"); err != nil {
+			t.Fatalf("accept pending hop offer: %v", err)
 		}
 
 		server := newHTTPServer(t, db)
@@ -690,9 +880,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop help: %v", err)
 		}
-		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
-		if err := service.AcceptHopOfferMessage(ctx, db, msg.ID, members["owner"].Member.ID, "owner", "accepted"); err != nil {
-			t.Fatalf("accept hop offer message: %v", err)
+		if err := service.AcceptPendingHopOffer(ctx, db, hop.ID, members["owner"].Member.ID, members["helper"].Member.ID, "owner", "accepted"); err != nil {
+			t.Fatalf("accept pending hop offer: %v", err)
 		}
 
 		server := newHTTPServer(t, db)
@@ -764,9 +953,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop help: %v", err)
 		}
-		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
-		if err := service.AcceptHopOfferMessage(ctx, db, msg.ID, members["owner"].Member.ID, "owner", "accepted"); err != nil {
-			t.Fatalf("accept hop offer message: %v", err)
+		if err := service.AcceptPendingHopOffer(ctx, db, hop.ID, members["owner"].Member.ID, members["helper"].Member.ID, "owner", "accepted"); err != nil {
+			t.Fatalf("accept pending hop offer: %v", err)
 		}
 
 		server := newHTTPServer(t, db)
@@ -1378,8 +1566,7 @@ func createAcceptedHopViaOffer(t *testing.T, ctx context.Context, db *sql.DB, or
 	}); err != nil {
 		t.Fatalf("offer hop: %v", err)
 	}
-	msg := findPendingActionMessageForHop(t, ctx, db, requesterID, hop.ID)
-	if err := service.AcceptHopOfferMessage(ctx, db, msg.ID, requesterID, "requester", "accepted"); err != nil {
+	if err := service.AcceptPendingHopOffer(ctx, db, hop.ID, requesterID, helperID, "requester", "accepted"); err != nil {
 		t.Fatalf("accept offer: %v", err)
 	}
 	acceptedHop, err := service.GetHopByID(ctx, db, orgID, hop.ID)

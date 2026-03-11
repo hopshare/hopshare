@@ -181,6 +181,13 @@ type Hop struct {
 	AcceptedByLeftOrganization bool
 }
 
+// PendingHopOffer represents a still-open offer to help on a hop.
+type PendingHopOffer struct {
+	MemberID   int64
+	MemberName string
+	OfferedAt  time.Time
+}
+
 // HopComment represents a comment on a hop.
 type HopComment struct {
 	ID         int64

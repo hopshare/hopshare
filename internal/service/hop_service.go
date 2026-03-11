@@ -240,12 +240,12 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 
 	description := hopDescription(title, stringPtrFromNull(details))
 	body := fmt.Sprintf(
-		"Congratulations! %s has offered to help you with your Hop request! If you wish to accept their help, use the button below!\n\nHop request:\n%s",
+		"%s has offered to help with your Hop request. Review and manage offers from the hop details page.\n\nHop request:\n%s",
 		offererName,
 		description,
 	)
 	senderID := p.OffererID
-	if err = insertMessage(ctx, tx, createdBy, &senderID, offererName, types.MessageTypeAction, &p.HopID, nil, nil, "Hop help offer", body); err != nil {
+	if err = insertMessage(ctx, tx, createdBy, &senderID, offererName, types.MessageTypeInformation, &p.HopID, nil, nil, "Hop help offer", body); err != nil {
 		return err
 	}
 	_ = createMemberNotification(
@@ -277,113 +277,11 @@ func AcceptHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipient
 		return ErrMissingField
 	}
 
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin accept offer: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	offererID, hopID, err := loadPendingActionMessage(ctx, tx, messageID, recipientID)
+	offererID, hopID, err := loadPendingActionMessage(ctx, db, messageID, recipientID)
 	if err != nil {
 		return err
 	}
-	if offererID == recipientID {
-		return ErrHopForbidden
-	}
-
-	var orgID int64
-	var createdBy int64
-	var status string
-	var title string
-	var details sql.NullString
-	if err = tx.QueryRowContext(ctx, `
-		SELECT organization_id, created_by, status, title, details
-		FROM hops
-		WHERE id = $1
-		FOR UPDATE
-	`, hopID).Scan(&orgID, &createdBy, &status, &title, &details); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrHopNotFound
-		}
-		return fmt.Errorf("load hop for accept offer: %w", err)
-	}
-	if createdBy != recipientID {
-		return ErrHopForbidden
-	}
-	if status != types.HopStatusOpen {
-		return ErrHopInvalidState
-	}
-
-	if err := requireActiveMembership(ctx, tx, orgID, recipientID); err != nil {
-		return err
-	}
-	if err := requireActiveMembership(ctx, tx, orgID, offererID); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE hops
-		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
-		WHERE id = $3 AND organization_id = $4
-	`, types.HopStatusAccepted, offererID, hopID, orgID); err != nil {
-		return fmt.Errorf("accept hop offer: %w", err)
-	}
-
-	now := time.Now().UTC()
-
-	res, err := tx.ExecContext(ctx, `
-		UPDATE hop_help_offers
-		SET status = $1, accepted_at = $2
-		WHERE hop_id = $3 AND member_id = $4 AND status IS NULL
-	`, types.HopOfferStatusAccepted, now, hopID, offererID)
-	if err != nil {
-		return fmt.Errorf("accept hop offer: %w", err)
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("accept hop offer rows affected: %w", err)
-	}
-	if affected == 0 {
-		return ErrInvalidMessage
-	}
-
-	if err = markActionMessage(ctx, tx, messageID, recipientID, types.MessageActionAccepted, now); err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL AND id <> $6
-	`, types.MessageActionDeclined, now, recipientID, hopID, types.MessageTypeAction, messageID); err != nil {
-		return fmt.Errorf("decline other offers: %w", err)
-	}
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE hop_help_offers
-		SET status = $1, denied_at = $2
-		WHERE hop_id = $3 AND member_id <> $4 AND status IS NULL
-	`, types.HopOfferStatusDenied, now, hopID, offererID); err != nil {
-		return fmt.Errorf("deny other hop offers: %w", err)
-	}
-
-	description := hopDescription(title, stringPtrFromNull(details))
-	subject := "Accepted: " + truncateRunes(description, 100)
-	body := strings.TrimSpace(responseBody)
-	if body == "" {
-		body = fmt.Sprintf("Your offer to help with \"%s\" was accepted.", description)
-	}
-	senderID := recipientID
-	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit accept offer: %w", err)
-	}
-	return nil
+	return AcceptPendingHopOffer(ctx, db, hopID, recipientID, offererID, responderName, responseBody)
 }
 
 func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64, responderName, responseBody string) error {
@@ -401,9 +299,31 @@ func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipien
 		return ErrMissingField
 	}
 
+	offererID, hopID, err := loadPendingActionMessage(ctx, db, messageID, recipientID)
+	if err != nil {
+		return err
+	}
+	return DeclinePendingHopOffer(ctx, db, hopID, recipientID, offererID, responderName, responseBody)
+}
+
+func AcceptPendingHopOffer(ctx context.Context, db *sql.DB, hopID, requesterID, offererID int64, responderName, responseBody string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if requesterID == 0 || offererID == 0 {
+		return ErrMissingMemberID
+	}
+	responderName = strings.TrimSpace(responderName)
+	if responderName == "" {
+		return ErrMissingField
+	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin decline offer: %w", err)
+		return fmt.Errorf("begin accept pending hop offer: %w", err)
 	}
 	defer func() {
 		if err != nil {
@@ -411,43 +331,189 @@ func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipien
 		}
 	}()
 
-	offererID, hopID, err := loadPendingActionMessage(ctx, tx, messageID, recipientID)
-	if err != nil {
+	if err = acceptPendingHopOfferTx(ctx, tx, hopID, requesterID, offererID, responderName, responseBody); err != nil {
 		return err
 	}
-	if offererID == recipientID {
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit accept pending hop offer: %w", err)
+	}
+	return nil
+}
+
+func DeclinePendingHopOffer(ctx context.Context, db *sql.DB, hopID, requesterID, offererID int64, responderName, responseBody string) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if hopID == 0 {
+		return ErrHopNotFound
+	}
+	if requesterID == 0 || offererID == 0 {
+		return ErrMissingMemberID
+	}
+	responderName = strings.TrimSpace(responderName)
+	if responderName == "" {
+		return ErrMissingField
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin decline pending hop offer: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = declinePendingHopOfferTx(ctx, tx, hopID, requesterID, offererID, responderName, responseBody); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit decline pending hop offer: %w", err)
+	}
+	return nil
+}
+
+func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID, offererID int64, responderName, responseBody string) error {
+	if offererID == requesterID {
 		return ErrHopForbidden
 	}
 
-	now := time.Now().UTC()
-	if err = markActionMessage(ctx, tx, messageID, recipientID, types.MessageActionDeclined, now); err != nil {
+	orgID, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
+	if err != nil {
+		return err
+	}
+	otherOfferers, err := listOtherPendingHopOfferers(ctx, tx, hopID, offererID)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveMembership(ctx, tx, orgID, requesterID); err != nil {
+		return err
+	}
+	if err := requireActiveMembership(ctx, tx, orgID, offererID); err != nil {
 		return err
 	}
 
+	res, err := tx.ExecContext(ctx, `
+		UPDATE hops
+		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
+		WHERE id = $3 AND organization_id = $4 AND status = $5
+	`, types.HopStatusAccepted, offererID, hopID, orgID, types.HopStatusOpen)
+	if err != nil {
+		return fmt.Errorf("accept pending hop offer: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("accept pending hop offer rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrHopInvalidState
+	}
+
+	now := time.Now().UTC()
+	res, err = tx.ExecContext(ctx, `
+		UPDATE hop_help_offers
+		SET status = $1, accepted_at = $2
+		WHERE hop_id = $3 AND member_id = $4 AND status IS NULL
+	`, types.HopOfferStatusAccepted, now, hopID, offererID)
+	if err != nil {
+		return fmt.Errorf("accept pending hop offer: %w", err)
+	}
+	affected, err = res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("accept pending hop offer rows affected: %w", err)
+	}
+	if affected == 0 {
+		return ErrHopInvalidState
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE recipient_member_id = $3 AND sender_member_id = $4 AND hop_id = $5 AND message_type = $6 AND action_status IS NULL
+	`, types.MessageActionAccepted, now, requesterID, offererID, hopID, types.MessageTypeAction); err != nil {
+		return fmt.Errorf("accept pending offer messages: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL AND sender_member_id <> $6
+	`, types.MessageActionDeclined, now, requesterID, hopID, types.MessageTypeAction, offererID); err != nil {
+		return fmt.Errorf("decline other pending offer messages: %w", err)
+	}
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE hop_help_offers
+		SET status = $1, denied_at = $2
+		WHERE hop_id = $3 AND member_id <> $4 AND status IS NULL
+	`, types.HopOfferStatusDenied, now, hopID, offererID); err != nil {
+		return fmt.Errorf("deny other pending hop offers: %w", err)
+	}
+
+	description := hopDescription(title, stringPtrFromNull(details))
+	subject := "Accepted: " + truncateRunes(description, 100)
+	body := strings.TrimSpace(responseBody)
+	if body == "" {
+		body = fmt.Sprintf("Your offer to help with \"%s\" was accepted.", description)
+	}
+	senderID := requesterID
+	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+		return err
+	}
+
+	declineSubject := "Declined: " + truncateRunes(description, 100)
+	declineBody := fmt.Sprintf("%s has chosen someone else to help them with their request, %s. Check your organization again and maybe someone else could use your help!", responderName, title)
+	for _, other := range otherOfferers {
+		if err = insertMessage(ctx, tx, other.MemberID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, declineSubject, declineBody); err != nil {
+			return err
+		}
+		_ = createMemberNotification(
+			ctx,
+			tx,
+			other.MemberID,
+			declineBody,
+			"/messages",
+		)
+	}
+
+	return nil
+}
+
+func declinePendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID, offererID int64, responderName, responseBody string) error {
+	if offererID == requesterID {
+		return ErrHopForbidden
+	}
+
+	orgID, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveMembership(ctx, tx, orgID, requesterID); err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
 	res, err := tx.ExecContext(ctx, `
 		UPDATE hop_help_offers
 		SET status = $1, denied_at = $2
 		WHERE hop_id = $3 AND member_id = $4 AND status IS NULL
 	`, types.HopOfferStatusDenied, now, hopID, offererID)
 	if err != nil {
-		return fmt.Errorf("deny hop offer: %w", err)
+		return fmt.Errorf("decline pending hop offer: %w", err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("deny hop offer rows affected: %w", err)
+		return fmt.Errorf("decline pending hop offer rows affected: %w", err)
 	}
 	if affected == 0 {
-		return ErrInvalidMessage
+		return ErrHopInvalidState
 	}
 
-	var title string
-	var details sql.NullString
-	if err = tx.QueryRowContext(ctx, `
-		SELECT title, details
-		FROM hops
-		WHERE id = $1
-	`, hopID).Scan(&title, &details); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("load hop title: %w", err)
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE messages
+		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
+		WHERE recipient_member_id = $3 AND sender_member_id = $4 AND hop_id = $5 AND message_type = $6 AND action_status IS NULL
+	`, types.MessageActionDeclined, now, requesterID, offererID, hopID, types.MessageTypeAction); err != nil {
+		return fmt.Errorf("decline pending offer messages: %w", err)
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
@@ -456,7 +522,7 @@ func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipien
 	if body == "" {
 		body = fmt.Sprintf("Your offer to help with \"%s\" was declined.", description)
 	}
-	senderID := recipientID
+	senderID := requesterID
 	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
 		return err
 	}
@@ -468,10 +534,65 @@ func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipien
 		"/messages",
 	)
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit decline offer: %w", err)
-	}
 	return nil
+}
+
+func loadHopForPendingOfferAction(ctx context.Context, tx *sql.Tx, hopID, requesterID int64) (int64, string, sql.NullString, error) {
+	var orgID int64
+	var createdBy int64
+	var status string
+	var title string
+	var details sql.NullString
+	if err := tx.QueryRowContext(ctx, `
+		SELECT organization_id, created_by, status, title, details
+		FROM hops
+		WHERE id = $1
+		FOR UPDATE
+	`, hopID).Scan(&orgID, &createdBy, &status, &title, &details); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, "", sql.NullString{}, ErrHopNotFound
+		}
+		return 0, "", sql.NullString{}, fmt.Errorf("load hop for pending offer action: %w", err)
+	}
+	if createdBy != requesterID {
+		return 0, "", sql.NullString{}, ErrHopForbidden
+	}
+	if status != types.HopStatusOpen {
+		return 0, "", sql.NullString{}, ErrHopInvalidState
+	}
+	return orgID, title, details, nil
+}
+
+func listOtherPendingHopOfferers(ctx context.Context, tx *sql.Tx, hopID, selectedOffererID int64) ([]types.PendingHopOffer, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT
+			hho.member_id,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
+			hho.offered_at
+		FROM hop_help_offers hho
+		JOIN members m ON m.id = hho.member_id
+		WHERE hho.hop_id = $1
+		  AND hho.member_id <> $2
+		  AND hho.status IS NULL
+		FOR UPDATE
+	`, hopID, selectedOffererID)
+	if err != nil {
+		return nil, fmt.Errorf("list competing pending hop offers: %w", err)
+	}
+	defer rows.Close()
+
+	var offerers []types.PendingHopOffer
+	for rows.Next() {
+		var offerer types.PendingHopOffer
+		if err := rows.Scan(&offerer.MemberID, &offerer.MemberName, &offerer.OfferedAt); err != nil {
+			return nil, fmt.Errorf("scan competing pending hop offer: %w", err)
+		}
+		offerers = append(offerers, offerer)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list competing pending hop offers: %w", err)
+	}
+	return offerers, nil
 }
 
 func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) error {
@@ -1851,6 +1972,50 @@ func PendingHopOfferIDs(ctx context.Context, db *sql.DB, memberID int64) (map[in
 		return nil, fmt.Errorf("list pending hop offers: %w", err)
 	}
 	return out, nil
+}
+
+func ListPendingHopOffers(ctx context.Context, db *sql.DB, hopID, requesterID int64) ([]types.PendingHopOffer, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if hopID == 0 {
+		return nil, ErrHopNotFound
+	}
+	if requesterID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			hho.member_id,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
+			hho.offered_at
+		FROM hops h
+		JOIN hop_help_offers hho ON hho.hop_id = h.id
+		JOIN members m ON m.id = hho.member_id
+		WHERE h.id = $1
+		  AND h.created_by = $2
+		  AND h.status = $3
+		  AND hho.status IS NULL
+		ORDER BY hho.offered_at ASC, hho.member_id ASC
+	`, hopID, requesterID, types.HopStatusOpen)
+	if err != nil {
+		return nil, fmt.Errorf("list pending hop offers for hop: %w", err)
+	}
+	defer rows.Close()
+
+	var offers []types.PendingHopOffer
+	for rows.Next() {
+		var offer types.PendingHopOffer
+		if err := rows.Scan(&offer.MemberID, &offer.MemberName, &offer.OfferedAt); err != nil {
+			return nil, fmt.Errorf("scan pending hop offer for hop: %w", err)
+		}
+		offers = append(offers, offer)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list pending hop offers for hop: %w", err)
+	}
+	return offers, nil
 }
 
 func HasPendingHopOffer(ctx context.Context, db *sql.DB, hopID, memberID int64) (bool, error) {

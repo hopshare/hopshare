@@ -133,19 +133,7 @@ templ MessagesBody(
 				<p class="text-slate-600">Choose a message above to reply.</p>
 			} else if selected.MessageType == types.MessageTypeAction {
 				if selected.ActionStatus == nil {
-					<form method="POST" action="/messages/action" class="space-y-3">
-						@CSRFField()
-						<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
-						<textarea
-							name="body"
-							class="w-full min-h-[160px] rounded-lg border border-slate-300 p-3 text-sm text-slate-900"
-							placeholder="Type your response here..."
-						></textarea>
-						<div class="flex flex-wrap justify-end gap-3">
-							<button class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400" type="submit" name="action" value="decline">Decline</button>
-							<button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" type="submit" name="action" value="accept">Accept</button>
-						</div>
-					</form>
+					<p class="text-slate-600">Manage this offer from the Hop Detail page.</p>
 				} else if *selected.ActionStatus == types.MessageActionAccepted {
 					<p class="text-slate-600">You accepted this offer.</p>
 				} else {

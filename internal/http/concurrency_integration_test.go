@@ -102,18 +102,18 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		if err != nil {
 			t.Fatalf("list owner messages: %v", err)
 		}
-		pending := 0
+		offerNotifications := 0
 		for _, m := range msgs {
-			if m.MessageType == types.MessageTypeAction && m.HopID != nil && *m.HopID == hop.ID && m.ActionStatus == nil {
-				pending++
+			if m.MessageType == types.MessageTypeInformation && m.HopID != nil && *m.HopID == hop.ID && m.Subject == "Hop help offer" {
+				offerNotifications++
 			}
 		}
-		if pending != 2 {
-			t.Fatalf("expected 2 pending action messages, got %d", pending)
+		if offerNotifications != 2 {
+			t.Fatalf("expected 2 offer notification messages, got %d", offerNotifications)
 		}
 	})
 
-	t.Run("RACE-03 concurrent accepts on two offer messages yields one accepted helper", func(t *testing.T) {
+	t.Run("RACE-03 concurrent accepts on two hop offers yields one accepted helper", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -136,20 +136,6 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{OrganizationID: org.ID, HopID: hop.ID, OffererID: members["helper2"].Member.ID, OffererName: "helper2"}); err != nil {
 			t.Fatalf("offer helper2: %v", err)
 		}
-		msgs, err := service.ListMessages(ctx, db, members["owner"].Member.ID)
-		if err != nil {
-			t.Fatalf("list messages: %v", err)
-		}
-		var actionIDs []int64
-		for _, m := range msgs {
-			if m.MessageType == types.MessageTypeAction && m.HopID != nil && *m.HopID == hop.ID && m.ActionStatus == nil {
-				actionIDs = append(actionIDs, m.ID)
-			}
-		}
-		if len(actionIDs) != 2 {
-			t.Fatalf("expected 2 pending actions, got %d", len(actionIDs))
-		}
-
 		server := newHTTPServer(t, db)
 		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
@@ -159,15 +145,25 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		var resp1, resp2 *http.Response
 		go func() {
 			defer wg.Done()
-			resp1 = owner.PostForm("/messages/action", formKV("message_id", strconv.FormatInt(actionIDs[0], 10), "action", "accept"))
+			resp1 = owner.PostForm("/hops/offers/accept", formKV(
+				"org_id", strconv.FormatInt(org.ID, 10),
+				"hop_id", strconv.FormatInt(hop.ID, 10),
+				"offer_member_id", strconv.FormatInt(members["helper1"].Member.ID, 10),
+				"redirect_to", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10),
+			))
 		}()
 		go func() {
 			defer wg.Done()
-			resp2 = owner.PostForm("/messages/action", formKV("message_id", strconv.FormatInt(actionIDs[1], 10), "action", "accept"))
+			resp2 = owner.PostForm("/hops/offers/accept", formKV(
+				"org_id", strconv.FormatInt(org.ID, 10),
+				"hop_id", strconv.FormatInt(hop.ID, 10),
+				"offer_member_id", strconv.FormatInt(members["helper2"].Member.ID, 10),
+				"redirect_to", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10),
+			))
 		}()
 		wg.Wait()
-		requireRedirectPath(t, resp1, "/messages")
-		requireRedirectPath(t, resp2, "/messages")
+		requireRedirectPath(t, resp1, "/hops/view")
+		requireRedirectPath(t, resp2, "/hops/view")
 
 		reloaded, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
 		if err != nil {
@@ -181,7 +177,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("RACE-04 duplicate accept on same message yields one success", func(t *testing.T) {
+	t.Run("RACE-04 duplicate accept on same hop offer yields one success", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -201,17 +197,21 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{OrganizationID: org.ID, HopID: hop.ID, OffererID: members["helper"].Member.ID, OffererName: "helper"}); err != nil {
 			t.Fatalf("offer helper: %v", err)
 		}
-		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
 		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
 		responses := runConcurrently(2, func() *http.Response {
-			return owner.PostForm("/messages/action", formKV("message_id", strconv.FormatInt(msg.ID, 10), "action", "accept"))
+			return owner.PostForm("/hops/offers/accept", formKV(
+				"org_id", strconv.FormatInt(org.ID, 10),
+				"hop_id", strconv.FormatInt(hop.ID, 10),
+				"offer_member_id", strconv.FormatInt(members["helper"].Member.ID, 10),
+				"redirect_to", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10),
+			))
 		})
 		success := 0
 		for _, resp := range responses {
-			loc := requireRedirectPath(t, resp, "/messages")
+			loc := requireRedirectPath(t, resp, "/hops/view")
 			if loc.Query().Get("success") == "Offer accepted." {
 				success++
 			}
@@ -241,7 +241,6 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		if err := service.OfferHopHelp(ctx, db, service.OfferHopParams{OrganizationID: org.ID, HopID: hop.ID, OffererID: members["helper"].Member.ID, OffererName: "helper"}); err != nil {
 			t.Fatalf("offer helper: %v", err)
 		}
-		msg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
 		server := newHTTPServer(t, db)
 		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
@@ -255,11 +254,16 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			acceptResp = owner.PostForm("/messages/action", formKV("message_id", strconv.FormatInt(msg.ID, 10), "action", "accept"))
+			acceptResp = owner.PostForm("/hops/offers/accept", formKV(
+				"org_id", strconv.FormatInt(org.ID, 10),
+				"hop_id", strconv.FormatInt(hop.ID, 10),
+				"offer_member_id", strconv.FormatInt(members["helper"].Member.ID, 10),
+				"redirect_to", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10),
+			))
 		}()
 		wg.Wait()
 		_ = requireRedirectPathOneOf(t, cancelResp, "/my-hopshare")
-		_ = requireRedirectPath(t, acceptResp, "/messages")
+		_ = requireRedirectPath(t, acceptResp, "/hops/view")
 
 		reloaded, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
 		if err != nil {

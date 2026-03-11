@@ -86,23 +86,14 @@ func TestHopLifecycleWorkflow_MultiUserHTTP(t *testing.T) {
 	requireQueryValue(t, offerLoc, "org_id", strconv.FormatInt(org.ID, 10))
 	requireQueryValue(t, offerLoc, "success", "Offer sent.")
 
-	actionMsg := findPendingActionMessageForHop(t, ctx, db, requester.Member.ID, hop.ID)
-
-	acceptLoc := requireRedirectPath(t, requesterActor.PostForm("/messages/action", url.Values{
-		"message_id": {strconv.FormatInt(actionMsg.ID, 10)},
-		"action":     {"accept"},
-		"body":       {"I can do Tuesday afternoon. Thank you!"},
-	}), "/messages")
-	requireQueryValue(t, acceptLoc, "message_id", strconv.FormatInt(actionMsg.ID, 10))
+	acceptLoc := requireRedirectPath(t, requesterActor.PostForm("/hops/offers/accept", url.Values{
+		"org_id":          {strconv.FormatInt(org.ID, 10)},
+		"hop_id":          {strconv.FormatInt(hop.ID, 10)},
+		"offer_member_id": {strconv.FormatInt(helper.Member.ID, 10)},
+		"redirect_to":     {"/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)},
+		"body":            {"I can do Tuesday afternoon. Thank you!"},
+	}), "/hops/view")
 	requireQueryValue(t, acceptLoc, "success", "Offer accepted.")
-
-	actionMsg, err = service.GetMessageForMember(ctx, db, actionMsg.ID, requester.Member.ID)
-	if err != nil {
-		t.Fatalf("reload action message: %v", err)
-	}
-	if actionMsg.ActionStatus == nil || *actionMsg.ActionStatus != types.MessageActionAccepted {
-		t.Fatalf("expected action message status %q, got %+v", types.MessageActionAccepted, actionMsg.ActionStatus)
-	}
 
 	hop, err = service.GetHopByID(ctx, db, org.ID, hop.ID)
 	if err != nil {
@@ -232,23 +223,14 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	}), "/my-hopshare")
 	requireQueryValue(t, offerLoc, "success", "Offer sent.")
 
-	actionMsg := findPendingActionMessageForHop(t, ctx, db, requester.Member.ID, hop.ID)
-
-	declineLoc := requireRedirectPath(t, requesterActor.PostForm("/messages/action", url.Values{
-		"message_id": {strconv.FormatInt(actionMsg.ID, 10)},
-		"action":     {"decline"},
-		"body":       {"Thanks for offering, but I need to pass for now."},
-	}), "/messages")
-	requireQueryValue(t, declineLoc, "message_id", strconv.FormatInt(actionMsg.ID, 10))
+	declineLoc := requireRedirectPath(t, requesterActor.PostForm("/hops/offers/decline", url.Values{
+		"org_id":          {strconv.FormatInt(org.ID, 10)},
+		"hop_id":          {strconv.FormatInt(hop.ID, 10)},
+		"offer_member_id": {strconv.FormatInt(helper.Member.ID, 10)},
+		"redirect_to":     {"/hops/view?org_id=" + strconv.FormatInt(org.ID, 10) + "&hop_id=" + strconv.FormatInt(hop.ID, 10)},
+		"body":            {"Thanks for offering, but I need to pass for now."},
+	}), "/hops/view")
 	requireQueryValue(t, declineLoc, "success", "Offer declined.")
-
-	actionMsg, err = service.GetMessageForMember(ctx, db, actionMsg.ID, requester.Member.ID)
-	if err != nil {
-		t.Fatalf("reload action message: %v", err)
-	}
-	if actionMsg.ActionStatus == nil || *actionMsg.ActionStatus != types.MessageActionDeclined {
-		t.Fatalf("expected action message status %q, got %+v", types.MessageActionDeclined, actionMsg.ActionStatus)
-	}
 
 	hop, err = service.GetHopByID(ctx, db, org.ID, hop.ID)
 	if err != nil {
@@ -299,9 +281,9 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	}), "/my-hopshare")
 	requireQueryValue(t, offerAgainLoc, "success", "Offer sent.")
 
-	pendingCount := countPendingActionMessagesForHop(t, ctx, db, requester.Member.ID, hop.ID)
-	if pendingCount != 1 {
-		t.Fatalf("expected one pending action message after declined offer retry, got %d", pendingCount)
+	offerMessageCount := countHopOfferMessagesForHop(t, ctx, db, requester.Member.ID, hop.ID)
+	if offerMessageCount < 2 {
+		t.Fatalf("expected a second hop offer notification after declined offer retry, got %d total", offerMessageCount)
 	}
 }
 
@@ -454,7 +436,7 @@ func approveMemberForOrganization(t *testing.T, ctx context.Context, db *sql.DB,
 	}
 }
 
-func countPendingActionMessagesForHop(t *testing.T, ctx context.Context, db *sql.DB, recipientID, hopID int64) int {
+func countHopOfferMessagesForHop(t *testing.T, ctx context.Context, db *sql.DB, recipientID, hopID int64) int {
 	t.Helper()
 
 	messages, err := service.ListMessages(ctx, db, recipientID)
@@ -464,13 +446,13 @@ func countPendingActionMessagesForHop(t *testing.T, ctx context.Context, db *sql
 
 	count := 0
 	for _, msg := range messages {
-		if msg.MessageType != types.MessageTypeAction {
+		if msg.MessageType != types.MessageTypeInformation {
 			continue
 		}
 		if msg.HopID == nil || *msg.HopID != hopID {
 			continue
 		}
-		if msg.ActionStatus == nil {
+		if msg.Subject == "Hop help offer" {
 			count++
 		}
 	}

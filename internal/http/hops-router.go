@@ -217,6 +217,8 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 
 	showBack := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("from")), "my-hops")
 	backView := strings.TrimSpace(r.URL.Query().Get("view"))
+	successMsg := strings.TrimSpace(r.URL.Query().Get("success"))
+	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
 	canToggle := isAssociated
 	canComment := isAssociated || !hop.IsPrivate
 	canUpload := isAssociated
@@ -224,6 +226,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	canComplete := hop.Status == types.HopStatusAccepted && isAssociated
 	canSetCompletionHours := hop.CreatedBy == user.ID
 	canOfferHelp := hop.Status == types.HopStatusOpen && hop.CreatedBy != user.ID
+	canManageOffers := hop.Status == types.HopStatusOpen && hop.CreatedBy == user.ID
 	hasOfferedToHelp := false
 	if canOfferHelp {
 		hasPendingOffer, err := service.HasPendingHopOffer(r.Context(), s.db, hop.ID, user.ID)
@@ -235,7 +238,16 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		hasOfferedToHelp = hasPendingOffer
 		canOfferHelp = !hasPendingOffer
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canCancel, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
+	var pendingOffers []types.PendingHopOffer
+	if canManageOffers {
+		pendingOffers, err = service.ListPendingHopOffers(r.Context(), s.db, hop.ID, user.ID)
+		if err != nil {
+			log.Printf("list pending hop offers hop=%d requester=%d: %v", hop.ID, user.ID, err)
+			http.Error(w, "could not load hop", http.StatusInternalServerError)
+			return
+		}
+	}
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, showBack, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
 }
 
 func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
@@ -476,6 +488,70 @@ func (s *Server) handleOfferHop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Offer sent."), http.StatusSeeOther)
+}
+
+func (s *Server) handleAcceptHopOffer(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	offerMemberID, _ := strconv.ParseInt(r.FormValue("offer_member_id"), 10, 64)
+	defaultRedirect := "/my-hopshare"
+	if orgID > 0 {
+		defaultRedirect = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	redirectBase := safeRedirectPath(r.FormValue("redirect_to"), defaultRedirect)
+	if orgID <= 0 || hopID <= 0 || offerMemberID <= 0 {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid offer."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.AcceptPendingHopOffer(r.Context(), s.db, hopID, user.ID, offerMemberID, memberDisplayName(user), r.FormValue("body")); err != nil {
+		log.Printf("accept hop offer failed hop=%d requester=%d offerer=%d: %v", hopID, user.ID, offerMemberID, err)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not update offer."), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Offer accepted."), http.StatusSeeOther)
+}
+
+func (s *Server) handleDeclineHopOffer(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	orgID, _ := strconv.ParseInt(r.FormValue("org_id"), 10, 64)
+	hopID, _ := strconv.ParseInt(r.FormValue("hop_id"), 10, 64)
+	offerMemberID, _ := strconv.ParseInt(r.FormValue("offer_member_id"), 10, 64)
+	defaultRedirect := "/my-hopshare"
+	if orgID > 0 {
+		defaultRedirect = "/my-hopshare?org_id=" + strconv.FormatInt(orgID, 10)
+	}
+	redirectBase := safeRedirectPath(r.FormValue("redirect_to"), defaultRedirect)
+	if orgID <= 0 || hopID <= 0 || offerMemberID <= 0 {
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Invalid offer."), http.StatusSeeOther)
+		return
+	}
+
+	if err := service.DeclinePendingHopOffer(r.Context(), s.db, hopID, user.ID, offerMemberID, memberDisplayName(user), r.FormValue("body")); err != nil {
+		log.Printf("decline hop offer failed hop=%d requester=%d offerer=%d: %v", hopID, user.ID, offerMemberID, err)
+		http.Redirect(w, r, redirectWithMessage(redirectBase, "error", "Could not update offer."), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, redirectWithMessage(redirectBase, "success", "Offer declined."), http.StatusSeeOther)
 }
 
 func (s *Server) handleCancelHop(w http.ResponseWriter, r *http.Request) {

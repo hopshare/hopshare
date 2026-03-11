@@ -214,7 +214,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "Reply cannot be empty.")
 	})
 
-	t.Run("MSG-10 replying to action message is rejected", func(t *testing.T) {
+	t.Run("MSG-10 replying to hop offer notification succeeds", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -239,15 +239,15 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop: %v", err)
 		}
-		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+		offerMsg := findMessageBySubjectForRecipient(t, ctx, db, members["owner"].Member.ID, "Hop help offer")
 		server := newHTTPServer(t, db)
 		ownerActor := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		ownerActor.Login()
 		loc := requireRedirectPath(t, ownerActor.PostForm("/messages/reply", formKV(
-			"message_id", strconv.FormatInt(actionMsg.ID, 10),
-			"body", "Cannot reply to action.",
+			"message_id", strconv.FormatInt(offerMsg.ID, 10),
+			"body", "Thanks for offering. I will review from the hop page.",
 		)), "/messages")
-		requireQueryValue(t, loc, "error", "Replies are not available for this message.")
+		requireQueryValue(t, loc, "success", "Reply sent.")
 	})
 
 	t.Run("MSG-11 replying to senderless message is rejected", func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		requireQueryValue(t, loc, "error", "Replies are not available for this message.")
 	})
 
-	t.Run("MSG-12 invalid action value is rejected", func(t *testing.T) {
+	t.Run("MSG-12 message actions redirect to hop details guidance", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		member := createSeededMember(t, ctx, db, "messages_invalid_action", uniqueTestSuffix())
@@ -286,10 +286,10 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 			"message_id", "1",
 			"action", "maybe",
 		)), "/messages")
-		requireQueryValue(t, loc, "error", "Invalid message action.")
+		requireQueryValue(t, loc, "error", "Manage hop offers from the Hop Detail page.")
 	})
 
-	t.Run("MSG-13 action by non-recipient is rejected", func(t *testing.T) {
+	t.Run("MSG-13 message action by non-recipient is still blocked by redirect guidance", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -314,18 +314,18 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop: %v", err)
 		}
-		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+		offerMsg := findMessageBySubjectForRecipient(t, ctx, db, members["owner"].Member.ID, "Hop help offer")
 		server := newHTTPServer(t, db)
 		other := newTestActor(t, "other", server.URL, members["other"].Member.Email, members["other"].Password)
 		other.Login()
 		loc := requireRedirectPath(t, other.PostForm("/messages/action", formKV(
-			"message_id", strconv.FormatInt(actionMsg.ID, 10),
+			"message_id", strconv.FormatInt(offerMsg.ID, 10),
 			"action", "accept",
 		)), "/messages")
-		requireQueryValue(t, loc, "error", "Could not update message.")
+		requireQueryValue(t, loc, "error", "Manage hop offers from the Hop Detail page.")
 	})
 
-	t.Run("MSG-14 replaying action message after accept is rejected", func(t *testing.T) {
+	t.Run("MSG-14 repeated message action posts always redirect to hop details guidance", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -350,21 +350,22 @@ func TestMessagesHTTPMatrix(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("offer hop: %v", err)
 		}
-		actionMsg := findPendingActionMessageForHop(t, ctx, db, members["owner"].Member.ID, hop.ID)
+		offerMsg := findMessageBySubjectForRecipient(t, ctx, db, members["owner"].Member.ID, "Hop help offer")
 		server := newHTTPServer(t, db)
 		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
 		owner.Login()
 
-		requireRedirectPath(t, owner.PostForm("/messages/action", formKV(
-			"message_id", strconv.FormatInt(actionMsg.ID, 10),
-			"action", "accept",
-		)), "/messages")
-
 		loc := requireRedirectPath(t, owner.PostForm("/messages/action", formKV(
-			"message_id", strconv.FormatInt(actionMsg.ID, 10),
+			"message_id", strconv.FormatInt(offerMsg.ID, 10),
 			"action", "accept",
 		)), "/messages")
-		requireQueryValue(t, loc, "error", "Could not update message.")
+		requireQueryValue(t, loc, "error", "Manage hop offers from the Hop Detail page.")
+
+		loc = requireRedirectPath(t, owner.PostForm("/messages/action", formKV(
+			"message_id", strconv.FormatInt(offerMsg.ID, 10),
+			"action", "accept",
+		)), "/messages")
+		requireQueryValue(t, loc, "error", "Manage hop offers from the Hop Detail page.")
 	})
 }
 

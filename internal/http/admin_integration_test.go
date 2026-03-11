@@ -937,21 +937,19 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("expected deleted member to have no pending offers, got %d", pendingTargetOffers)
 		}
 
-		var requesterActionStatus sql.NullString
+		var requesterActionMessages int
 		if err := db.QueryRowContext(ctx, `
-			SELECT action_status
+			SELECT COUNT(*)
 			FROM messages
 			WHERE recipient_member_id = $1
 				AND sender_member_id = $2
 				AND hop_id = $3
 				AND message_type = $4
-			ORDER BY id DESC
-			LIMIT 1
-		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, types.MessageTypeAction).Scan(&requesterActionStatus); err != nil {
-			t.Fatalf("load requester action message status after delete: %v", err)
+		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, types.MessageTypeAction).Scan(&requesterActionMessages); err != nil {
+			t.Fatalf("count requester action messages after delete: %v", err)
 		}
-		if !requesterActionStatus.Valid || requesterActionStatus.String != types.MessageActionDeclined {
-			t.Fatalf("expected requester action message to be declined after delete, got status=%q", requesterActionStatus.String)
+		if requesterActionMessages != 0 {
+			t.Fatalf("expected no actionable requester messages for hop offers, got %d", requesterActionMessages)
 		}
 
 		loginActor := newTestActor(t, "deleted-target-login", server.URL, target.Member.Email, target.Password)

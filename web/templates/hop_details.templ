@@ -225,27 +225,31 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 						<p class="text-sm text-slate-600" x-text="confirmKind === 'complete' ? 'This opens the completion step so you can confirm the final details.' : 'This will cancel the hop immediately for everyone involved.'"></p>
 					</div>
 					<div class="grid grid-cols-1 gap-3 border-t border-slate-200 bg-slate-50 p-5">
-						<template x-if="confirmKind === 'complete'">
-							<a
-								class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
-								href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
-								data-hop-id={ hop.ID }
-								data-hop-title={ hop.Title }
-								data-hop-hours={ hop.EstimatedHours }
-								data-hop-requester={ canSetCompletionHours }
-							>
-								Continue
-							</a>
-						</template>
-						<template x-if="confirmKind === 'cancel'">
-							<form method="POST" action="/hops/cancel">
-								@CSRFField()
-								<input type="hidden" name="org_id" value={ org.ID } />
-								<input type="hidden" name="hop_id" value={ hop.ID } />
-								<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
-								<button class="inline-flex w-full items-center justify-center rounded-xl bg-rose-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-rose-800" type="submit">Yes, cancel hop</button>
-							</form>
-						</template>
+						if canComplete {
+							<template x-if="confirmKind === 'complete'">
+								<a
+									class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-sky-800"
+									href={ completeHopPageLink(org.ID, hop.ID, hopDetailsSelfLink(org.ID, hop.ID, showBack, backView)) }
+									data-hop-id={ hop.ID }
+									data-hop-title={ hop.Title }
+									data-hop-hours={ hop.EstimatedHours }
+									data-hop-requester={ canSetCompletionHours }
+								>
+									Continue
+								</a>
+							</template>
+						}
+						if canCancel {
+							<template x-if="confirmKind === 'cancel'">
+								<form method="POST" action="/hops/cancel">
+									@CSRFField()
+									<input type="hidden" name="org_id" value={ org.ID } />
+									<input type="hidden" name="hop_id" value={ hop.ID } />
+									<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+									<button class="inline-flex w-full items-center justify-center rounded-xl bg-rose-700 px-4 py-3 text-base font-semibold text-white transition hover:bg-rose-800" type="submit">Yes, cancel hop</button>
+								</form>
+							</template>
+						}
 						<button
 							type="button"
 							class="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-base font-semibold text-slate-700 transition hover:border-slate-400"
@@ -261,12 +265,19 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, showBack bool, b
 	}
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
-	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+	@Base("hopShare | Hop details", userEmail, HopDetailsBody(org, hop, showBack, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6 pb-32 md:pb-0">
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ errorMsg }</div>
+		}
+
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="flex items-center gap-3 min-w-0">
 				<img
@@ -362,6 +373,59 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, showBack bool, backV
 		if hasOfferedToHelp && hop.Status == types.HopStatusOpen {
 			<section class="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-emerald-800 shadow-sm">
 				<p class="text-base font-semibold">You've offered to help!</p>
+			</section>
+		}
+
+		if canManageOffers {
+			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+				<div class="flex items-center justify-between gap-3">
+					<div>
+						<h2 class="text-lg font-bold text-slate-900">Offers to help</h2>
+						<p class="text-sm text-slate-600">Choose who you want to accept for this pending hop.</p>
+					</div>
+					<p class="text-sm font-semibold text-slate-500">{ strconv.Itoa(len(pendingOffers)) } pending</p>
+				</div>
+				if len(pendingOffers) == 0 {
+					<p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">No one has offered help yet.</p>
+				} else {
+					<div class="space-y-3">
+						for _, offer := range pendingOffers {
+							<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+								<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+									<div class="flex items-center gap-3 min-w-0">
+										<img
+											class="h-12 w-12 shrink-0 rounded-full bg-white object-cover ring-1 ring-slate-200"
+											src={ "/members/avatar?member_id=" + strconv.FormatInt(offer.MemberID, 10) }
+											alt={ offer.MemberName + " avatar" }
+										/>
+										<div class="min-w-0">
+											<p class="truncate text-base font-semibold text-slate-900">{ offer.MemberName }</p>
+											<p class="text-sm text-slate-600">Offered { formatInAppTime(offer.OfferedAt, "Jan 2, 2006 3:04 PM") }</p>
+										</div>
+									</div>
+									<div class="flex flex-col gap-2 sm:flex-row">
+										<form method="POST" action="/hops/offers/decline">
+											@CSRFField()
+											<input type="hidden" name="org_id" value={ org.ID } />
+											<input type="hidden" name="hop_id" value={ hop.ID } />
+											<input type="hidden" name="offer_member_id" value={ offer.MemberID } />
+											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+											<button class="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-white" type="submit">Decline</button>
+										</form>
+										<form method="POST" action="/hops/offers/accept">
+											@CSRFField()
+											<input type="hidden" name="org_id" value={ org.ID } />
+											<input type="hidden" name="hop_id" value={ hop.ID } />
+											<input type="hidden" name="offer_member_id" value={ offer.MemberID } />
+											<input type="hidden" name="redirect_to" value={ hopDetailsSelfLink(org.ID, hop.ID, showBack, backView) } />
+											<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700" type="submit">Accept</button>
+										</form>
+									</div>
+								</div>
+							</div>
+						}
+					</div>
+				}
 			</section>
 		}
 
