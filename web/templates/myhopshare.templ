@@ -423,7 +423,7 @@ templ MyhopShareDashboardDesktop(
 					<p class="text-sm text-slate-600">This hop is currently in progress and ready to complete.</p>
 				</div>
 				<ul class="divide-y divide-slate-200">
-					@MyHopRow(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
+					@MyHopDesktopRow(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
 				</ul>
 			</section>
 		}
@@ -601,6 +601,12 @@ templ MyhopSharePrimaryActions(currentOrgID int64, mobile bool) {
 				>
 					Give a Hop
 				</a>
+				<a
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-6 transition hover:bg-sky-800 shadow-sm md:col-span-2"
+					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+				>
+					My Hops
+				</a>
 			</div>
 		</section>
 	}
@@ -614,41 +620,14 @@ templ MyhopShareQuickAccess(currentOrgID int64, mobile bool) {
 				<p class="text-sm text-slate-600">Jump to your most common destinations.</p>
 			</div>
 			<div class="mt-4 grid grid-cols-2 gap-3">
-				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }>
-					My Requests
+				<a class="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
+					My Hops
 				</a>
-				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped" }>
-					My Helps
-				</a>
-				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/messages">
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/messages">
 					Messages
 				</a>
-				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/profile">
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/profile">
 					Profile
-				</a>
-			</div>
-		</section>
-	} else {
-		<section class="rounded-2xl bg-sky-100 p-8">
-			<h2 class="text-xl font-bold text-slate-900">Your Hops</h2>
-			<div class="mt-4 grid grid-cols-2 gap-3">
-				<a
-					class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
-					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
-						<path fill="currentColor" d="M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208s93.1-208 208-208s208 93.1 208 208M320 64C178.6 64 64 178.6 64 320s114.6 256 256 256s256-114.6 256-256S461.4 64 320 64m-96 248c13.3 0 24-10.7 24-24s-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24m216-24c0-13.3-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24s24-10.7 24-24M256 416c-13.3 0-24 10.7-24 24s10.7 24 24 24h128c13.3 0 24-10.7 24-24s-10.7-24-24-24zm-32-176c26.5 0 48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48s21.5-48 48-48m0 128c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80m144-80c0-26.5 21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48m128 0c0-44.2-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80"/>
-					</svg>
-					My Requests
-				</a>
-				<a
-					class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
-					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped" }
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
-						<path fill="currentColor" d="M528 320c0-114.9-93.1-208-208-208s-208 93.1-208 208s93.1 208 208 208s208-93.1 208-208m-464 0C64 178.6 178.6 64 320 64s256 114.6 256 256s-114.6 256-256 256S64 461.4 64 320m118.3 58.2c-4.2-13.7 7.1-26.2 21.4-26.2h232.6c14.3 0 25.6 12.5 21.4 26.2C439.7 437.1 384.8 480 320 480s-119.7-42.9-137.7-101.8M208 256c0-17.7 14.3-32 32-32s32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32m192-32c17.7 0 32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32"/>
-					</svg>
-					My Helps
 				</a>
 			</div>
 		</section>
