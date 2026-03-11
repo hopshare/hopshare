@@ -2,9 +2,23 @@ package templates
 
 import (
 	"strconv"
+	"strings"
 
 	"hopshare/internal/types"
 )
+
+func messagePreview(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return ""
+	}
+	preview := strings.Join(strings.Fields(trimmed), " ")
+	runes := []rune(preview)
+	if len(runes) <= 88 {
+		return preview
+	}
+	return string(runes[:88]) + "..."
+}
 
 templ Messages(
 	email string,
@@ -24,129 +38,257 @@ templ MessagesBody(
 ) {
 	<div class="space-y-6">
 		if successMsg != "" {
-			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ successMsg }</div>
 		}
 		if errorMsg != "" {
-			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ errorMsg }</div>
 		}
 
+		@MessagesMobile(messages, selected)
+		@MessagesDesktop(messages, selected)
+	</div>
+}
+
+templ MessagesMobile(messages []types.Message, selected *types.Message) {
+	<div class="space-y-5 md:hidden">
+		if selected == nil {
+			<div class="flex items-center justify-between gap-4">
+				<h1 class="text-2xl font-bold text-slate-900">Messages</h1>
+			</div>
+			@MessagesMobileInbox(messages)
+		} else {
+			<div class="flex items-center gap-3">
+				<a class="inline-flex items-center gap-2 text-base font-semibold text-sky-700 underline hover:text-sky-800" href="/messages">Back</a>
+				<h1 class="text-2xl font-bold text-slate-900">Message</h1>
+			</div>
+			@MessagesMobileDetail(*selected)
+		}
+	</div>
+}
+
+templ MessagesMobileInbox(messages []types.Message) {
+	<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
+			<h2 class="text-lg font-semibold text-slate-900">Inbox</h2>
+		</div>
+		if len(messages) == 0 {
+			<p class="px-4 py-6 text-slate-600">No messages yet.</p>
+		} else {
+			<div class="divide-y divide-slate-100">
+				for _, msg := range messages {
+					@MessagesMobileInboxCard(msg)
+				}
+			</div>
+		}
+	</section>
+}
+
+templ MessagesMobileInboxCard(msg types.Message) {
+	<a class="block px-4 py-4 transition active:bg-slate-50" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0 flex-1 space-y-1">
+				<div class="flex items-center gap-2">
+					if msg.ReadAt == nil {
+						<span class="h-2.5 w-2.5 shrink-0 rounded-full bg-sky-600"></span>
+						<p class="truncate text-sm font-semibold text-slate-900">{ msg.SenderName }</p>
+					} else {
+						<p class="truncate text-sm font-medium text-slate-800">{ msg.SenderName }</p>
+					}
+				</div>
+				<p class="truncate text-sm font-semibold text-slate-900">{ msg.Subject }</p>
+				if messagePreview(msg.Body) != "" {
+					<p class="truncate text-sm text-slate-600">{ messagePreview(msg.Body) }</p>
+				}
+			</div>
+			<div class="shrink-0 text-right">
+				<p class="text-xs font-medium text-slate-500">{ formatInAppTime(msg.CreatedAt, "Jan 2") }</p>
+				if msg.ReadAt == nil {
+					<p class="mt-1 text-xs font-semibold uppercase tracking-wide text-sky-700">New</p>
+				}
+			</div>
+		</div>
+	</a>
+}
+
+templ MessagesMobileDetail(selected types.Message) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-2">
+		<p class="text-lg font-semibold text-slate-900">{ selected.SenderName }</p>
+		<p class="text-sm text-slate-600">{ formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
+		<div class="border-t border-slate-200 pt-3">
+			<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</p>
+			<p class="mt-1 text-sm font-semibold text-slate-900">{ selected.Subject }</p>
+		</div>
+	</section>
+
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+		<h2 class="text-lg font-semibold text-slate-900">Message</h2>
+		<div class="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{ selected.Body }</div>
+	</section>
+
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+		<h2 class="text-lg font-semibold text-slate-900">Reply</h2>
+		if selected.SenderID == nil {
+			<p class="text-slate-600">Replies are not available for this message.</p>
+		} else {
+			<form method="POST" action="/messages/reply" class="space-y-3">
+				@CSRFField()
+				<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
+				<textarea
+					name="body"
+					class="w-full min-h-[180px] rounded-lg border border-slate-300 p-3 text-sm text-slate-900"
+					placeholder="Type your response here..."
+				></textarea>
+				<button class="inline-flex w-full items-center justify-center rounded-lg bg-sky-700 px-4 py-3 text-base font-semibold text-white hover:bg-sky-800" type="submit">
+					Send Reply
+				</button>
+			</form>
+		}
+	</section>
+
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+		<form method="POST" action="/messages/delete">
+			@CSRFField()
+			<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
+			<button class="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 hover:border-red-300 hover:bg-red-100" type="submit">
+				Delete message
+			</button>
+		</form>
+	</section>
+}
+
+templ MessagesDesktop(messages []types.Message, selected *types.Message) {
+	<div class="hidden space-y-6 md:block">
 		<div class="flex items-center justify-between gap-4">
 			<h1 class="text-2xl font-bold text-slate-900">Messages</h1>
 			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
 		</div>
 
-		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm">
-			<div class="grid grid-cols-[140px_1fr_2fr] gap-4 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200">
-				<span>Date</span>
-				<span>From</span>
-				<span>Subject</span>
-			</div>
-			<div class="max-h-96 overflow-y-auto divide-y divide-slate-100">
-				if len(messages) == 0 {
-					<p class="px-4 py-6 text-slate-600">No messages yet.</p>
-				} else {
-					for _, msg := range messages {
-						if msg.ReadAt == nil {
-							if selected != nil && selected.ID == msg.ID {
-								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900 bg-sky-50">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-									<div class="flex items-center justify-between gap-3 min-w-0">
-										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-										<form method="POST" action="/messages/delete" class="shrink-0">
-											@CSRFField()
-											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-										</form>
-									</div>
-								</div>
-							} else {
-								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-semibold text-slate-900">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-									<div class="flex items-center justify-between gap-3 min-w-0">
-										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-										<form method="POST" action="/messages/delete" class="shrink-0">
-											@CSRFField()
-											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-										</form>
-									</div>
-								</div>
-							}
-						} else {
-							if selected != nil && selected.ID == msg.ID {
-								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700 bg-sky-50">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-									<div class="flex items-center justify-between gap-3 min-w-0">
-										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-										<form method="POST" action="/messages/delete" class="shrink-0">
-											@CSRFField()
-											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-										</form>
-									</div>
-								</div>
-							} else {
-								<div class="grid grid-cols-[140px_1fr_2fr] gap-4 items-center px-4 py-3 text-sm font-normal text-slate-700">
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
-									<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
-									<div class="flex items-center justify-between gap-3 min-w-0">
-										<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
-										<form method="POST" action="/messages/delete" class="shrink-0">
-											@CSRFField()
-											<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
-											<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
-										</form>
-									</div>
-								</div>
-							}
-						}
-					}
-				}
-			</div>
-		</section>
-
-		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-5 space-y-3">
-			<h2 class="text-lg font-semibold text-slate-900">Message</h2>
-			if selected == nil {
-				<p class="text-slate-600">Select a message from the inbox to read it here.</p>
-			} else {
-				<div class="text-sm text-slate-600">
-					<span class="font-semibold text-slate-800">From:</span>
-					{ " " + selected.SenderName }
-					<span class="ml-3 font-semibold text-slate-800">Sent:</span>
-					{ " " + formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM") }
-				</div>
-				<div class="text-sm text-slate-600">
-					<span class="font-semibold text-slate-800">Subject:</span>
-					{ " " + selected.Subject }
-				</div>
-				<textarea class="w-full min-h-[160px] rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800" readonly>{ selected.Body }</textarea>
-			}
-		</section>
-
-		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-5 space-y-3">
-			<h2 class="text-lg font-semibold text-slate-900">Reply</h2>
-			if selected == nil {
-				<p class="text-slate-600">Choose a message above to reply.</p>
-			} else if selected.SenderID == nil {
-				<p class="text-slate-600">Replies are not available for this message.</p>
-			} else {
-				<form method="POST" action="/messages/reply" class="space-y-3">
-					@CSRFField()
-					<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
-					<textarea
-						name="body"
-						class="w-full min-h-[160px] rounded-lg border border-slate-300 p-3 text-sm text-slate-900"
-						placeholder="Type your response here..."
-					></textarea>
-					<div class="flex items-center justify-end">
-						<button class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Send Reply</button>
-					</div>
-				</form>
-			}
-		</section>
+		@MessagesDesktopInbox(messages, selected)
+		@MessagesDesktopDetail(selected)
+		@MessagesDesktopReply(selected)
 	</div>
+}
+
+templ MessagesDesktopInbox(messages []types.Message, selected *types.Message) {
+	<section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+		<div class="grid grid-cols-[140px_1fr_2fr] gap-4 border-b border-slate-200 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+			<span>Date</span>
+			<span>From</span>
+			<span>Subject</span>
+		</div>
+		<div class="max-h-96 overflow-y-auto divide-y divide-slate-100">
+			if len(messages) == 0 {
+				<p class="px-4 py-6 text-slate-600">No messages yet.</p>
+			} else {
+				for _, msg := range messages {
+					@MessagesDesktopInboxRow(msg, selected)
+				}
+			}
+		</div>
+	</section>
+}
+
+templ MessagesDesktopInboxRow(msg types.Message, selected *types.Message) {
+	if msg.ReadAt == nil {
+		if selected != nil && selected.ID == msg.ID {
+			<div class="grid grid-cols-[140px_1fr_2fr] items-center gap-4 bg-sky-50 px-4 py-3 text-sm font-semibold text-slate-900">
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+				<div class="flex min-w-0 items-center justify-between gap-3">
+					<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+					<form method="POST" action="/messages/delete" class="shrink-0">
+						@CSRFField()
+						<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+						<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+					</form>
+				</div>
+			</div>
+		} else {
+			<div class="grid grid-cols-[140px_1fr_2fr] items-center gap-4 px-4 py-3 text-sm font-semibold text-slate-900">
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+				<div class="flex min-w-0 items-center justify-between gap-3">
+					<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+					<form method="POST" action="/messages/delete" class="shrink-0">
+						@CSRFField()
+						<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+						<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+					</form>
+				</div>
+			</div>
+		}
+	} else {
+		if selected != nil && selected.ID == msg.ID {
+			<div class="grid grid-cols-[140px_1fr_2fr] items-center gap-4 bg-sky-50 px-4 py-3 text-sm font-normal text-slate-700">
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+				<div class="flex min-w-0 items-center justify-between gap-3">
+					<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+					<form method="POST" action="/messages/delete" class="shrink-0">
+						@CSRFField()
+						<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+						<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+					</form>
+				</div>
+			</div>
+		} else {
+			<div class="grid grid-cols-[140px_1fr_2fr] items-center gap-4 px-4 py-3 text-sm font-normal text-slate-700">
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ formatInAppTime(msg.CreatedAt, "Jan 2, 2006") }</a>
+				<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.SenderName }</a>
+				<div class="flex min-w-0 items-center justify-between gap-3">
+					<a class="truncate hover:text-sky-700" href={ "/messages?message_id=" + strconv.FormatInt(msg.ID, 10) }>{ msg.Subject }</a>
+					<form method="POST" action="/messages/delete" class="shrink-0">
+						@CSRFField()
+						<input type="hidden" name="message_id" value={ strconv.FormatInt(msg.ID, 10) } />
+						<button class="text-xs font-semibold text-red-600 hover:text-red-700" type="submit">Delete</button>
+					</form>
+				</div>
+			</div>
+		}
+	}
+}
+
+templ MessagesDesktopDetail(selected *types.Message) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+		<h2 class="text-lg font-semibold text-slate-900">Message</h2>
+		if selected == nil {
+			<p class="text-slate-600">Select a message from the inbox to read it here.</p>
+		} else {
+			<div class="text-sm text-slate-600">
+				<span class="font-semibold text-slate-800">From:</span>
+				{ " " + selected.SenderName }
+				<span class="ml-3 font-semibold text-slate-800">Sent:</span>
+				{ " " + formatInAppTime(selected.CreatedAt, "Jan 2, 2006 3:04 PM") }
+			</div>
+			<div class="text-sm text-slate-600">
+				<span class="font-semibold text-slate-800">Subject:</span>
+				{ " " + selected.Subject }
+			</div>
+			<textarea class="w-full min-h-[160px] rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800" readonly>{ selected.Body }</textarea>
+		}
+	</section>
+}
+
+templ MessagesDesktopReply(selected *types.Message) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+		<h2 class="text-lg font-semibold text-slate-900">Reply</h2>
+		if selected == nil {
+			<p class="text-slate-600">Choose a message above to reply.</p>
+		} else if selected.SenderID == nil {
+			<p class="text-slate-600">Replies are not available for this message.</p>
+		} else {
+			<form method="POST" action="/messages/reply" class="space-y-3">
+				@CSRFField()
+				<input type="hidden" name="message_id" value={ strconv.FormatInt(selected.ID, 10) } />
+				<textarea
+					name="body"
+					class="w-full min-h-[160px] rounded-lg border border-slate-300 p-3 text-sm text-slate-900"
+					placeholder="Type your response here..."
+				></textarea>
+				<div class="flex items-center justify-end">
+					<button class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Send Reply</button>
+				</div>
+			</form>
+		}
+	</section>
 }
