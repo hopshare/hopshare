@@ -122,6 +122,26 @@ func organizationCompletedWhen(completedAt *time.Time) string {
 	return fmt.Sprintf("%d years ago", years)
 }
 
+func organizationDescription(description string) string {
+	return strings.TrimSpace(description)
+}
+
+func organizationRecentHeadline(hop types.Hop) string {
+	helper := organizationFirstName(organizationHelperName(hop))
+	requester := organizationFirstName(hop.CreatedByName)
+	if hop.Status == types.HopStatusCompleted {
+		return helper + " helped " + requester
+	}
+	return helper + " is helping " + requester
+}
+
+func organizationRecentMeta(hop types.Hop) string {
+	if hop.Status == types.HopStatusCompleted {
+		return hopHoursLabel(organizationHoursForCompletedHop(hop)) + " exchanged · " + organizationCompletedWhen(hop.CompletedAt)
+	}
+	return "Needed by " + hopNeededByLabel(hop)
+}
+
 templ OrganizationMemberAvatar(orgID int64, memberID int64, displayName string, leftOrganization bool, sizeClass string) {
 	if leftOrganization {
 		<div
@@ -145,168 +165,291 @@ templ Organization(userEmail *string, org types.Organization, metrics types.OrgH
 
 templ OrganizationBody(userEmail *string, org types.Organization, metrics types.OrgHopMetrics, recentCompleted []types.Hop, pendingHops []types.Hop, showJoinPanel bool, showPendingPanel bool, successMsg string, errorMsg string) {
 	<div class="space-y-6">
-		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-				<div class="flex items-center gap-3 min-w-0">
+		@OrganizationHeaderSection(userEmail, org, metrics)
+		if successMsg != "" {
+			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ successMsg }</div>
+		}
+		if errorMsg != "" {
+			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ errorMsg }</div>
+		}
+
+		if showJoinPanel {
+			@OrganizationJoinPanel(userEmail, org)
+		}
+
+		if showPendingPanel {
+			@OrganizationPendingSection(org, pendingHops)
+		}
+
+		@OrganizationRecentSection(org, recentCompleted)
+	</div>
+}
+
+templ OrganizationHeaderSection(userEmail *string, org types.Organization, metrics types.OrgHopMetrics) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+		<div class="space-y-4 md:hidden">
+			<div class="flex items-start gap-3">
+				<img
+					src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+					alt={ org.Name + " logo" }
+					class="h-12 w-12 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+				/>
+				<div class="min-w-0 space-y-2">
+					<h1 class="break-words text-2xl font-bold leading-tight text-slate-900">{ org.Name }</h1>
+					if organizationDescription(org.Description) != "" {
+						<p class="text-sm leading-relaxed text-slate-600">{ organizationDescription(org.Description) }</p>
+					}
+				</div>
+			</div>
+			<div class="space-y-1 text-sm text-slate-600">
+				<p>
+					Date created: { formatInAppTime(org.CreatedAt, "Jan 2, 2006") }
+					if organizationLocation(org.City, org.State) != "" {
+						<span> · { organizationLocation(org.City, org.State) }</span>
+					}
+				</p>
+			</div>
+			<div class="grid grid-cols-3 gap-2">
+				<div class="rounded-xl bg-slate-50 px-3 py-3 text-center">
+					<p class="text-lg font-bold text-slate-900">{ metrics.MemberCount }</p>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">People</p>
+				</div>
+				<div class="rounded-xl bg-slate-50 px-3 py-3 text-center">
+					<p class="text-lg font-bold text-slate-900">{ metrics.CompletedCount }</p>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Hops Done</p>
+				</div>
+				<div class="rounded-xl bg-slate-50 px-3 py-3 text-center">
+					<p class="text-lg font-bold text-slate-900">{ metrics.TotalHoursExchanged }</p>
+					<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Hours</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="hidden md:block">
+			<div class="min-w-0 flex-1 space-y-4">
+				<div class="flex min-w-0 items-center gap-3">
 					<img
 						src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
 						alt={ org.Name + " logo" }
 						class="h-12 w-12 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
 					/>
 					<div class="min-w-0">
-						<h1 class="text-3xl font-bold text-slate-900 truncate">{ org.Name }</h1>
-						<p class="text-sm text-slate-600 truncate">{ strings.TrimSpace(org.Description) }</p>
+						<h1 class="truncate text-3xl font-bold text-slate-900">{ org.Name }</h1>
+						if organizationDescription(org.Description) != "" {
+							<p class="truncate text-sm text-slate-600">{ organizationDescription(org.Description) }</p>
+						}
 						<p class="text-sm text-slate-600">
 							Date created: { formatInAppTime(org.CreatedAt, "Jan 2, 2006") }
 							if organizationLocation(org.City, org.State) != "" {
 								<span> · { organizationLocation(org.City, org.State) }</span>
 							}
 						</p>
-						<p class="text-sm text-slate-600">
-							{ metrics.MemberCount } People · { metrics.CompletedCount } Hops completed · { metrics.TotalHoursExchanged } total hours exchanged
-						</p>
 					</div>
 				</div>
-				if userEmail != nil {
-					<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
-				}
-			</div>
-		</section>
-		if successMsg != "" {
-			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
-		}
-		if errorMsg != "" {
-			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
-		}
-
-		if showJoinPanel {
-			<section class="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm p-6 space-y-3">
-				<h2 class="text-xl font-bold text-slate-900">Join this organization</h2>
-				<p class="text-slate-600">Request membership and an owner can approve your request.</p>
-				if userEmail != nil {
-					<form class="space-y-2" method="POST" action="/organizations/request">
-						@CSRFField()
-						<input type="hidden" name="org_id" value={ org.ID } />
-						<button class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition" type="submit">
-							Request Membership
-						</button>
-					</form>
-				} else {
-					<a
-						class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
-						href={ "/signup?next=" + url.QueryEscape("/organization/" + org.URLName) }
-					>
-						Join hopShare
-					</a>
-				}
-			</section>
-		}
-
-		if showPendingPanel {
-			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
-				<div>
-					<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
-					<p class="text-sm text-slate-600">Check out some of these requests- where could you help?</p>
-				</div>
-				if len(pendingHops) == 0 {
-					<p class="text-sm text-slate-600">Nothing yet- check back soon!</p>
-				} else {
-					<div class="max-h-[28rem] overflow-y-auto pr-1">
-						<ul class="space-y-2">
-							for _, hop := range pendingHops {
-								<li>
-									<a
-										class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 hover:bg-white hover:border-slate-300 transition"
-										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-									>
-										@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10 shrink-0")
-										<div class="min-w-0">
-											<p class="text-sm font-semibold text-slate-900 truncate">{ hop.Title }</p>
-											<p class="text-xs text-slate-600 truncate">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
-										</div>
-									</a>
-								</li>
-							}
-						</ul>
+				<div class="grid max-w-2xl grid-cols-3 gap-3">
+					<div class="rounded-xl bg-slate-50 px-4 py-4 text-center">
+						<p class="text-2xl font-bold text-slate-900">{ metrics.MemberCount }</p>
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">People</p>
 					</div>
-				}
-			</section>
-		}
-
-		<section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 space-y-4">
-			<div>
-				<h2 class="text-xl font-bold text-slate-900">What's Been Hopping Lately?</h2>
+					<div class="rounded-xl bg-slate-50 px-4 py-4 text-center">
+						<p class="text-2xl font-bold text-slate-900">{ metrics.CompletedCount }</p>
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hops Done</p>
+					</div>
+					<div class="rounded-xl bg-slate-50 px-4 py-4 text-center">
+						<p class="text-2xl font-bold text-slate-900">{ metrics.TotalHoursExchanged }</p>
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hours</p>
+					</div>
+				</div>
 			</div>
-			if len(recentCompleted) == 0 {
-				<p class="text-sm text-slate-600">No accepted or completed hops yet.</p>
-			} else {
-				<div class="max-h-[40rem] overflow-y-auto pr-1">
-					<ul class="space-y-3">
-						for _, hop := range recentCompleted {
-							<li>
-								if hop.Status == types.HopStatusCompleted {
-									<a
-										class="block rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 hover:bg-emerald-100 hover:border-emerald-200 transition"
-										href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-									>
-										<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
-											<div class="text-center space-y-2">
-													if hop.AcceptedBy != nil {
-														<div class="mx-auto">
-															@OrganizationMemberAvatar(org.ID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
-														</div>
-													} else {
-														<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
-													}
-												<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
-											</div>
-											<div class="flex h-14 items-center justify-center px-1">
-												<p class="text-lg font-semibold text-slate-500 leading-none">helped</p>
-											</div>
-											<div class="text-center space-y-2">
-												<div class="mx-auto">
-													@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
-												</div>
-												<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
-											</div>
-										</div>
-										<p class="mt-3 text-xs text-slate-500 text-center">{ hopHoursLabel(organizationHoursForCompletedHop(hop)) } exchanged { organizationCompletedWhen(hop.CompletedAt) }</p>
-										<p class="mt-1 text-xs italic text-slate-700 text-center">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
-									</a>
-								} else {
-								<a
-									class="block rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 hover:bg-sky-100 hover:border-sky-300 transition"
-									href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-								>
-									<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
-										<div class="text-center space-y-2">
-											if hop.AcceptedBy != nil {
-												<div class="mx-auto">
-													@OrganizationMemberAvatar(org.ID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
-												</div>
-											} else {
-												<div class="mx-auto h-14 w-14 rounded-full ring-1 ring-slate-200 bg-white flex items-center justify-center text-slate-500 font-semibold">?</div>
-											}
-											<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
-										</div>
-										<div class="flex h-14 items-center justify-center px-1">
-											<p class="text-lg font-semibold text-slate-500 leading-none">is helping</p>
-										</div>
-										<div class="text-center space-y-2">
-											<div class="mx-auto">
-												@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
-											</div>
-											<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
-										</div>
-									</div>
-									<p class="mt-3 text-xs text-slate-500 text-center">Needed by { hopNeededByLabel(hop) }</p>
-								</a>
-								}
-							</li>
+		</div>
+	</section>
+}
+
+templ OrganizationJoinPanel(userEmail *string, org types.Organization) {
+	<section class="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm space-y-3">
+		<h2 class="text-xl font-bold text-slate-900">Join this organization</h2>
+		<p class="text-slate-600">Request membership and an owner can approve your request.</p>
+		if userEmail != nil {
+			<form class="space-y-2" method="POST" action="/organizations/request">
+				@CSRFField()
+				<input type="hidden" name="org_id" value={ org.ID } />
+				<button class="inline-flex w-full justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800 sm:w-auto" type="submit">
+					Request Membership
+				</button>
+			</form>
+		} else {
+			<a
+				class="inline-flex w-full justify-center rounded-lg bg-sky-700 px-4 py-2.5 font-semibold text-white transition hover:bg-sky-800 sm:w-auto"
+				href={ "/signup?next=" + url.QueryEscape("/organization/" + org.URLName) }
+			>
+				Join hopShare
+			</a>
+		}
+	</section>
+}
+
+templ OrganizationPendingSection(org types.Organization, pendingHops []types.Hop) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+		<div>
+			<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
+			<p class="text-sm text-slate-600">Check out some of these requests. Where could you help?</p>
+		</div>
+		if len(pendingHops) == 0 {
+			<p class="text-sm text-slate-600">Nothing yet. Check back soon.</p>
+		} else {
+			<div class="space-y-3 md:hidden">
+				for _, hop := range pendingHops {
+					@OrganizationPendingCardMobile(org.ID, hop)
+				}
+			</div>
+			<div class="hidden max-h-[28rem] overflow-y-auto pr-1 md:block">
+				<ul class="space-y-2">
+					for _, hop := range pendingHops {
+						<li>
+							<a
+								class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 transition hover:border-slate-300 hover:bg-white"
+								href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+							>
+								@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10 shrink-0")
+								<div class="min-w-0">
+									<p class="truncate text-sm font-semibold text-slate-900">{ hop.Title }</p>
+									<p class="truncate text-xs text-slate-600">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
+								</div>
+							</a>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+	</section>
+}
+
+templ OrganizationPendingCardMobile(orgID int64, hop types.Hop) {
+	<a
+		class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-white"
+		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=organization" }
+	>
+		<div class="flex items-start gap-3">
+			@OrganizationMemberAvatar(orgID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-11 w-11 shrink-0")
+			<div class="min-w-0 space-y-1">
+				<p class="break-words text-sm font-semibold text-slate-900">{ hop.Title }</p>
+				<p class="text-sm text-slate-700">Requested by { organizationFirstName(hop.CreatedByName) }</p>
+				<p class="text-xs text-slate-500">Needed by { hopNeededByLabel(hop) }</p>
+			</div>
+		</div>
+	</a>
+}
+
+templ OrganizationRecentSection(org types.Organization, recentCompleted []types.Hop) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+		<div>
+			<h2 class="text-xl font-bold text-slate-900">What's Been Hopping Lately?</h2>
+		</div>
+		if len(recentCompleted) == 0 {
+			<p class="text-sm text-slate-600">No accepted or completed hops yet.</p>
+		} else {
+			<div class="space-y-3 md:hidden">
+				for _, hop := range recentCompleted {
+					@OrganizationRecentTimelineCardMobile(org.ID, hop)
+				}
+			</div>
+			<div class="hidden max-h-[40rem] overflow-y-auto pr-1 md:block">
+				<ul class="space-y-3">
+					for _, hop := range recentCompleted {
+						@OrganizationRecentDesktopRow(org.ID, hop)
+					}
+				</ul>
+			</div>
+		}
+	</section>
+}
+
+templ OrganizationRecentTimelineCardMobile(orgID int64, hop types.Hop) {
+	<a
+		class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-white"
+		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=organization" }
+	>
+		<div class="flex items-start gap-3">
+			<div class="flex shrink-0 flex-col items-center">
+				if hop.AcceptedBy != nil {
+					@OrganizationMemberAvatar(orgID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-10 w-10")
+				} else {
+					<div class="flex h-10 w-10 items-center justify-center rounded-full bg-white font-semibold text-slate-500 ring-1 ring-slate-200">?</div>
+				}
+				<div class="my-1 h-6 w-px bg-slate-300"></div>
+				@OrganizationMemberAvatar(orgID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10")
+			</div>
+			<div class="min-w-0 space-y-1">
+				<p class="break-words text-sm font-semibold text-slate-900">{ organizationRecentHeadline(hop) }</p>
+				<p class="break-words text-sm text-slate-700">{ hop.Title }</p>
+				<p class="text-xs text-slate-500">{ organizationRecentMeta(hop) }</p>
+				if hop.Status == types.HopStatusCompleted {
+					<p class="text-sm italic text-slate-700">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
+				}
+			</div>
+		</div>
+	</a>
+}
+
+templ OrganizationRecentDesktopRow(orgID int64, hop types.Hop) {
+	<li>
+		if hop.Status == types.HopStatusCompleted {
+			<a
+				class="block rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 transition hover:border-emerald-200 hover:bg-emerald-100"
+				href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=organization" }
+			>
+				<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
+					<div class="space-y-2 text-center">
+						if hop.AcceptedBy != nil {
+							<div class="mx-auto">
+								@OrganizationMemberAvatar(orgID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
+							</div>
+						} else {
+							<div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white font-semibold text-slate-500 ring-1 ring-slate-200">?</div>
 						}
-					</ul>
+						<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
+					</div>
+					<div class="flex h-14 items-center justify-center px-1">
+						<p class="text-lg font-semibold leading-none text-slate-500">helped</p>
+					</div>
+					<div class="space-y-2 text-center">
+						<div class="mx-auto">
+							@OrganizationMemberAvatar(orgID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
+						</div>
+						<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
+					</div>
 				</div>
-			}
-		</section>
-	</div>
+				<p class="mt-3 text-center text-xs text-slate-500">{ hopHoursLabel(organizationHoursForCompletedHop(hop)) } exchanged { organizationCompletedWhen(hop.CompletedAt) }</p>
+				<p class="mt-1 text-center text-xs italic text-slate-700">"{ organizationCompletionComment(hop.CompletionComment) }"</p>
+			</a>
+		} else {
+			<a
+				class="block rounded-xl border border-sky-200 bg-sky-50 px-4 py-4 transition hover:border-sky-300 hover:bg-sky-100"
+				href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=organization" }
+			>
+				<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
+					<div class="space-y-2 text-center">
+						if hop.AcceptedBy != nil {
+							<div class="mx-auto">
+								@OrganizationMemberAvatar(orgID, *hop.AcceptedBy, organizationHelperName(hop), hop.AcceptedByLeftOrganization, "h-14 w-14")
+							</div>
+						} else {
+							<div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white font-semibold text-slate-500 ring-1 ring-slate-200">?</div>
+						}
+						<p class="text-xs text-slate-700">{ organizationFirstName(organizationHelperName(hop)) }</p>
+					</div>
+					<div class="flex h-14 items-center justify-center px-1">
+						<p class="text-lg font-semibold leading-none text-slate-500">is helping</p>
+					</div>
+					<div class="space-y-2 text-center">
+						<div class="mx-auto">
+							@OrganizationMemberAvatar(orgID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-14 w-14")
+						</div>
+						<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
+					</div>
+				</div>
+				<p class="mt-3 text-center text-xs text-slate-500">Needed by { hopNeededByLabel(hop) }</p>
+			</a>
+		}
+	</li>
 }
