@@ -476,28 +476,3 @@ func findRequestedHopByTitle(t *testing.T, ctx context.Context, db *sql.DB, orgI
 	t.Fatalf("could not find requested hop with title %q", title)
 	return types.Hop{}
 }
-
-func findPendingActionMessageForHop(t *testing.T, ctx context.Context, db *sql.DB, recipientID, hopID int64) types.Message {
-	t.Helper()
-
-	messages, err := service.ListMessages(ctx, db, recipientID)
-	if err != nil {
-		t.Fatalf("list messages for member=%d: %v", recipientID, err)
-	}
-
-	for _, msg := range messages {
-		if msg.MessageType != types.MessageTypeAction {
-			continue
-		}
-		if msg.HopID == nil || *msg.HopID != hopID {
-			continue
-		}
-		if msg.ActionStatus != nil {
-			continue
-		}
-		return msg
-	}
-
-	t.Fatalf("could not find pending action message for recipient=%d hop=%d", recipientID, hopID)
-	return types.Message{}
-}

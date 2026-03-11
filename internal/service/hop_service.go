@@ -262,50 +262,6 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	return nil
 }
 
-func AcceptHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64, responderName, responseBody string) error {
-	if db == nil {
-		return ErrNilDB
-	}
-	if messageID == 0 {
-		return ErrMessageNotFound
-	}
-	if recipientID == 0 {
-		return ErrMissingMemberID
-	}
-	responderName = strings.TrimSpace(responderName)
-	if responderName == "" {
-		return ErrMissingField
-	}
-
-	offererID, hopID, err := loadPendingActionMessage(ctx, db, messageID, recipientID)
-	if err != nil {
-		return err
-	}
-	return AcceptPendingHopOffer(ctx, db, hopID, recipientID, offererID, responderName, responseBody)
-}
-
-func DeclineHopOfferMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64, responderName, responseBody string) error {
-	if db == nil {
-		return ErrNilDB
-	}
-	if messageID == 0 {
-		return ErrMessageNotFound
-	}
-	if recipientID == 0 {
-		return ErrMissingMemberID
-	}
-	responderName = strings.TrimSpace(responderName)
-	if responderName == "" {
-		return ErrMissingField
-	}
-
-	offererID, hopID, err := loadPendingActionMessage(ctx, db, messageID, recipientID)
-	if err != nil {
-		return err
-	}
-	return DeclinePendingHopOffer(ctx, db, hopID, recipientID, offererID, responderName, responseBody)
-}
-
 func AcceptPendingHopOffer(ctx context.Context, db *sql.DB, hopID, requesterID, offererID int64, responderName, responseBody string) error {
 	if db == nil {
 		return ErrNilDB
@@ -428,20 +384,6 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 	}
 
 	if _, err = tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE recipient_member_id = $3 AND sender_member_id = $4 AND hop_id = $5 AND message_type = $6 AND action_status IS NULL
-	`, types.MessageActionAccepted, now, requesterID, offererID, hopID, types.MessageTypeAction); err != nil {
-		return fmt.Errorf("accept pending offer messages: %w", err)
-	}
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL AND sender_member_id <> $6
-	`, types.MessageActionDeclined, now, requesterID, hopID, types.MessageTypeAction, offererID); err != nil {
-		return fmt.Errorf("decline other pending offer messages: %w", err)
-	}
-	if _, err = tx.ExecContext(ctx, `
 		UPDATE hop_help_offers
 		SET status = $1, denied_at = $2
 		WHERE hop_id = $3 AND member_id <> $4 AND status IS NULL
@@ -506,14 +448,6 @@ func declinePendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterI
 	}
 	if affected == 0 {
 		return ErrHopInvalidState
-	}
-
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE recipient_member_id = $3 AND sender_member_id = $4 AND hop_id = $5 AND message_type = $6 AND action_status IS NULL
-	`, types.MessageActionDeclined, now, requesterID, offererID, hopID, types.MessageTypeAction); err != nil {
-		return fmt.Errorf("decline pending offer messages: %w", err)
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
@@ -702,13 +636,6 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 		WHERE hop_id = $3 AND status IS NULL
 	`, types.HopOfferStatusDenied, now, hopID); err != nil {
 		return fmt.Errorf("cancel pending hop offers: %w", err)
-	}
-	if _, err = tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE recipient_member_id = $3 AND hop_id = $4 AND message_type = $5 AND action_status IS NULL
-	`, types.MessageActionDeclined, now, createdBy, hopID, types.MessageTypeAction); err != nil {
-		return fmt.Errorf("cancel pending hop offer messages: %w", err)
 	}
 	cancelSubject := fmt.Sprintf("%s has canceled their Hop, %s", cancelerName, title)
 	cancelBody := fmt.Sprintf(

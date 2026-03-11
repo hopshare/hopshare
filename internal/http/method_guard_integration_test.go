@@ -39,7 +39,6 @@ func TestHTTPMethodGuards(t *testing.T) {
 		{"messages-unread-count", "/messages/unread-count", "POST", "GET"},
 		{"messages-delete", "/messages/delete", "GET", "POST"},
 		{"messages-reply", "/messages/reply", "GET", "POST"},
-		{"messages-action", "/messages/action", "GET", "POST"},
 		{"hops-request", "/hops/request", "POST", "GET"},
 		{"hops-complete-request", "/hops/complete/request", "POST", "GET"},
 		{"hops-create", "/hops/create", "GET", "POST"},

@@ -131,14 +131,6 @@ templ MessagesBody(
 			<h2 class="text-lg font-semibold text-slate-900">Reply</h2>
 			if selected == nil {
 				<p class="text-slate-600">Choose a message above to reply.</p>
-			} else if selected.MessageType == types.MessageTypeAction {
-				if selected.ActionStatus == nil {
-					<p class="text-slate-600">Manage this offer from the Hop Detail page.</p>
-				} else if *selected.ActionStatus == types.MessageActionAccepted {
-					<p class="text-slate-600">You accepted this offer.</p>
-				} else {
-					<p class="text-slate-600">You declined this offer.</p>
-				}
 			} else if selected.SenderID == nil {
 				<p class="text-slate-600">Replies are not available for this message.</p>
 			} else {

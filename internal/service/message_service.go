@@ -37,19 +37,7 @@ func SendMessage(ctx context.Context, db *sql.DB, p SendMessageParams) error {
 		return ErrMissingField
 	}
 
-	messageType := strings.TrimSpace(p.MessageType)
-	if messageType == "" {
-		messageType = types.MessageTypeInformation
-	}
-	switch messageType {
-	case types.MessageTypeInformation:
-	case types.MessageTypeAction:
-		if p.HopID == nil || *p.HopID == 0 {
-			return ErrMissingField
-		}
-	default:
-		return ErrInvalidMessage
-	}
+	messageType := types.MessageTypeInformation
 
 	senderName := strings.TrimSpace(p.SenderName)
 	if p.SenderID != nil {
@@ -137,6 +125,7 @@ func ListMessages(ctx context.Context, db *sql.DB, recipientID int64) ([]types.M
 		if readAt.Valid {
 			msg.ReadAt = &readAt.Time
 		}
+		normalizeMessage(&msg)
 		out = append(out, msg)
 	}
 	if err := rows.Err(); err != nil {
@@ -240,6 +229,7 @@ func ListMessagesBetweenMembers(ctx context.Context, db *sql.DB, memberAID, memb
 		if readAt.Valid {
 			msg.ReadAt = &readAt.Time
 		}
+		normalizeMessage(&msg)
 		out = append(out, msg)
 	}
 	if err := rows.Err(); err != nil {
@@ -305,6 +295,7 @@ func GetMessageForMember(ctx context.Context, db *sql.DB, messageID, recipientID
 	if readAt.Valid {
 		msg.ReadAt = &readAt.Time
 	}
+	normalizeMessage(&msg)
 	return msg, nil
 }
 
@@ -366,56 +357,6 @@ func DeleteMessage(ctx context.Context, db *sql.DB, messageID, recipientID int64
 	return nil
 }
 
-func loadPendingActionMessage(ctx context.Context, q queryer, messageID, recipientID int64) (int64, int64, error) {
-	row := q.QueryRowContext(ctx, `
-		SELECT sender_member_id, hop_id, message_type, action_status
-		FROM messages
-		WHERE id = $1 AND recipient_member_id = $2
-		FOR UPDATE
-	`, messageID, recipientID)
-
-	var senderID sql.NullInt64
-	var hopID sql.NullInt64
-	var messageType string
-	var actionStatus sql.NullString
-	if err := row.Scan(&senderID, &hopID, &messageType, &actionStatus); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, 0, ErrMessageNotFound
-		}
-		return 0, 0, fmt.Errorf("load action message: %w", err)
-	}
-	if messageType != types.MessageTypeAction || !senderID.Valid || !hopID.Valid {
-		return 0, 0, ErrInvalidMessage
-	}
-	if actionStatus.Valid {
-		return 0, 0, ErrInvalidMessage
-	}
-	return senderID.Int64, hopID.Int64, nil
-}
-
-func markActionMessage(ctx context.Context, e execer, messageID, recipientID int64, status string, now time.Time) error {
-	if status != types.MessageActionAccepted && status != types.MessageActionDeclined {
-		return ErrInvalidMessage
-	}
-
-	res, err := e.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1, action_taken_at = $2, read_at = COALESCE(read_at, $2)
-		WHERE id = $3 AND recipient_member_id = $4 AND message_type = $5 AND action_status IS NULL
-	`, status, now, messageID, recipientID, types.MessageTypeAction)
-	if err != nil {
-		return fmt.Errorf("update action message: %w", err)
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("update action message rows affected: %w", err)
-	}
-	if affected == 0 {
-		return ErrInvalidMessage
-	}
-	return nil
-}
-
 func UnreadMessageCount(ctx context.Context, db *sql.DB, recipientID int64) (int, error) {
 	if db == nil {
 		return 0, ErrNilDB
@@ -457,6 +398,15 @@ func nullableTimePtr(t *time.Time) interface{} {
 		return nil
 	}
 	return *t
+}
+
+func normalizeMessage(msg *types.Message) {
+	if msg == nil {
+		return
+	}
+	msg.MessageType = types.MessageTypeInformation
+	msg.ActionStatus = nil
+	msg.ActionTakenAt = nil
 }
 
 func insertMessage(ctx context.Context, e execer, recipientID int64, senderID *int64, senderName, messageType string, hopID *int64, actionStatus *string, actionTakenAt *time.Time, subject, body string) error {

@@ -663,19 +663,6 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 		`, types.HopOfferStatusDenied, now, hop.ID); err != nil {
 			return 0, fmt.Errorf("close pending offers for canceled deleted-member hop: %w", err)
 		}
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE messages
-			SET action_status = $1,
-				action_taken_at = $2,
-				read_at = COALESCE(read_at, $2)
-			WHERE recipient_member_id = $3
-				AND hop_id = $4
-				AND message_type = $5
-				AND action_status IS NULL
-		`, types.MessageActionDeclined, now, memberID, hop.ID, types.MessageTypeAction); err != nil {
-			return 0, fmt.Errorf("close pending action messages for canceled deleted-member hop: %w", err)
-		}
-
 		subject := "Hop canceled by administrator: " + truncateRunes(strings.TrimSpace(hop.Title), 80)
 		body := fmt.Sprintf(
 			"An administrator permanently deleted the account that created this hop, so the hop was canceled.\n\nHop: %s\nHop ID: %d",
@@ -729,18 +716,6 @@ func adminWithdrawPendingOffersForMember(ctx context.Context, tx *sql.Tx, member
 	`, types.HopOfferStatusDenied, now, memberID); err != nil {
 		return 0, fmt.Errorf("withdraw pending offers for deleted member: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE messages
-		SET action_status = $1,
-			action_taken_at = $2,
-			read_at = COALESCE(read_at, $2)
-		WHERE sender_member_id = $3
-			AND message_type = $4
-			AND action_status IS NULL
-	`, types.MessageActionDeclined, now, memberID, types.MessageTypeAction); err != nil {
-		return 0, fmt.Errorf("close pending action messages from deleted member offers: %w", err)
-	}
-
 	return len(hopIDs), nil
 }
 

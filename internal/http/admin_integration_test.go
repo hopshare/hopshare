@@ -945,7 +945,7 @@ func TestAdminUsersHTTP(t *testing.T) {
 				AND sender_member_id = $2
 				AND hop_id = $3
 				AND message_type = $4
-		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, types.MessageTypeAction).Scan(&requesterActionMessages); err != nil {
+		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, "action").Scan(&requesterActionMessages); err != nil {
 			t.Fatalf("count requester action messages after delete: %v", err)
 		}
 		if requesterActionMessages != 0 {

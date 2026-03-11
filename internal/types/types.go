@@ -27,12 +27,6 @@ const (
 
 const (
 	MessageTypeInformation = "information"
-	MessageTypeAction      = "action"
-)
-
-const (
-	MessageActionAccepted = "accepted"
-	MessageActionDeclined = "declined"
 )
 
 const (

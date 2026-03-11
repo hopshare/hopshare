@@ -142,10 +142,6 @@ func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/messages?error="+url.QueryEscape("Could not load message."), http.StatusSeeOther)
 		return
 	}
-	if original.MessageType == types.MessageTypeAction {
-		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Replies are not available for this message."), http.StatusSeeOther)
-		return
-	}
 	if original.SenderID == nil {
 		http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&error="+url.QueryEscape("Replies are not available for this message."), http.StatusSeeOther)
 		return
@@ -174,13 +170,4 @@ func (s *Server) handleReplyMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/messages?message_id="+strconv.FormatInt(messageID, 10)+"&success="+url.QueryEscape("Reply sent."), http.StatusSeeOther)
-}
-
-func (s *Server) handleMessageAction(w http.ResponseWriter, r *http.Request) {
-	user := s.currentUser(r)
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/messages?error="+url.QueryEscape("Manage hop offers from the Hop Detail page."), http.StatusSeeOther)
 }
