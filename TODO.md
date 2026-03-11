@@ -87,4 +87,6 @@
 
 Font Awesome- https://icon-sets.iconify.design/fa7-regular/page-2.html?keyword=font
 
+PgAdmin - https://www.pgadmin.org
+
 
