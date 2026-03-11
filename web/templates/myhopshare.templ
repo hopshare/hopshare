@@ -34,6 +34,95 @@ func currentOrgTimebankStartingBalance(orgs []types.Organization, currentOrgID i
 	return 5
 }
 
+func myhopShareCurrentOrg(orgs []types.Organization, currentOrgID int64) *types.Organization {
+	for i := range orgs {
+		if orgs[i].ID != currentOrgID {
+			continue
+		}
+		org := orgs[i]
+		return &org
+	}
+	return nil
+}
+
+func myhopShareBalanceState(balanceHours int, minBalance int, maxBalance int, startingBalance int) string {
+	switch {
+	case balanceHours >= maxBalance:
+		return "maxed"
+	case balanceHours >= startingBalance:
+		return "healthy"
+	case balanceHours < 0 && balanceHours <= minBalance:
+		return "minimum"
+	case balanceHours < 0:
+		return "low"
+	default:
+		return "neutral"
+	}
+}
+
+func myhopShareBalanceStateLabel(state string) string {
+	switch state {
+	case "maxed":
+		return "Maximum balance reached"
+	case "healthy":
+		return "Healthy balance"
+	case "minimum":
+		return "Minimum balance reached"
+	case "low":
+		return "Balance is low"
+	default:
+		return "Ready to pitch in"
+	}
+}
+
+func myhopShareBalanceStateGuidance(state string, minBalance int) string {
+	switch state {
+	case "maxed":
+		return "Request a hop to pay your hours forward."
+	case "healthy":
+		return "Good time to request a hop."
+	case "minimum":
+		return "Help someone else before requesting more hops."
+	case "low":
+		return "You can go as low as " + strconv.Itoa(minBalance) + " hours, but helping now will build your balance faster."
+	default:
+		return "Help or request a hop to get your momentum going."
+	}
+}
+
+func myhopShareRecentHops(myHops []types.Hop, activeAcceptedHop *types.Hop, limit int) []types.Hop {
+	if limit <= 0 {
+		return nil
+	}
+	var activeHopID int64
+	if activeAcceptedHop != nil {
+		activeHopID = activeAcceptedHop.ID
+	}
+	out := make([]types.Hop, 0, limit)
+	for _, hop := range myHops {
+		if activeHopID != 0 && hop.ID == activeHopID {
+			continue
+		}
+		out = append(out, hop)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out
+}
+
+func myhopShareLimitedNotifications(notifications []types.MemberNotification, limit int) []types.MemberNotification {
+	if len(notifications) == 0 || limit == 0 {
+		return nil
+	}
+	if limit < 0 || limit > len(notifications) {
+		limit = len(notifications)
+	}
+	out := make([]types.MemberNotification, limit)
+	copy(out, notifications[:limit])
+	return out
+}
+
 templ MyhopShare(
 	email string,
 	displayName string,
@@ -97,11 +186,26 @@ templ MyhopShareBody(
 	errorMsg string,
 ) {
 	<div class="space-y-8">
+		if successMsg != "" || errorMsg != "" || len(notifications) > 0 {
+			<section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:hidden">
+				if successMsg != "" {
+					<div class="border-b border-slate-200 bg-emerald-50 px-4 py-3 text-emerald-800 last:border-b-0">{ successMsg }</div>
+				}
+				if errorMsg != "" {
+					<div class="border-b border-slate-200 bg-red-50 px-4 py-3 text-red-800 last:border-b-0">{ errorMsg }</div>
+				}
+				if len(notifications) > 0 {
+					<div class="px-4 py-3">
+						@MyhopShareNotificationList(currentOrgID, myhopShareLimitedNotifications(notifications, 3))
+					</div>
+				}
+			</section>
+		}
 		if successMsg != "" {
-			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
+			<div class="hidden rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 md:block">{ successMsg }</div>
 		}
 		if errorMsg != "" {
-			<div class="rounded-md border border-red-200 bg-red-50 text-red-800 px-4 py-3">{ errorMsg }</div>
+			<div class="hidden rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800 md:block">{ errorMsg }</div>
 		}
 		if showInvitePrompt && currentOrgID != 0 {
 			<section class="rounded-xl border border-sky-200 bg-sky-50 p-5 space-y-3">
@@ -192,29 +296,168 @@ templ MyhopShareDashboard(
 	hasCreatedOrganization bool,
 	notifications []types.MemberNotification,
 ) {
-	<div
-		class="space-y-6"
-	>
-		<section class="space-y-6">
-			<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-				<div class="flex items-center justify-between gap-3">
-					<div class="min-w-0">
-						for _, org := range orgs {
-							if org.ID == currentOrgID {
-								<div class="flex items-center gap-3 min-w-0">
-									<img
-										src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-										alt={ org.Name + " logo" }
-										class="h-9 w-9 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
-									/>
-									<div class="min-w-0">
-										<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
-										<a class="block truncate text-lg font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
-									</div>
-								</div>
-							}
+	<div class="space-y-6">
+		@MyhopShareDashboardMobile(
+			displayName,
+			lastLoginLabel,
+			orgs,
+			currentOrgID,
+			memberStats,
+			myHops,
+			activeAcceptedHop,
+			activeAcceptedViewKey,
+			memberID,
+			activityCount,
+		)
+		<div class="hidden md:block">
+			@MyhopShareDashboardDesktop(
+				displayName,
+				lastLoginLabel,
+				orgs,
+				currentOrgID,
+				isOwnerCurrent,
+				metrics,
+				memberStats,
+				myHops,
+				activeAcceptedHop,
+				activeAcceptedViewKey,
+				memberID,
+				activityCount,
+				hasCreatedOrganization,
+				notifications,
+			)
+		</div>
+	</div>
+}
+
+templ MyhopShareDashboardMobile(
+	displayName string,
+	lastLoginLabel string,
+	orgs []types.Organization,
+	currentOrgID int64,
+	memberStats types.MemberHopStats,
+	myHops []types.Hop,
+	activeAcceptedHop *types.Hop,
+	activeAcceptedViewKey string,
+	memberID int64,
+	activityCount int,
+) {
+	<div class="space-y-4 md:hidden">
+		@MyhopShareCurrentOrgCard(orgs, currentOrgID, true)
+		@MyhopShareBalanceCard(displayName, lastLoginLabel, orgs, currentOrgID, memberStats)
+
+		if activeAcceptedHop != nil {
+			@MyhopShareActiveNowCard(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
+		}
+
+		@MyhopSharePrimaryActions(currentOrgID, true)
+		@MyhopShareQuickAccess(currentOrgID, true)
+
+		@MyhopShareRecentActivity(currentOrgID, myHops, activeAcceptedHop, activityCount)
+	</div>
+}
+
+templ MyhopShareDashboardDesktop(
+	displayName string,
+	lastLoginLabel string,
+	orgs []types.Organization,
+	currentOrgID int64,
+	isOwnerCurrent bool,
+	metrics types.OrgHopMetrics,
+	memberStats types.MemberHopStats,
+	myHops []types.Hop,
+	activeAcceptedHop *types.Hop,
+	activeAcceptedViewKey string,
+	memberID int64,
+	activityCount int,
+	hasCreatedOrganization bool,
+	notifications []types.MemberNotification,
+) {
+	<section class="space-y-6">
+		@MyhopShareCurrentOrgCard(orgs, currentOrgID, false)
+
+		if len(notifications) > 0 {
+			@MyhopShareNotificationList(currentOrgID, notifications)
+		}
+
+		<section class="rounded-2xl bg-sky-100 p-8">
+			<div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+				<div>
+					<h1 class="text-3xl font-bold text-slate-900">Welcome, { displayName }!</h1>
+					<p class="mt-3 text-slate-700">
+						Last login: { lastLoginLabel }
+					</p>
+				</div>
+				<div class="text-center">
+					<p class="text-5xl font-extrabold text-slate-900">
+						if memberStats.BalanceHours > 0 {
+							{ memberStats.BalanceHours }
+						} else if memberStats.BalanceHours < 0 {
+							{ memberStats.BalanceHours }
+						} else {
+							0
 						}
+					</p>
+					<p class="mt-2 text-lg font-semibold text-slate-900">Hours Earned</p>
+				</div>
+				<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
+					if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
+						You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
+					} else if memberStats.BalanceHours >= currentOrgTimebankStartingBalance(orgs, currentOrgID) {
+						You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
+					} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= currentOrgTimebankMinBalance(orgs, currentOrgID)) {
+						You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
+					} else if memberStats.BalanceHours < 0 {
+						You're out of hours but don't worry! You can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)} hours. Find some other users who need help and build up your balance!
+					} else {
+						Pay some forward to another user!
+					}
+				</div>
+			</div>
+		</section>
+
+		if activeAcceptedHop != nil {
+			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+				<div class="px-6 py-4 bg-slate-50 space-y-1">
+					<h2 class="text-lg font-bold text-slate-900">Active accepted hop</h2>
+					<p class="text-sm text-slate-600">This hop is currently in progress and ready to complete.</p>
+				</div>
+				<ul class="divide-y divide-slate-200">
+					@MyHopRow(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
+				</ul>
+			</section>
+		}
+
+		@MyhopSharePrimaryActions(currentOrgID, false)
+		@MyhopShareQuickAccess(currentOrgID, false)
+	</section>
+}
+
+templ MyhopShareCurrentOrgCard(orgs []types.Organization, currentOrgID int64, mobile bool) {
+	if myhopShareCurrentOrg(orgs, currentOrgID) != nil {
+		<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+			<div class="flex items-center justify-between gap-3">
+				<div class="min-w-0">
+					<div class="flex items-center gap-3 min-w-0">
+						<img
+							src={ "/organizations/logo?org_id=" + strconv.FormatInt(myhopShareCurrentOrg(orgs, currentOrgID).ID, 10) + "&v=" + strconv.FormatInt(myhopShareCurrentOrg(orgs, currentOrgID).UpdatedAt.Unix(), 10) }
+							alt={ myhopShareCurrentOrg(orgs, currentOrgID).Name + " logo" }
+							class="h-9 w-9 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+						/>
+						<div class="min-w-0">
+							<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
+							<a class="block truncate text-lg font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + myhopShareCurrentOrg(orgs, currentOrgID).URLName }>{ myhopShareCurrentOrg(orgs, currentOrgID).Name }</a>
+						</div>
 					</div>
+				</div>
+				if mobile {
+					<a
+						class="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-sky-800"
+						href="/my-hopshare/organizations"
+					>
+						Switch
+					</a>
+				} else {
 					<a
 						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:text-sky-800"
 						href="/my-hopshare/organizations"
@@ -226,123 +469,241 @@ templ MyhopShareDashboard(
 							<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 						</svg>
 					</a>
-				</div>
-			</section>
-
-			if len(notifications) > 0 {
-				<section>
-					<ul class="space-y-2">
-						for _, notification := range notifications {
-							<li class="relative rounded-lg bg-emerald-50 px-3 py-2">
-								<form class="absolute right-2 top-2" method="POST" action="/notifications/dismiss">
-									@CSRFField()
-									<input type="hidden" name="notification_id" value={ strconv.FormatInt(notification.ID, 10) }/>
-									<input type="hidden" name="org_id" value={ strconv.FormatInt(currentOrgID, 10) }/>
-									<button class="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-semibold text-slate-700 transition hover:bg-emerald-100 hover:text-slate-900" type="submit" aria-label="Dismiss notification">X</button>
-								</form>
-								<p class="pr-8 text-sm text-slate-800">
-									{ notification.Text }
-									if notification.Href != nil && *notification.Href != "" {
-										<a class="ml-1 font-semibold text-sky-700 underline hover:text-sky-800" href={ *notification.Href }>View</a>
-									}
-								</p>
-							</li>
-						}
-					</ul>
-				</section>
-			}
-
-			<section class="rounded-2xl bg-sky-100 p-8">
-				<div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-					<div>
-						<h1 class="text-3xl font-bold text-slate-900">Welcome, { displayName }!</h1>
-						<p class="mt-3 text-slate-700">
-							Last login: { lastLoginLabel }
-						</p>
-					</div>
-					<div class="text-center">
-						<p class="text-5xl font-extrabold text-slate-900">
-							if memberStats.BalanceHours > 0 {
-								{ memberStats.BalanceHours }
-							} else if memberStats.BalanceHours < 0 {
-								{ memberStats.BalanceHours }
-							} else {
-								0
-							}
-						</p>
-						<p class="mt-2 text-lg font-semibold text-slate-900">Hours Earned</p>
-					</div>
-					<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
-						if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
-							You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
-						} else if memberStats.BalanceHours >= currentOrgTimebankStartingBalance(orgs, currentOrgID) {
-							You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
-						} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= currentOrgTimebankMinBalance(orgs, currentOrgID)) {
-							You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
-						} else if memberStats.BalanceHours < 0 {
-							You're out of hours but don't worry! You can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)} hours. Find some other users who need help and build up your balance!
-						} else {
-							Pay some forward to another user!
-						}
-					</div>
-				</div>
-			</section>
-
-			if activeAcceptedHop != nil {
-				<section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-					<div class="px-6 py-4 bg-slate-50 space-y-1">
-						<h2 class="text-lg font-bold text-slate-900">Active accepted hop</h2>
-						<p class="text-sm text-slate-600">This hop is currently in progress and ready to complete.</p>
-					</div>
-					<ul class="divide-y divide-slate-200">
-						@MyHopRow(currentOrgID, *activeAcceptedHop, activeAcceptedViewKey, memberID)
-					</ul>
-				</section>
-			}
-
-			<section class="rounded-2xl bg-sky-100 p-8">
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<a
-						class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-						href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
-					>
-						Request a Hop
-					</a>
-					<a
-						class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-						href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
-					>
-						Give a Hop
-					</a>
-				</div>
-			</section>
-
-			<section class="rounded-2xl bg-sky-100 p-8">
-				<h2 class="text-xl font-bold text-slate-900">Your Hops</h2>
-				<div class="mt-4 grid grid-cols-2 gap-3">
-					<a
-						class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
-						href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
-							<path fill="currentColor" d="M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208s93.1-208 208-208s208 93.1 208 208M320 64C178.6 64 64 178.6 64 320s114.6 256 256 256s256-114.6 256-256S461.4 64 320 64m-96 248c13.3 0 24-10.7 24-24s-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24m216-24c0-13.3-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24s24-10.7 24-24M256 416c-13.3 0-24 10.7-24 24s10.7 24 24 24h128c13.3 0 24-10.7 24-24s-10.7-24-24-24zm-32-176c26.5 0 48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48s21.5-48 48-48m0 128c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80m144-80c0-26.5 21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48m128 0c0-44.2-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80"/>
-						</svg>
-						My Requests
-					</a>
-					<a
-						class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
-						href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped" }
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
-							<path fill="currentColor" d="M528 320c0-114.9-93.1-208-208-208s-208 93.1-208 208s93.1 208 208 208s208-93.1 208-208m-464 0C64 178.6 178.6 64 320 64s256 114.6 256 256s-114.6 256-256 256S64 461.4 64 320m118.3 58.2c-4.2-13.7 7.1-26.2 21.4-26.2h232.6c14.3 0 25.6 12.5 21.4 26.2C439.7 437.1 384.8 480 320 480s-119.7-42.9-137.7-101.8M208 256c0-17.7 14.3-32 32-32s32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32m192-32c17.7 0 32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32"/>
-						</svg>
-						My Helps
-					</a>
-				</div>
-			</section>
+				}
+			</div>
 		</section>
+	}
+}
 
-	</div>
+templ MyhopShareBalanceCard(displayName string, lastLoginLabel string, orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+		<div class="flex items-start justify-between gap-4">
+			<div class="min-w-0">
+				<p class="text-sm font-semibold text-slate-600">Welcome back</p>
+				<h1 class="truncate text-2xl font-bold text-slate-900">{ displayName }</h1>
+				<p class="mt-1 text-sm text-slate-500">Last login: { lastLoginLabel }</p>
+			</div>
+			<div class="rounded-2xl bg-sky-100 px-4 py-3 text-center shrink-0">
+				<p class="text-3xl font-extrabold text-slate-900">{ memberStats.BalanceHours }</p>
+				<p class="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-600">Hours</p>
+			</div>
+		</div>
+		<div class="mt-4 rounded-xl bg-slate-50 px-4 py-3">
+			<p class="text-sm font-semibold text-slate-900">
+				{ myhopShareBalanceStateLabel(myhopShareBalanceState(memberStats.BalanceHours, currentOrgTimebankMinBalance(orgs, currentOrgID), currentOrgTimebankMaxBalance(orgs, currentOrgID), currentOrgTimebankStartingBalance(orgs, currentOrgID))) }
+			</p>
+			<p class="mt-1 text-sm text-slate-700">
+				{ myhopShareBalanceStateGuidance(myhopShareBalanceState(memberStats.BalanceHours, currentOrgTimebankMinBalance(orgs, currentOrgID), currentOrgTimebankMaxBalance(orgs, currentOrgID), currentOrgTimebankStartingBalance(orgs, currentOrgID)), currentOrgTimebankMinBalance(orgs, currentOrgID)) }
+			</p>
+		</div>
+	</section>
+}
+
+templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberID int64) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+		<div class="space-y-1">
+			<p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Active now</p>
+			<h2 class="text-lg font-bold text-slate-900">Accepted hop</h2>
+		</div>
+		<div class="space-y-2">
+			<div class="flex items-center gap-2">
+				@StatusPill(hop.Status)
+				<p class="min-w-0 truncate text-base font-semibold text-slate-900">{ hop.Title }</p>
+			</div>
+			if hop.CreatedBy == memberID && hop.AcceptedByName != nil {
+				<p class="text-sm text-slate-600">With: { *hop.AcceptedByName }</p>
+			} else {
+				<p class="text-sm text-slate-600">With: { hop.CreatedByName }</p>
+			}
+		</div>
+		<div class="grid grid-cols-2 gap-3">
+			<a
+				class="inline-flex items-center justify-center rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+				href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=my-hops&view=" + viewKey }
+			>
+				Open details
+			</a>
+			<a
+				class="inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-800"
+				href={ completeHopPageLink(orgID, hop.ID, "/my-hops?org_id=" + strconv.FormatInt(orgID, 10) + "&view=" + viewKey) }
+				data-hop-id={ hop.ID }
+				data-hop-title={ hop.Title }
+				data-hop-hours={ hop.EstimatedHours }
+				data-hop-requester={ hop.CreatedBy == memberID }
+			>
+				Mark complete
+			</a>
+		</div>
+	</section>
+}
+
+templ MyhopSharePrimaryActions(currentOrgID int64, mobile bool) {
+	if mobile {
+		<section class="rounded-2xl border border-slate-200 bg-sky-100 p-5 shadow-sm space-y-3">
+			<div>
+				<h2 class="text-lg font-bold text-slate-900">What do you want to do?</h2>
+			</div>
+			<div class="space-y-3">
+				<a
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 px-4 py-4 text-lg font-semibold text-white transition hover:bg-sky-800"
+					href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+				>
+					Request a Hop
+				</a>
+				<a
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-lg font-semibold text-sky-800 ring-1 ring-slate-300 transition hover:ring-slate-400"
+					href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+				>
+					Give a Hop
+				</a>
+			</div>
+		</section>
+	} else {
+		<section class="rounded-2xl bg-sky-100 p-8">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<a
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
+					href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+				>
+					Request a Hop
+				</a>
+				<a
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
+					href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
+				>
+					Give a Hop
+				</a>
+			</div>
+		</section>
+	}
+}
+
+templ MyhopShareQuickAccess(currentOrgID int64, mobile bool) {
+	if mobile {
+		<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+			<div class="space-y-1">
+				<h2 class="text-lg font-bold text-slate-900">Quick access</h2>
+				<p class="text-sm text-slate-600">Jump to your most common destinations.</p>
+			</div>
+			<div class="mt-4 grid grid-cols-2 gap-3">
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }>
+					My Requests
+				</a>
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped" }>
+					My Helps
+				</a>
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/messages">
+					Messages
+				</a>
+				<a class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/profile">
+					Profile
+				</a>
+			</div>
+		</section>
+	} else {
+		<section class="rounded-2xl bg-sky-100 p-8">
+			<h2 class="text-xl font-bold text-slate-900">Your Hops</h2>
+			<div class="mt-4 grid grid-cols-2 gap-3">
+				<a
+					class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
+					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
+						<path fill="currentColor" d="M528 320c0 114.9-93.1 208-208 208s-208-93.1-208-208s93.1-208 208-208s208 93.1 208 208M320 64C178.6 64 64 178.6 64 320s114.6 256 256 256s256-114.6 256-256S461.4 64 320 64m-96 248c13.3 0 24-10.7 24-24s-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24m216-24c0-13.3-10.7-24-24-24s-24 10.7-24 24s10.7 24 24 24s24-10.7 24-24M256 416c-13.3 0-24 10.7-24 24s10.7 24 24 24h128c13.3 0 24-10.7 24-24s-10.7-24-24-24zm-32-176c26.5 0 48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48s21.5-48 48-48m0 128c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80m144-80c0-26.5 21.5-48 48-48s48 21.5 48 48s-21.5 48-48 48s-48-21.5-48-48m128 0c0-44.2-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80s80-35.8 80-80"/>
+					</svg>
+					My Requests
+				</a>
+				<a
+					class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-sky-700 transition hover:border-slate-400 hover:text-sky-800"
+					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=helped" }
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 text-slate-600" viewBox="0 0 640 640" aria-hidden="true">
+						<path fill="currentColor" d="M528 320c0-114.9-93.1-208-208-208s-208 93.1-208 208s93.1 208 208 208s208-93.1 208-208m-464 0C64 178.6 178.6 64 320 64s256 114.6 256 256s-114.6 256-256 256S64 461.4 64 320m118.3 58.2c-4.2-13.7 7.1-26.2 21.4-26.2h232.6c14.3 0 25.6 12.5 21.4 26.2C439.7 437.1 384.8 480 320 480s-119.7-42.9-137.7-101.8M208 256c0-17.7 14.3-32 32-32s32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32m192-32c17.7 0 32 14.3 32 32s-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32"/>
+					</svg>
+					My Helps
+				</a>
+			</div>
+		</section>
+	}
+}
+
+templ MyhopShareNotificationList(currentOrgID int64, notifications []types.MemberNotification) {
+	<section>
+		<ul class="space-y-2">
+			for _, notification := range notifications {
+				<li class="relative rounded-lg bg-emerald-50 px-3 py-2">
+					<form class="absolute right-2 top-2" method="POST" action="/notifications/dismiss">
+						@CSRFField()
+						<input type="hidden" name="notification_id" value={ strconv.FormatInt(notification.ID, 10) }/>
+						<input type="hidden" name="org_id" value={ strconv.FormatInt(currentOrgID, 10) }/>
+						<button class="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-semibold text-slate-700 transition hover:bg-emerald-100 hover:text-slate-900" type="submit" aria-label="Dismiss notification">X</button>
+					</form>
+					<p class="pr-8 text-sm text-slate-800">
+						{ notification.Text }
+						if notification.Href != nil && *notification.Href != "" {
+							<a class="ml-1 font-semibold text-sky-700 underline hover:text-sky-800" href={ *notification.Href }>View</a>
+						}
+					</p>
+				</li>
+			}
+		</ul>
+	</section>
+}
+
+templ MyhopShareRecentActivity(currentOrgID int64, myHops []types.Hop, activeAcceptedHop *types.Hop, activityCount int) {
+	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+		<div class="flex items-start justify-between gap-3">
+			<div>
+				<h2 class="text-lg font-bold text-slate-900">Recent activity</h2>
+				<p class="text-sm text-slate-600">
+					if activityCount > 0 {
+						{ strconv.Itoa(activityCount) } total hops so far
+					} else {
+						Your recent hop updates will show up here.
+					}
+				</p>
+			</div>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }>
+				See all
+			</a>
+		</div>
+		<div class="mt-4 space-y-3">
+			if len(myhopShareRecentHops(myHops, activeAcceptedHop, 3)) == 0 {
+				<p class="rounded-xl bg-slate-50 px-4 py-4 text-sm text-slate-600">No additional hop activity yet.</p>
+			} else {
+				for _, hop := range myhopShareRecentHops(myHops, activeAcceptedHop, 3) {
+					@MyhopShareRecentActivityRow(currentOrgID, hop)
+				}
+			}
+		</div>
+	</section>
+}
+
+templ MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) {
+	<a
+		class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-white"
+		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(currentOrgID, 10) + "&from=my-hops" }
+	>
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<p class="truncate text-sm font-semibold text-slate-900">{ hop.Title }</p>
+				<p class="mt-1 text-xs text-slate-600">
+					if hop.Status == types.HopStatusCompleted {
+						Completed { organizationHoursForCompletedHop(hop) } hours
+					} else if hop.Status == types.HopStatusAccepted {
+						if hop.AcceptedByName != nil {
+							Accepted by { *hop.AcceptedByName }
+						} else {
+							Accepted and in progress
+						}
+					} else {
+						Needed by { hopNeededByLabel(hop) }
+					}
+				</p>
+			</div>
+			@StatusPill(hop.Status)
+		</div>
+	</a>
 }
 
 templ MyhopShareOrganizations(email string, orgs []types.Organization, currentOrgID int64) {
