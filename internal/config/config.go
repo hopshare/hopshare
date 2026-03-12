@@ -25,6 +25,10 @@ type Config struct {
 	CookieSecure       bool
 	SessionAbsoluteTTL time.Duration
 	SessionIdleTimeout time.Duration
+	WorkersEnabled     bool
+	WorkerPollInterval time.Duration
+	ExpireHopsInterval time.Duration
+	SessionGCInterval  time.Duration
 }
 
 // Load returns configuration populated from HOPSHARE_* environment variables.
@@ -46,6 +50,10 @@ func Load() Config {
 		CookieSecure:       getenvBool("HOPSHARE_COOKIE_SECURE", true),
 		SessionAbsoluteTTL: getenvDuration("HOPSHARE_SESSION_ABSOLUTE_TTL", 168*time.Hour),
 		SessionIdleTimeout: getenvDuration("HOPSHARE_SESSION_IDLE_TIMEOUT", 24*time.Hour),
+		WorkersEnabled:     getenvBool("HOPSHARE_WORKERS_ENABLED", true),
+		WorkerPollInterval: getenvDuration("HOPSHARE_WORKER_POLL_INTERVAL", time.Minute),
+		ExpireHopsInterval: getenvDuration("HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL", time.Hour),
+		SessionGCInterval:  getenvDuration("HOPSHARE_WORKER_SESSION_GC_INTERVAL", 6*time.Hour),
 	}
 }
 

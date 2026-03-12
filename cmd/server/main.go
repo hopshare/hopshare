@@ -15,6 +15,7 @@ import (
 	"hopshare/internal/database"
 	"hopshare/internal/database/migrate"
 	httpserver "hopshare/internal/http"
+	"hopshare/internal/worker"
 	"hopshare/web/templates"
 )
 
@@ -74,6 +75,21 @@ func main() {
 		CookieSecure:             &cfg.CookieSecure,
 		AppLocation:              appLocation,
 	})
+
+	if cfg.WorkersEnabled {
+		backgroundRunner, err := worker.NewRunner(db, cfg.WorkerPollInterval, worker.DefaultJobs(worker.JobConfig{
+			ExpireDueHopsInterval:         cfg.ExpireHopsInterval,
+			DeleteExpiredSessionsInterval: cfg.SessionGCInterval,
+		}))
+		if err != nil {
+			log.Fatalf("configure background workers: %v", err)
+		}
+		go func() {
+			if err := backgroundRunner.Run(ctx); err != nil && err != context.Canceled {
+				log.Printf("background workers stopped: %v", err)
+			}
+		}()
+	}
 
 	server := &http.Server{
 		Addr:         cfg.Addr,

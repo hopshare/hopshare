@@ -590,8 +590,8 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 		UPDATE hops
 		SET status = $1,
 			canceled_by = $2,
-			canceled_at = $3,
-			updated_at = $3
+			canceled_at = GREATEST($3, created_at + INTERVAL '1 microsecond'),
+			updated_at = GREATEST($3, created_at + INTERVAL '1 microsecond')
 		WHERE created_by = $4
 			AND status = $5
 		RETURNING id, title
@@ -615,6 +615,9 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("cancel open hops for deleted member: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, fmt.Errorf("close canceled hops for deleted member: %w", err)
 	}
 
 	senderName := strings.TrimSpace(actorName)
@@ -702,6 +705,9 @@ func adminWithdrawPendingOffersForMember(ctx context.Context, tx *sql.Tx, member
 	}
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("list pending offers for deleted member: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, fmt.Errorf("close pending offers for deleted member: %w", err)
 	}
 	if len(hopIDs) == 0 {
 		return 0, nil

@@ -847,6 +847,10 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 	return result, nil
 }
 
+func ExpireDueHops(ctx context.Context, db *sql.DB, now time.Time) (int64, error) {
+	return expireHops(ctx, db, nil, now)
+}
+
 func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (int64, error) {
 	if db == nil {
 		return 0, ErrNilDB
@@ -855,6 +859,10 @@ func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (in
 		return 0, ErrMissingOrgID
 	}
 
+	return expireHops(ctx, db, &orgID, now)
+}
+
+func expireHops(ctx context.Context, db *sql.DB, orgID *int64, now time.Time) (int64, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("begin expire hops: %w", err)
@@ -865,40 +873,55 @@ func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (in
 		}
 	}()
 
-	rows, err := tx.QueryContext(ctx, `
-		UPDATE hops
-		SET status = $1, updated_at = NOW()
-		WHERE organization_id = $2
-			AND status IN ($3, $4)
-			AND expires_at IS NOT NULL
-			AND expires_at <= $5
-		RETURNING id, created_by, title
-	`, types.HopStatusExpired, orgID, types.HopStatusOpen, types.HopStatusAccepted, now)
+	var rows *sql.Rows
+	if orgID != nil {
+		rows, err = tx.QueryContext(ctx, `
+			UPDATE hops
+			SET status = $1, updated_at = NOW()
+			WHERE organization_id = $2
+				AND status IN ($3, $4)
+				AND expires_at IS NOT NULL
+				AND expires_at <= $5
+			RETURNING id, organization_id, created_by, title
+		`, types.HopStatusExpired, *orgID, types.HopStatusOpen, types.HopStatusAccepted, now)
+	} else {
+		rows, err = tx.QueryContext(ctx, `
+			UPDATE hops
+			SET status = $1, updated_at = NOW()
+			WHERE status IN ($2, $3)
+				AND expires_at IS NOT NULL
+				AND expires_at <= $4
+			RETURNING id, organization_id, created_by, title
+		`, types.HopStatusExpired, types.HopStatusOpen, types.HopStatusAccepted, now)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("expire hops: %w", err)
 	}
 	defer rows.Close()
 
 	type expiredHop struct {
-		id        int64
-		createdBy int64
-		title     string
+		id             int64
+		organizationID int64
+		createdBy      int64
+		title          string
 	}
 
 	var affected int64
 	expired := make([]expiredHop, 0)
 	for rows.Next() {
 		var hopID int64
+		var organizationID int64
 		var createdBy int64
 		var title string
-		if err := rows.Scan(&hopID, &createdBy, &title); err != nil {
+		if err := rows.Scan(&hopID, &organizationID, &createdBy, &title); err != nil {
 			return 0, fmt.Errorf("scan expired hop: %w", err)
 		}
 		affected++
 		expired = append(expired, expiredHop{
-			id:        hopID,
-			createdBy: createdBy,
-			title:     title,
+			id:             hopID,
+			organizationID: organizationID,
+			createdBy:      createdBy,
+			title:          title,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -919,7 +942,7 @@ func ExpireHops(ctx context.Context, db *sql.DB, orgID int64, now time.Time) (in
 			tx,
 			hop.createdBy,
 			notificationText,
-			hopDetailsHref(orgID, hop.id),
+			hopDetailsHref(hop.organizationID, hop.id),
 		)
 	}
 
@@ -1850,6 +1873,9 @@ func ReopenAcceptedHopsForMember(ctx context.Context, tx *sql.Tx, memberID int64
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list accepted hops for member reopen: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close accepted hops for member reopen: %w", err)
 	}
 
 	for _, hop := range reopened {

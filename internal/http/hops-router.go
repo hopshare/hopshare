@@ -85,10 +85,6 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 
 	var myHops []types.Hop
 	if currentOrgID != 0 {
-		if _, err := service.ExpireHops(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
-			log.Printf("expire hops org=%d: %v", currentOrgID, err)
-		}
-
 		switch view {
 		case "helped":
 			myHops, err = service.ListHelpedHops(r.Context(), s.db, currentOrgID, user.ID)

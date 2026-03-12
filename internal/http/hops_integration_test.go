@@ -1415,7 +1415,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireStatus(t, actor.Get("/my-hops?org_id=not-a-number"), 200)
 	})
 
-	t.Run("HOP-35 /my-hopshare expires stale hops", func(t *testing.T) {
+	t.Run("HOP-35 background expiration expires stale hops", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
 		suffix := uniqueTestSuffix()
@@ -1434,10 +1434,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create expiring hop: %v", err)
 		}
-		server := newHTTPServer(t, db)
-		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
-		owner.Login()
-		requireStatus(t, owner.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		if _, err := service.ExpireDueHops(ctx, db, time.Now().UTC()); err != nil {
+			t.Fatalf("expire due hops: %v", err)
+		}
 		updated, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
 		if err != nil {
 			t.Fatalf("load hop: %v", err)

@@ -42,6 +42,10 @@ Important variables:
 - `HOPSHARE_COOKIE_SECURE` (optional): when `true`, auth/CSRF/post-auth cookies are marked `Secure`. Default `true` (production-safe). Set `false` only for local HTTP testing.
 - `HOPSHARE_SESSION_ABSOLUTE_TTL` (optional): maximum session lifetime since login (Go duration, default `168h`).
 - `HOPSHARE_SESSION_IDLE_TIMEOUT` (optional): maximum idle session time since last request activity (Go duration, default `24h`).
+- `HOPSHARE_WORKERS_ENABLED` (optional): enable background cleanup workers (`true`/`false`, default `true`).
+- `HOPSHARE_WORKER_POLL_INTERVAL` (optional): how often each app process polls for due jobs (Go duration, default `1m`).
+- `HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL` (optional): how often to mark due hops expired (Go duration, default `1h`).
+- `HOPSHARE_WORKER_SESSION_GC_INTERVAL` (optional): how often to delete expired session rows (Go duration, default `6h`).
 - `HOPSHARE_MAILGUN_API_BASE_URL` (optional): Mailgun API base URL. Default `https://api.mailgun.net`.
 - `HOPSHARE_MAILGUN_DOMAIN` (required when `FEATURE_EMAIL=true`): Mailgun sending domain.
 - `HOPSHARE_MAILGUN_API_KEY` (required when `FEATURE_EMAIL=true`): Mailgun API key.

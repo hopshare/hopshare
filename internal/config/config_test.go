@@ -23,6 +23,10 @@ func TestLoadParsesAdminEmails(t *testing.T) {
 	t.Setenv("HOPSHARE_COOKIE_SECURE", "false")
 	t.Setenv("HOPSHARE_SESSION_ABSOLUTE_TTL", "48h")
 	t.Setenv("HOPSHARE_SESSION_IDLE_TIMEOUT", "90m")
+	t.Setenv("HOPSHARE_WORKERS_ENABLED", "false")
+	t.Setenv("HOPSHARE_WORKER_POLL_INTERVAL", "2m")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL", "3h")
+	t.Setenv("HOPSHARE_WORKER_SESSION_GC_INTERVAL", "12h")
 
 	cfg := Load()
 	if cfg.Addr != ":9090" {
@@ -70,6 +74,18 @@ func TestLoadParsesAdminEmails(t *testing.T) {
 	if cfg.SessionIdleTimeout != 90*time.Minute {
 		t.Fatalf("session idle timeout: got %s want %s", cfg.SessionIdleTimeout, 90*time.Minute)
 	}
+	if cfg.WorkersEnabled {
+		t.Fatalf("workers enabled: got %v want false", cfg.WorkersEnabled)
+	}
+	if cfg.WorkerPollInterval != 2*time.Minute {
+		t.Fatalf("worker poll interval: got %s want %s", cfg.WorkerPollInterval, 2*time.Minute)
+	}
+	if cfg.ExpireHopsInterval != 3*time.Hour {
+		t.Fatalf("expire hops interval: got %s want %s", cfg.ExpireHopsInterval, 3*time.Hour)
+	}
+	if cfg.SessionGCInterval != 12*time.Hour {
+		t.Fatalf("session gc interval: got %s want %s", cfg.SessionGCInterval, 12*time.Hour)
+	}
 
 	wantAdmins := []string{"alice@example.com", "bob@example.com", "carol@example.com"}
 	if !reflect.DeepEqual(cfg.AdminEmails, wantAdmins) {
@@ -105,6 +121,10 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("HOPSHARE_COOKIE_SECURE", "")
 	t.Setenv("HOPSHARE_SESSION_ABSOLUTE_TTL", "")
 	t.Setenv("HOPSHARE_SESSION_IDLE_TIMEOUT", "")
+	t.Setenv("HOPSHARE_WORKERS_ENABLED", "")
+	t.Setenv("HOPSHARE_WORKER_POLL_INTERVAL", "")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL", "")
+	t.Setenv("HOPSHARE_WORKER_SESSION_GC_INTERVAL", "")
 
 	cfg := Load()
 	if !cfg.FeatureEmail {
@@ -139,5 +159,17 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	}
 	if cfg.SessionIdleTimeout != 24*time.Hour {
 		t.Fatalf("session idle timeout default: got %s want %s", cfg.SessionIdleTimeout, 24*time.Hour)
+	}
+	if !cfg.WorkersEnabled {
+		t.Fatalf("workers enabled default: got %v want true", cfg.WorkersEnabled)
+	}
+	if cfg.WorkerPollInterval != time.Minute {
+		t.Fatalf("worker poll interval default: got %s want %s", cfg.WorkerPollInterval, time.Minute)
+	}
+	if cfg.ExpireHopsInterval != time.Hour {
+		t.Fatalf("expire hops interval default: got %s want %s", cfg.ExpireHopsInterval, time.Hour)
+	}
+	if cfg.SessionGCInterval != 6*time.Hour {
+		t.Fatalf("session gc interval default: got %s want %s", cfg.SessionGCInterval, 6*time.Hour)
 	}
 }

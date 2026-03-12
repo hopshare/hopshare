@@ -906,11 +906,6 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	var notifications []types.MemberNotification
 
 	if currentOrgID != 0 {
-		// TODO: We should expire old hops asynchronously through a delay-configurable goroutine, not whenever we render the myhopshare page
-		if _, err := service.ExpireHops(r.Context(), s.db, currentOrgID, time.Now().UTC()); err != nil {
-			log.Printf("expire hops org=%d: %v", currentOrgID, err)
-		}
-
 		metrics, err = service.OrgMetrics(r.Context(), s.db, currentOrgID)
 		if err != nil {
 			log.Printf("load org metrics org=%d: %v", currentOrgID, err)

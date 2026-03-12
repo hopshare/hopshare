@@ -64,16 +64,7 @@
 
 ## Later
 
-* Add in a REST API layer so we can eventually do a small mobile app for requesting, offering and accepting Hops.
-
 * Hop images should not be stored in the database- instead use reliable external storage. We should use a filesystem instead. Not needed right now.
-
-* Make service/ExpireHelpRequests() asynchronous
-    * Ideally we can run the 'hopshare' binary in a 'daemon' mode where it can do these sorts of things.
-    * Coordinating async workers across processes is a pain- let's see what we can do with one process.
-
-    * We also need a way to remove expired rows in the member_sessions table (e.g. user logs in, never does anything else).
-    * Perhaps a more generic async 'worker' concept?
 
 * Add in basic monitoring (cron job calling script saving in sqlite):
     * net/http/pprof package (visualize performance)
