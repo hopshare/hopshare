@@ -26,10 +26,6 @@ const (
 )
 
 const (
-	MessageTypeInformation = "information"
-)
-
-const (
 	ModerationReportTypeHopComment = "hop_comment"
 	ModerationReportTypeHopImage   = "hop_image"
 )
@@ -198,22 +194,6 @@ type HopImage struct {
 	HopID     int64
 	MemberID  int64
 	CreatedAt time.Time
-}
-
-// Message represents a single inbox message.
-type Message struct {
-	ID            int64
-	RecipientID   int64
-	SenderID      *int64
-	SenderName    string
-	MessageType   string
-	HopID         *int64
-	ActionStatus  *string
-	ActionTakenAt *time.Time
-	Subject       string
-	Body          string
-	ReadAt        *time.Time
-	CreatedAt     time.Time
 }
 
 // MemberNotification represents a dashboard notification for a member.
@@ -415,16 +395,6 @@ type AdminUsersTabData struct {
 	Selected         *AdminUserDetail
 	SuccessMsg       string
 	ErrorMsg         string
-}
-
-type AdminMessagesTabData struct {
-	Query               string
-	Results             []AdminUserSearchResult
-	SelectedRecipientID int64
-	SelectedRecipient   *AdminUserSearchResult
-	Conversation        []Message
-	SuccessMsg          string
-	ErrorMsg            string
 }
 
 type ModerationReport struct {

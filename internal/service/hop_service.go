@@ -242,21 +242,12 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
-	body := fmt.Sprintf(
-		"%s has offered to help with your Hop request. Review and manage offers from the hop details page.\n\nHop request:\n%s",
-		offererName,
-		description,
-	)
-	senderID := p.OffererID
-	if err = insertMessage(ctx, tx, createdBy, &senderID, offererName, types.MessageTypeInformation, &p.HopID, nil, nil, "Hop help offer", body); err != nil {
-		return err
-	}
 	_ = createMemberNotification(
 		ctx,
 		tx,
 		createdBy,
 		offererName+" offered help on your hop: "+description+".",
-		"/messages",
+		hopDetailsHref(p.OrganizationID, p.HopID),
 	)
 
 	if err = tx.Commit(); err != nil {
@@ -395,28 +386,26 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
-	subject := "Accepted: " + truncateRunes(description, 100)
 	body := strings.TrimSpace(responseBody)
 	if body == "" {
 		body = fmt.Sprintf("Your offer to help with \"%s\" was accepted.", description)
 	}
-	senderID := requesterID
-	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
-		return err
-	}
+	_ = createMemberNotification(
+		ctx,
+		tx,
+		offererID,
+		body,
+		hopDetailsHref(orgID, hopID),
+	)
 
-	declineSubject := "Declined: " + truncateRunes(description, 100)
 	declineBody := fmt.Sprintf("%s has chosen someone else to help them with their request, %s. Check your organization again and maybe someone else could use your help!", responderName, title)
 	for _, other := range otherOfferers {
-		if err = insertMessage(ctx, tx, other.MemberID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, declineSubject, declineBody); err != nil {
-			return err
-		}
 		_ = createMemberNotification(
 			ctx,
 			tx,
 			other.MemberID,
 			declineBody,
-			"/messages",
+			hopDetailsHref(orgID, hopID),
 		)
 	}
 
@@ -454,21 +443,16 @@ func declinePendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterI
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
-	subject := "Declined: " + truncateRunes(description, 100)
 	body := strings.TrimSpace(responseBody)
 	if body == "" {
 		body = fmt.Sprintf("Your offer to help with \"%s\" was declined.", description)
-	}
-	senderID := requesterID
-	if err = insertMessage(ctx, tx, offererID, &senderID, responderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
-		return err
 	}
 	_ = createMemberNotification(
 		ctx,
 		tx,
 		offererID,
-		fmt.Sprintf("Your offer to help with \"%s\" was declined.", description),
-		"/messages",
+		body,
+		hopDetailsHref(orgID, hopID),
 	)
 
 	return nil
@@ -640,30 +624,29 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 	`, types.HopOfferStatusDenied, now, hopID); err != nil {
 		return fmt.Errorf("cancel pending hop offers: %w", err)
 	}
-	cancelSubject := fmt.Sprintf("%s has canceled their Hop, %s", cancelerName, title)
 	cancelBody := fmt.Sprintf(
 		"We wanted to let you know that %s has canceled their Hop titled, %s. Thanks anyway for the offer to help! Why not go check for some other Hops that need help?",
 		cancelerName,
 		title,
 	)
-	senderID := cancelerID
 	for _, offererID := range pendingOffererIDs {
-		if err = insertMessage(ctx, tx, offererID, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, cancelSubject, cancelBody); err != nil {
-			return err
-		}
 		_ = createMemberNotification(
 			ctx,
 			tx,
 			offererID,
-			fmt.Sprintf("%s canceled their hop: %s. Your offer is no longer needed.", cancelerName, title),
-			"/messages",
+			cancelBody,
+			hopDetailsHref(orgID, hopID),
 		)
 	}
 
 	if status == types.HopStatusAccepted && acceptedBy.Valid && acceptedBy.Int64 != cancelerID {
-		if err = insertMessage(ctx, tx, acceptedBy.Int64, &senderID, cancelerName, types.MessageTypeInformation, nil, nil, nil, cancelSubject, cancelBody); err != nil {
-			return err
-		}
+		_ = createMemberNotification(
+			ctx,
+			tx,
+			acceptedBy.Int64,
+			cancelBody,
+			hopDetailsHref(orgID, hopID),
+		)
 	}
 
 	if err = tx.Commit(); err != nil {

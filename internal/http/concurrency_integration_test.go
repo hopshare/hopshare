@@ -3,6 +3,7 @@ package http_test
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -98,18 +99,16 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		requireRedirectPath(t, resp1, "/my-hopshare")
 		requireRedirectPath(t, resp2, "/my-hopshare")
 
-		msgs, err := service.ListMessages(ctx, db, members["owner"].Member.ID)
-		if err != nil {
-			t.Fatalf("list owner messages: %v", err)
-		}
 		offerNotifications := 0
-		for _, m := range msgs {
-			if m.MessageType == types.MessageTypeInformation && m.HopID != nil && *m.HopID == hop.ID && m.Subject == "Hop help offer" {
-				offerNotifications++
+		for _, notification := range listMemberNotificationsForTest(t, ctx, db, members["owner"].Member.ID) {
+			if strings.Contains(notification.Text, hop.Title) {
+				if notification.Href != nil && *notification.Href == "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10) {
+					offerNotifications++
+				}
 			}
 		}
 		if offerNotifications != 2 {
-			t.Fatalf("expected 2 offer notification messages, got %d", offerNotifications)
+			t.Fatalf("expected 2 offer notifications, got %d", offerNotifications)
 		}
 	})
 

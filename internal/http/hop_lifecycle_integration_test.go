@@ -145,25 +145,8 @@ func TestHopLifecycleWorkflow_MultiUserHTTP(t *testing.T) {
 		t.Fatalf("expected exactly 1 hop transaction, got %d", transactionCount)
 	}
 
-	helperMessages, err := service.ListMessages(ctx, db, helper.Member.ID)
-	if err != nil {
-		t.Fatalf("list helper messages: %v", err)
-	}
-	foundAcceptedInfo := false
-	for _, msg := range helperMessages {
-		if msg.MessageType != types.MessageTypeInformation {
-			continue
-		}
-		if msg.SenderID == nil || *msg.SenderID != requester.Member.ID {
-			continue
-		}
-		if strings.HasPrefix(msg.Subject, "Accepted:") {
-			foundAcceptedInfo = true
-			break
-		}
-	}
-	if !foundAcceptedInfo {
-		t.Fatalf("expected helper to receive acceptance info message")
+	if !hasMemberNotification(t, ctx, db, helper.Member.ID, "I can do Tuesday afternoon. Thank you!", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+		t.Fatalf("expected helper to receive acceptance notification")
 	}
 }
 
@@ -243,36 +226,8 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 		t.Fatalf("expected hop accepted_by to remain nil after decline, got %v", hop.AcceptedBy)
 	}
 
-	helperMessages, err := service.ListMessages(ctx, db, helper.Member.ID)
-	if err != nil {
-		t.Fatalf("list helper messages: %v", err)
-	}
-	foundDeclinedInfo := false
-	for _, msg := range helperMessages {
-		if msg.MessageType != types.MessageTypeInformation {
-			continue
-		}
-		if msg.SenderID == nil || *msg.SenderID != requester.Member.ID {
-			continue
-		}
-		if strings.HasPrefix(msg.Subject, "Declined:") {
-			foundDeclinedInfo = true
-			break
-		}
-	}
-	if !foundDeclinedInfo {
-		t.Fatalf("expected helper to receive declined info message")
-	}
-	var declinedNotificationCount int
-	if err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM member_notifications
-		WHERE member_id = $1 AND href = $2 AND text LIKE $3
-	`, helper.Member.ID, "/messages", "%was declined.%").Scan(&declinedNotificationCount); err != nil {
-		t.Fatalf("count declined helper notifications: %v", err)
-	}
-	if declinedNotificationCount == 0 {
-		t.Fatalf("expected helper to receive declined notification with /messages link")
+	if !hasMemberNotification(t, ctx, db, helper.Member.ID, "Thanks for offering, but I need to pass for now.", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+		t.Fatalf("expected helper to receive declined notification with hop link")
 	}
 
 	offerAgainLoc := requireRedirectPath(t, helperActor.PostForm("/hops/offer", url.Values{
@@ -281,9 +236,9 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 	}), "/my-hopshare")
 	requireQueryValue(t, offerAgainLoc, "success", "Offer sent.")
 
-	offerMessageCount := countHopOfferMessagesForHop(t, ctx, db, requester.Member.ID, hop.ID)
-	if offerMessageCount < 2 {
-		t.Fatalf("expected a second hop offer notification after declined offer retry, got %d total", offerMessageCount)
+	offerNotificationCount := countHopOfferNotificationsForHop(t, ctx, db, requester.Member.ID, org.ID, hop.ID, hop.Title)
+	if offerNotificationCount < 2 {
+		t.Fatalf("expected a second hop offer notification after declined offer retry, got %d total", offerNotificationCount)
 	}
 }
 
@@ -436,23 +391,15 @@ func approveMemberForOrganization(t *testing.T, ctx context.Context, db *sql.DB,
 	}
 }
 
-func countHopOfferMessagesForHop(t *testing.T, ctx context.Context, db *sql.DB, recipientID, hopID int64) int {
+func countHopOfferNotificationsForHop(t *testing.T, ctx context.Context, db *sql.DB, recipientID, orgID, hopID int64, hopTitle string) int {
 	t.Helper()
 
-	messages, err := service.ListMessages(ctx, db, recipientID)
-	if err != nil {
-		t.Fatalf("list messages for recipient=%d: %v", recipientID, err)
-	}
-
 	count := 0
-	for _, msg := range messages {
-		if msg.MessageType != types.MessageTypeInformation {
+	for _, notification := range listMemberNotificationsForTest(t, ctx, db, recipientID) {
+		if !strings.Contains(notification.Text, hopTitle) {
 			continue
 		}
-		if msg.HopID == nil || *msg.HopID != hopID {
-			continue
-		}
-		if msg.Subject == "Hop help offer" {
+		if notification.Href != nil && *notification.Href == "/hops/view?org_id="+strconv.FormatInt(orgID, 10)+"&hop_id="+strconv.FormatInt(hopID, 10) {
 			count++
 		}
 	}

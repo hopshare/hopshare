@@ -549,16 +549,6 @@ func adminUserActiveBalances(ctx context.Context, db *sql.DB, memberID int64) ([
 }
 
 func sendReopenedHopNotifications(ctx context.Context, tx *sql.Tx, hops []ReopenedAcceptedHop, disabledMemberID, actorMemberID int64, actorName string) error {
-	senderName := strings.TrimSpace(actorName)
-	if senderName == "" {
-		senderName = "hopShare Admin"
-	}
-
-	var senderID *int64
-	if actorMemberID > 0 {
-		senderID = &actorMemberID
-	}
-
 	for _, hop := range hops {
 		recipients := make([]int64, 0, 2)
 		if hop.CreatedBy != disabledMemberID {
@@ -568,7 +558,6 @@ func sendReopenedHopNotifications(ctx context.Context, tx *sql.Tx, hops []Reopen
 			recipients = append(recipients, hop.AcceptedBy)
 		}
 
-		subject := "Accepted hop reopened: " + truncateRunes(strings.TrimSpace(hop.Title), 80)
 		body := fmt.Sprintf(
 			"An administrator disabled a user account involved in this accepted hop, so the hop was moved back to open status and needs a new acceptance.\n\nHop: %s\nHop ID: %d",
 			strings.TrimSpace(hop.Title),
@@ -576,7 +565,7 @@ func sendReopenedHopNotifications(ctx context.Context, tx *sql.Tx, hops []Reopen
 		)
 
 		for _, recipientID := range recipients {
-			if err := insertMessage(ctx, tx, recipientID, senderID, senderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+			if err := createMemberNotification(ctx, tx, recipientID, body, hopDetailsHref(hop.OrganizationID, hop.ID)); err != nil {
 				return err
 			}
 		}
@@ -594,7 +583,7 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 			updated_at = GREATEST($3, created_at + INTERVAL '1 microsecond')
 		WHERE created_by = $4
 			AND status = $5
-		RETURNING id, title
+		RETURNING id, organization_id, title
 	`, types.HopStatusCanceled, actorMemberID, now, memberID, types.HopStatusOpen)
 	if err != nil {
 		return 0, fmt.Errorf("cancel open hops for deleted member: %w", err)
@@ -602,13 +591,14 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 	defer rows.Close()
 
 	type canceledHop struct {
-		ID    int64
-		Title string
+		ID             int64
+		OrganizationID int64
+		Title          string
 	}
 	canceled := make([]canceledHop, 0)
 	for rows.Next() {
 		var hop canceledHop
-		if err := rows.Scan(&hop.ID, &hop.Title); err != nil {
+		if err := rows.Scan(&hop.ID, &hop.OrganizationID, &hop.Title); err != nil {
 			return 0, fmt.Errorf("scan canceled hop for deleted member: %w", err)
 		}
 		canceled = append(canceled, hop)
@@ -618,15 +608,6 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 	}
 	if err := rows.Close(); err != nil {
 		return 0, fmt.Errorf("close canceled hops for deleted member: %w", err)
-	}
-
-	senderName := strings.TrimSpace(actorName)
-	if senderName == "" {
-		senderName = "hopShare Admin"
-	}
-	var senderID *int64
-	if actorMemberID > 0 {
-		senderID = &actorMemberID
 	}
 
 	for _, hop := range canceled {
@@ -666,14 +647,13 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 		`, types.HopOfferStatusDenied, now, hop.ID); err != nil {
 			return 0, fmt.Errorf("close pending offers for canceled deleted-member hop: %w", err)
 		}
-		subject := "Hop canceled by administrator: " + truncateRunes(strings.TrimSpace(hop.Title), 80)
 		body := fmt.Sprintf(
 			"An administrator permanently deleted the account that created this hop, so the hop was canceled.\n\nHop: %s\nHop ID: %d",
 			strings.TrimSpace(hop.Title),
 			hop.ID,
 		)
 		for _, recipientID := range recipients {
-			if err := insertMessage(ctx, tx, recipientID, senderID, senderName, types.MessageTypeInformation, nil, nil, nil, subject, body); err != nil {
+			if err := createMemberNotification(ctx, tx, recipientID, body, hopDetailsHref(hop.OrganizationID, hop.ID)); err != nil {
 				return 0, err
 			}
 		}

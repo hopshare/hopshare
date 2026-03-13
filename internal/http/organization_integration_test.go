@@ -115,19 +115,8 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected pending request for member %d", requester.Member.ID)
 		}
 		ownerID := members["owner"].Member.ID
-		ownerMessages, err := service.ListMessages(ctx, db, ownerID)
-		if err != nil {
-			t.Fatalf("owner messages: %v", err)
-		}
-		foundOwnerMessage := false
-		for _, msg := range ownerMessages {
-			if msg.Subject == "New membership request" && strings.Contains(msg.Body, org.Name) {
-				foundOwnerMessage = true
-				break
-			}
-		}
-		if !foundOwnerMessage {
-			t.Fatalf("expected owner membership request message for org %q", org.Name)
+		if !hasMemberNotification(t, ctx, db, ownerID, "requested to join "+org.Name, "/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)) {
+			t.Fatalf("expected owner membership request notification for org %q", org.Name)
 		}
 
 		var ownerNotificationCount int
@@ -513,31 +502,7 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		)), "/organizations/manage")
 		requireQueryValue(t, loc, "success", "Membership denied.")
 
-		requesterMessages, err := service.ListMessages(ctx, db, requester.Member.ID)
-		if err != nil {
-			t.Fatalf("requester messages: %v", err)
-		}
-		foundRequesterMessage := false
-		for _, msg := range requesterMessages {
-			if msg.Subject == "Membership request denied" && strings.Contains(msg.Body, org.Name) {
-				foundRequesterMessage = true
-				break
-			}
-		}
-		if !foundRequesterMessage {
-			t.Fatalf("expected requester denial message for org %q", org.Name)
-		}
-
-		var requesterNotificationCount int
-		if err := db.QueryRowContext(ctx, `
-			SELECT COUNT(*)
-			FROM member_notifications
-			WHERE member_id = $1
-				AND text LIKE $2
-		`, requester.Member.ID, "%request to join "+org.Name+" was denied%").Scan(&requesterNotificationCount); err != nil {
-			t.Fatalf("count requester notifications: %v", err)
-		}
-		if requesterNotificationCount == 0 {
+		if !hasMemberNotification(t, ctx, db, requester.Member.ID, "Your request to join "+org.Name+" was denied.", "/organization/"+org.URLName) {
 			t.Fatalf("expected requester denial notification for org %q", org.Name)
 		}
 	})
@@ -611,23 +576,11 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		if actorName == "" {
 			actorName = members["owner"].Member.Email
 		}
-		wantSubject := "Organization permanently removed"
 		wantBody := "User " + actorName + " has permanently removed the Organization " + org.Name + "."
 
 		for _, key := range []string{"owner", "member"} {
-			msgs, err := service.ListMessages(ctx, db, members[key].Member.ID)
-			if err != nil {
-				t.Fatalf("list messages for %s: %v", key, err)
-			}
-			found := false
-			for _, msg := range msgs {
-				if msg.Subject == wantSubject && msg.Body == wantBody {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Fatalf("expected organization delete message for %s with body %q", key, wantBody)
+			if !hasMemberNotification(t, ctx, db, members[key].Member.ID, wantBody, "") {
+				t.Fatalf("expected organization delete notification for %s with body %q", key, wantBody)
 			}
 		}
 	})

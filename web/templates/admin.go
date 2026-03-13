@@ -27,7 +27,6 @@ func IsAdmin(ctx context.Context) bool {
 
 const (
 	pageSectionMyHopShare    = "my-hopshare"
-	pageSectionMessages      = "messages"
 	pageSectionProfile       = "profile"
 	pageSectionAdmin         = "admin"
 	pageSectionOrganizations = "organizations"
@@ -256,23 +255,6 @@ func completeHopPageContext(org types.Organization) PageContext {
 	)
 }
 
-func messagesPageContext(selected *types.Message) PageContext {
-	breadcrumbs := []PageBreadcrumb{
-		newBreadcrumb("My hopShare", "/my-hopshare"),
-		newBreadcrumb("Messages", "/messages"),
-	}
-	if selected != nil {
-		subject := strings.TrimSpace(selected.Subject)
-		if subject == "" {
-			subject = "Message"
-		}
-		breadcrumbs = append(breadcrumbs, newBreadcrumb(subject, ""))
-	} else {
-		breadcrumbs[len(breadcrumbs)-1].Href = ""
-	}
-	return newPageContext("hopShare | Messages", pageSectionMessages, breadcrumbs, nil)
-}
-
 func profilePageContext(activeTab string) PageContext {
 	breadcrumbs := []PageBreadcrumb{
 		newBreadcrumb("My hopShare", "/my-hopshare"),
@@ -414,8 +396,6 @@ func adminTabLabel(activeTab string) string {
 		return "Moderation"
 	case "users":
 		return "Users"
-	case "messages":
-		return "Messages"
 	case "audit":
 		return "Audit"
 	default:

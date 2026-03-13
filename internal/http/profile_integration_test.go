@@ -510,24 +510,13 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		body := requireStatus(t, memberActor.Get("/my-hopshare"), http.StatusOK)
 		requireBodyContains(t, body, "Join an organization to get started!")
 
-		ownerMessages, err := service.ListMessages(ctx, db, members["owner"].Member.ID)
-		if err != nil {
-			t.Fatalf("list owner messages after leave: %v", err)
-		}
 		leaverName := strings.TrimSpace(members["member"].Member.FirstName + " " + members["member"].Member.LastName)
 		if leaverName == "" {
 			leaverName = members["member"].Member.Email
 		}
 		wantBody := "User " + leaverName + " has left the Organization " + org.Name + "."
-		found := false
-		for _, msg := range ownerMessages {
-			if msg.Subject == "Member left organization" && msg.Body == wantBody {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("expected owner leave message body %q", wantBody)
+		if !hasMemberNotification(t, ctx, db, members["owner"].Member.ID, wantBody, "/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)) {
+			t.Fatalf("expected owner leave notification body %q", wantBody)
 		}
 	})
 
@@ -635,19 +624,8 @@ func TestProfileHTTPMatrix(t *testing.T) {
 
 		ownerIDs := []int64{members["owner"].Member.ID, members["owner2"].Member.ID}
 		for _, ownerID := range ownerIDs {
-			ownerMessages, err := service.ListMessages(ctx, db, ownerID)
-			if err != nil {
-				t.Fatalf("list owner messages owner=%d: %v", ownerID, err)
-			}
-			found := false
-			for _, msg := range ownerMessages {
-				if msg.Subject == "Member left organization" && msg.Body == wantBody {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Fatalf("expected owner %d to receive leave message body %q", ownerID, wantBody)
+			if !hasMemberNotification(t, ctx, db, ownerID, wantBody, "/organizations/manage?org_id="+strconv.FormatInt(org.ID, 10)) {
+				t.Fatalf("expected owner %d to receive leave notification body %q", ownerID, wantBody)
 			}
 		}
 	})

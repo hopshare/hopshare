@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/mail"
+	"strconv"
 	"sort"
 	"strings"
 	"time"
@@ -795,47 +796,49 @@ func splitOrganizationInviteToken(rawToken string) (tokenID string, tokenSecret 
 	return tokenID, tokenSecret, true
 }
 
-func SendOwnerInviteBlastSummaryMessage(ctx context.Context, db *sql.DB, ownerMemberID int64, orgName string, result OrganizationInviteBlastResult) error {
+func SendOwnerInviteBlastSummaryMessage(ctx context.Context, db *sql.DB, ownerMemberID, orgID int64, orgName string, result OrganizationInviteBlastResult) error {
 	if db == nil {
 		return ErrNilDB
 	}
 	if ownerMemberID == 0 {
 		return ErrMissingMemberID
 	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
 
-	lines := []string{
-		fmt.Sprintf("Invite blast summary for %s:", strings.TrimSpace(orgName)),
-		fmt.Sprintf("- Sent: %d", result.SentCount),
-		fmt.Sprintf("- Remaining today: %d", result.RemainingToday),
+	parts := []string{
+		fmt.Sprintf("Invite blast complete for %s:", strings.TrimSpace(orgName)),
+		fmt.Sprintf("%d sent", result.SentCount),
 	}
 	if len(result.InvalidEmails) > 0 {
-		lines = append(lines, "- Invalid emails: "+strings.Join(result.InvalidEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d invalid", len(result.InvalidEmails)))
 	}
 	if len(result.DuplicateEmails) > 0 {
-		lines = append(lines, "- Duplicate emails skipped: "+strings.Join(result.DuplicateEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d duplicate", len(result.DuplicateEmails)))
 	}
 	if len(result.DisabledEmails) > 0 {
-		lines = append(lines, "- Disabled accounts skipped: "+strings.Join(result.DisabledEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d disabled", len(result.DisabledEmails)))
 	}
 	if len(result.AlreadyMemberEmails) > 0 {
-		lines = append(lines, "- Already members skipped: "+strings.Join(result.AlreadyMemberEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d already members", len(result.AlreadyMemberEmails)))
 	}
 	if len(result.QuotaSkippedEmails) > 0 {
-		lines = append(lines, "- Quota skipped: "+strings.Join(result.QuotaSkippedEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d quota skipped", len(result.QuotaSkippedEmails)))
 	}
 	if len(result.SendFailedEmails) > 0 {
-		lines = append(lines, "- Send failures: "+strings.Join(result.SendFailedEmails, ", "))
+		parts = append(parts, fmt.Sprintf("%d send failed", len(result.SendFailedEmails)))
 	}
 	if result.ExpiredPreviousPendingCount > 0 {
-		lines = append(lines, fmt.Sprintf("- Replaced pending invites: %d", result.ExpiredPreviousPendingCount))
+		parts = append(parts, fmt.Sprintf("%d prior invites replaced", result.ExpiredPreviousPendingCount))
 	}
+	parts = append(parts, fmt.Sprintf("%d remaining today", result.RemainingToday))
 
-	return SendMessage(ctx, db, SendMessageParams{
-		SenderID:    nil,
-		SenderName:  "hopShare",
-		RecipientID: ownerMemberID,
-		MessageType: types.MessageTypeInformation,
-		Subject:     "Organization invite blast summary",
-		Body:        strings.Join(lines, "\n"),
-	})
+	return CreateMemberNotification(
+		ctx,
+		db,
+		ownerMemberID,
+		strings.Join(parts, ", "),
+		"/organizations/manage?org_id="+strconv.FormatInt(orgID, 10)+"&tab=invite",
+	)
 }

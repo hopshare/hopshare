@@ -35,19 +35,6 @@ templ Base(page PageContext, userEmail *string, body templ.Component) {
 					<nav class="flex items-center gap-2 text-sm text-slate-700">
 						if userEmail != nil {
 							<div class="flex items-center gap-2 md:hidden">
-								<a
-									class={ "relative inline-flex h-10 w-10 items-center justify-center rounded-full ring-1 ring-slate-200 transition hover:ring-slate-300 " + headerIconLinkClass(page.ActiveSection == pageSectionMessages) }
-									href="/messages"
-									aria-label="Messages"
-								>
-									<svg class="h-5 w-5" viewBox="0 0 512 512" aria-hidden="true">
-										<path
-											fill="currentColor"
-											d="M64 112c-17.7 0-32 14.3-32 32v16l224 160 224-160v-16c0-17.7-14.3-32-32-32H64zm416 96.3L272 352c-9.5 6.8-22.5 6.8-32 0L32 208.3V400c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V208.3z"
-										/>
-									</svg>
-									<span hx-get="/messages/unread-count" hx-trigger="load" hx-swap="outerHTML"></span>
-								</a>
 								<button
 									type="button"
 									class="inline-flex h-10 w-10 items-center justify-center rounded-full ring-1 ring-slate-200 text-slate-700 transition hover:text-slate-900 hover:ring-slate-300"
@@ -72,15 +59,6 @@ templ Base(page PageContext, userEmail *string, body templ.Component) {
 									<a class={ headerTextLinkClass(page.ActiveSection == pageSectionAdmin) } href="/admin">Admin</a>
 								}
 								<a class={ headerTextLinkClass(page.ActiveSection == pageSectionHelp) } href="/help">Help</a>
-								<a class={ "relative inline-flex items-center justify-center rounded-full p-2 " + headerIconLinkClass(page.ActiveSection == pageSectionMessages) } href="/messages" aria-label="Messages">
-									<svg class="h-5 w-5" viewBox="0 0 512 512" aria-hidden="true">
-										<path
-											fill="currentColor"
-											d="M64 112c-17.7 0-32 14.3-32 32v16l224 160 224-160v-16c0-17.7-14.3-32-32-32H64zm416 96.3L272 352c-9.5 6.8-22.5 6.8-32 0L32 208.3V400c0 17.7 14.3 32 32 32h384c17.7 0 32-14.3 32-32V208.3z"
-										/>
-									</svg>
-									<span hx-get="/messages/unread-count" hx-trigger="load" hx-swap="outerHTML"></span>
-								</a>
 								<div class="relative" x-on:click.outside="profileOpen = false">
 									<button
 										type="button"
@@ -125,7 +103,6 @@ templ Base(page PageContext, userEmail *string, body templ.Component) {
 								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionOrganizations) } href="/organizations" x-on:click="mobileMenuOpen = false">Organizations</a>
 								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionHelp) } href="/help" x-on:click="mobileMenuOpen = false">Help</a>
 								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionProfile) } href="/profile" x-on:click="mobileMenuOpen = false">Profile</a>
-								<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionMessages) } href="/messages" x-on:click="mobileMenuOpen = false">Messages</a>
 								if IsAdmin(ctx) {
 									<a class={ mobileMenuLinkClass(page.ActiveSection == pageSectionAdmin) } href="/admin" x-on:click="mobileMenuOpen = false">Admin</a>
 								}

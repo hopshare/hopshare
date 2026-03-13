@@ -600,7 +600,7 @@ func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, n
 		return fmt.Errorf("insert membership request: %w", err)
 	}
 
-	requesterName, requesterEmail, err := memberNameAndEmailByID(ctx, db, memberID)
+	requesterName, _, err := memberNameAndEmailByID(ctx, db, memberID)
 	if err != nil {
 		return err
 	}
@@ -615,25 +615,11 @@ func RequestMembership(ctx context.Context, db *sql.DB, memberID, orgID int64, n
 	}
 	notificationHref := "/organizations/manage?org_id=" + strconv.FormatInt(orgID, 10)
 	notificationText := requesterName + " requested to join " + orgName + "."
-	subject := "New membership request"
-	body := requesterName + " requested to join " + orgName + ".\n\nReview the request on the manage organization page."
-	if strings.TrimSpace(requesterEmail) != "" && !strings.EqualFold(strings.TrimSpace(requesterEmail), strings.TrimSpace(requesterName)) {
-		body = requesterName + " (" + strings.TrimSpace(requesterEmail) + ") requested to join " + orgName + ".\n\nReview the request on the manage organization page."
-	}
-	senderID := memberID
 	for _, ownerID := range ownerIDs {
 		if ownerID == memberID {
 			continue
 		}
 		_ = createMemberNotification(ctx, db, ownerID, notificationText, notificationHref)
-		_ = SendMessage(ctx, db, SendMessageParams{
-			SenderID:    &senderID,
-			SenderName:  requesterName,
-			RecipientID: ownerID,
-			MessageType: types.MessageTypeInformation,
-			Subject:     subject,
-			Body:        body,
-		})
 	}
 
 	return nil
@@ -773,24 +759,20 @@ func DenyMembershipRequest(ctx context.Context, db *sql.DB, requestID, decidedBy
 	}
 
 	orgName := "the organization"
-	if name, _, nameErr := organizationNameAndURLNameByID(ctx, db, orgID); nameErr == nil {
+	href := ""
+	if name, urlName, nameErr := organizationNameAndURLNameByID(ctx, db, orgID); nameErr == nil {
 		orgName = name
+		if strings.TrimSpace(urlName) != "" {
+			href = "/organization/" + urlName
+		}
 	}
 	_ = CreateMemberNotification(
 		ctx,
 		db,
 		memberID,
 		"Your request to join "+orgName+" was denied.",
-		"/messages",
+		href,
 	)
-	_ = SendMessage(ctx, db, SendMessageParams{
-		SenderID:    nil,
-		SenderName:  "hopShare",
-		RecipientID: memberID,
-		MessageType: types.MessageTypeInformation,
-		Subject:     "Membership request denied",
-		Body:        "Your request to join " + orgName + " was denied.",
-	})
 
 	return nil
 }
@@ -981,23 +963,14 @@ func LeaveOrganization(ctx context.Context, db *sql.DB, orgID, memberID int64) (
 		return nil, fmt.Errorf("close owner recipients for leave message: %w", err)
 	}
 
-	const leaveSubject = "Member left organization"
+	leaveHref := "/organizations/manage?org_id=" + strconv.FormatInt(orgID, 10)
 	leaveBody := "User " + leaverName + " has left the Organization " + orgName + "."
 	for _, ownerID := range ownerIDs {
-		if err := insertMessage(
-			ctx,
-			tx,
-			ownerID,
-			nil,
-			"hopShare",
-			types.MessageTypeInformation,
-			nil,
-			nil,
-			nil,
-			leaveSubject,
-			leaveBody,
-		); err != nil {
-			return nil, fmt.Errorf("send owner leave message: %w", err)
+		if ownerID == memberID {
+			continue
+		}
+		if err := createMemberNotification(ctx, tx, ownerID, leaveBody, leaveHref); err != nil {
+			return nil, fmt.Errorf("create owner leave notification: %w", err)
 		}
 	}
 
@@ -1359,24 +1332,10 @@ func DeleteOrganization(ctx context.Context, db *sql.DB, orgID, actorMemberID in
 		return fmt.Errorf("delete organization: %w", err)
 	}
 
-	senderID := actorMemberID
-	subject := "Organization permanently removed"
 	body := "User " + actorName + " has permanently removed the Organization " + orgName + "."
 	for _, recipientID := range recipientIDs {
-		if err := insertMessage(
-			ctx,
-			tx,
-			recipientID,
-			&senderID,
-			actorName,
-			types.MessageTypeInformation,
-			nil,
-			nil,
-			nil,
-			subject,
-			body,
-		); err != nil {
-			return fmt.Errorf("send organization delete message: %w", err)
+		if err := createMemberNotification(ctx, tx, recipientID, body, ""); err != nil {
+			return fmt.Errorf("create organization delete notification: %w", err)
 		}
 	}
 

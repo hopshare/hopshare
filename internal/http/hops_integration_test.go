@@ -481,34 +481,12 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected non-selected offer to be denied")
 		}
 
-		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
-		if err != nil {
-			t.Fatalf("list accepted helper messages: %v", err)
-		}
-		foundAccepted := false
-		for _, msg := range helperMessages {
-			if strings.HasPrefix(msg.Subject, "Accepted:") {
-				foundAccepted = true
-				break
-			}
-		}
-		if !foundAccepted {
-			t.Fatalf("expected accepted helper to receive acceptance message")
+		if !hasMemberNotification(t, ctx, db, members["helper"].Member.ID, "was accepted", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+			t.Fatalf("expected accepted helper to receive acceptance notification")
 		}
 
-		memberMessages, err := service.ListMessages(ctx, db, members["member"].Member.ID)
-		if err != nil {
-			t.Fatalf("list declined helper messages: %v", err)
-		}
-		foundDeclined := false
-		for _, msg := range memberMessages {
-			if strings.HasPrefix(msg.Subject, "Declined:") {
-				foundDeclined = true
-				break
-			}
-		}
-		if !foundDeclined {
-			t.Fatalf("expected non-selected helper to receive decline message")
+		if !hasMemberNotification(t, ctx, db, members["member"].Member.ID, "chosen someone else", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+			t.Fatalf("expected non-selected helper to receive decline notification")
 		}
 	})
 
@@ -687,36 +665,12 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected offer status %q after cancel, got %+v", types.HopOfferStatusDenied, offerStatus)
 		}
 
-		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
-		if ownerName == "" {
-			ownerName = members["owner"].Member.Email
+		wantBody := "We wanted to let you know that " + strings.TrimSpace(members["owner"].Member.FirstName+" "+members["owner"].Member.LastName) + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
+		if strings.TrimSpace(members["owner"].Member.FirstName+" "+members["owner"].Member.LastName) == "" {
+			wantBody = "We wanted to let you know that " + members["owner"].Member.Email + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
 		}
-		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
-		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
-		if err != nil {
-			t.Fatalf("list helper messages after cancel: %v", err)
-		}
-		var foundCancelInfo bool
-		for _, msg := range helperMessages {
-			if msg.Subject == wantSubject {
-				foundCancelInfo = true
-				break
-			}
-		}
-		if !foundCancelInfo {
-			t.Fatalf("expected helper cancellation message with subject %q", wantSubject)
-		}
-
-		var helperCancelNotificationCount int
-		if err := db.QueryRowContext(ctx, `
-			SELECT COUNT(*)
-			FROM member_notifications
-			WHERE member_id = $1 AND href = $2 AND text LIKE $3
-		`, members["helper"].Member.ID, "/messages", "%offer is no longer needed.%").Scan(&helperCancelNotificationCount); err != nil {
-			t.Fatalf("count helper cancel notifications: %v", err)
-		}
-		if helperCancelNotificationCount == 0 {
-			t.Fatalf("expected helper cancellation notification with /messages link")
+		if !hasMemberNotification(t, ctx, db, members["helper"].Member.ID, wantBody, "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+			t.Fatalf("expected helper cancellation notification with hop link")
 		}
 	})
 
@@ -763,39 +717,14 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		)), "/my-hopshare")
 		requireQueryValue(t, cancelLoc, "success", "Hop canceled.")
 
-		ownerName := strings.TrimSpace(members["owner"].Member.FirstName + " " + members["owner"].Member.LastName)
-		if ownerName == "" {
-			ownerName = members["owner"].Member.Email
+		wantBody := "We wanted to let you know that " + strings.TrimSpace(members["owner"].Member.FirstName+" "+members["owner"].Member.LastName) + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
+		if strings.TrimSpace(members["owner"].Member.FirstName+" "+members["owner"].Member.LastName) == "" {
+			wantBody = "We wanted to let you know that " + members["owner"].Member.Email + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
 		}
-		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
-
 		helperIDs := []int64{members["helper1"].Member.ID, members["helper2"].Member.ID}
 		for _, helperID := range helperIDs {
-			msgs, listErr := service.ListMessages(ctx, db, helperID)
-			if listErr != nil {
-				t.Fatalf("list helper messages helper=%d: %v", helperID, listErr)
-			}
-			var hasCancelInfo bool
-			for _, msg := range msgs {
-				if msg.Subject == wantSubject {
-					hasCancelInfo = true
-					break
-				}
-			}
-			if !hasCancelInfo {
-				t.Fatalf("expected helper=%d cancellation message with subject %q", helperID, wantSubject)
-			}
-
-			var notificationCount int
-			if err := db.QueryRowContext(ctx, `
-				SELECT COUNT(*)
-				FROM member_notifications
-				WHERE member_id = $1 AND href = $2 AND text LIKE $3
-			`, helperID, "/messages", "%offer is no longer needed.%").Scan(&notificationCount); err != nil {
-				t.Fatalf("count helper cancellation notifications helper=%d: %v", helperID, err)
-			}
-			if notificationCount == 0 {
-				t.Fatalf("expected helper=%d cancellation notification with /messages link", helperID)
+			if !hasMemberNotification(t, ctx, db, helperID, wantBody, "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+				t.Fatalf("expected helper=%d cancellation notification with hop link", helperID)
 			}
 		}
 	})
@@ -819,31 +748,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		if ownerName == "" {
 			ownerName = members["owner"].Member.Email
 		}
-		wantSubject := ownerName + " has canceled their Hop, " + hop.Title
 		wantBody := "We wanted to let you know that " + ownerName + " has canceled their Hop titled, " + hop.Title + ". Thanks anyway for the offer to help! Why not go check for some other Hops that need help?"
-
-		helperMessages, err := service.ListMessages(ctx, db, members["helper"].Member.ID)
-		if err != nil {
-			t.Fatalf("list helper messages: %v", err)
-		}
-
-		var cancelNoticeID int64
-		for _, msg := range helperMessages {
-			if msg.Subject == wantSubject {
-				cancelNoticeID = msg.ID
-				break
-			}
-		}
-		if cancelNoticeID == 0 {
-			t.Fatalf("expected helper cancellation message with subject %q", wantSubject)
-		}
-
-		cancelNotice, err := service.GetMessageForMember(ctx, db, cancelNoticeID, members["helper"].Member.ID)
-		if err != nil {
-			t.Fatalf("load helper cancellation message: %v", err)
-		}
-		if cancelNotice.Body != wantBody {
-			t.Fatalf("unexpected helper cancellation body: got %q want %q", cancelNotice.Body, wantBody)
+		if !hasMemberNotification(t, ctx, db, members["helper"].Member.ID, wantBody, "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+			t.Fatalf("unexpected helper cancellation notification body: want %q", wantBody)
 		}
 	})
 

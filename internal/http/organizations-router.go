@@ -774,7 +774,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				remainingNow = remaining
 			}
 			result.RemainingToday = remainingNow
-			if summaryErr := service.SendOwnerInviteBlastSummaryMessage(r.Context(), s.db, user.ID, org.Name, result); summaryErr != nil {
+			if summaryErr := service.SendOwnerInviteBlastSummaryMessage(r.Context(), s.db, user.ID, org.ID, org.Name, result); summaryErr != nil {
 				log.Printf("send invite blast summary org=%d owner=%d: %v", org.ID, user.ID, summaryErr)
 			}
 

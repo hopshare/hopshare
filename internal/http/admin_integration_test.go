@@ -621,10 +621,10 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("expected target-as-requester hop to reopen, got status=%q accepted_by=%v", targetAsRequesterHopAfterDisable.Status, targetAsRequesterHopAfterDisable.AcceptedBy)
 		}
 
-		if countReopenedHopNotificationMessages(t, ctx, db, requester.Member.ID) < 1 {
+		if countReopenedHopNotifications(t, ctx, db, requester.Member.ID) < 1 {
 			t.Fatalf("expected requester to receive reopen notification")
 		}
-		if countReopenedHopNotificationMessages(t, ctx, db, helper.Member.ID) < 1 {
+		if countReopenedHopNotifications(t, ctx, db, helper.Member.ID) < 1 {
 			t.Fatalf("expected helper to receive reopen notification")
 		}
 
@@ -937,21 +937,6 @@ func TestAdminUsersHTTP(t *testing.T) {
 			t.Fatalf("expected deleted member to have no pending offers, got %d", pendingTargetOffers)
 		}
 
-		var requesterActionMessages int
-		if err := db.QueryRowContext(ctx, `
-			SELECT COUNT(*)
-			FROM messages
-			WHERE recipient_member_id = $1
-				AND sender_member_id = $2
-				AND hop_id = $3
-				AND message_type = $4
-		`, requester.Member.ID, target.Member.ID, requesterOpenHop.ID, "action").Scan(&requesterActionMessages); err != nil {
-			t.Fatalf("count requester action messages after delete: %v", err)
-		}
-		if requesterActionMessages != 0 {
-			t.Fatalf("expected no actionable requester messages for hop offers, got %d", requesterActionMessages)
-		}
-
 		loginActor := newTestActor(t, "deleted-target-login", server.URL, target.Member.Email, target.Password)
 		loginBody := requireStatus(t, loginActor.PostForm("/login", formKV(
 			"email", target.Member.Email,
@@ -1027,85 +1012,6 @@ func TestAdminUsersHTTP(t *testing.T) {
 	})
 }
 
-func TestAdminMessagesHTTP(t *testing.T) {
-	db := requireHTTPTestDB(t)
-
-	t.Run("ADMIN-05 messages tab allows admin send, user reply, and audits each send", func(t *testing.T) {
-		ctx, cancel := newTestContext(t)
-		defer cancel()
-
-		suffix := uniqueTestSuffix()
-		admin := createSeededMember(t, ctx, db, "admin_messages_admin", suffix)
-		recipient := createSeededMember(t, ctx, db, "admin_messages_recipient", suffix)
-
-		server := newHTTPServerWithAdmins(t, db, []string{admin.Member.Email})
-		adminActor := newTestActor(t, "admin", server.URL, admin.Member.Email, admin.Password)
-		adminActor.Login()
-		recipientActor := newTestActor(t, "recipient", server.URL, recipient.Member.Email, recipient.Password)
-		recipientActor.Login()
-
-		searchBody := requireStatus(t, adminActor.Get("/admin?tab=messages&q="+url.QueryEscape(recipient.Member.Email)), http.StatusOK)
-		requireBodyContains(t, searchBody, "Admin Messages")
-		requireBodyContains(t, searchBody, fmt.Sprintf(`data-testid="admin-message-result-%d"`, recipient.Member.ID))
-
-		beforeAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionMessageSend)
-		firstLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
-			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
-			"q", recipient.Member.Email,
-			"subject", "Account update "+suffix,
-			"body", "Message body "+suffix,
-		)), "/admin")
-		requireQueryValue(t, firstLoc, "tab", "messages")
-		requireQueryValue(t, firstLoc, "recipient_id", strconv.FormatInt(recipient.Member.ID, 10))
-		requireQueryValue(t, firstLoc, "success", "Message sent.")
-
-		afterAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionMessageSend)
-		if afterAuditCount != beforeAuditCount+1 {
-			t.Fatalf("expected one admin message-send audit event, before=%d after=%d", beforeAuditCount, afterAuditCount)
-		}
-
-		firstSubject := "ADMIN Message: Account update " + suffix
-		firstMessage := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, firstSubject)
-		if firstMessage.SenderID == nil || *firstMessage.SenderID != admin.Member.ID {
-			t.Fatalf("expected admin sender id %d on sent message, got %+v", admin.Member.ID, firstMessage.SenderID)
-		}
-		if firstMessage.MessageType != types.MessageTypeInformation {
-			t.Fatalf("expected information message type, got %q", firstMessage.MessageType)
-		}
-
-		recipientInboxBody := requireStatus(t, recipientActor.Get("/messages"), http.StatusOK)
-		requireBodyContains(t, recipientInboxBody, firstSubject)
-
-		replyText := "Reply from recipient " + suffix
-		replyLoc := requireRedirectPath(t, recipientActor.PostForm("/messages/reply", formKV(
-			"message_id", strconv.FormatInt(firstMessage.ID, 10),
-			"body", replyText,
-		)), "/messages")
-		requireQueryValue(t, replyLoc, "success", "Reply sent.")
-
-		adminInboxBody := requireStatus(t, adminActor.Get("/messages"), http.StatusOK)
-		requireBodyContains(t, adminInboxBody, "Re: "+firstSubject)
-
-		conversationBody := requireStatus(t, adminActor.Get("/admin?tab=messages&recipient_id="+strconv.FormatInt(recipient.Member.ID, 10)+"&q="+url.QueryEscape(recipient.Member.Email)), http.StatusOK)
-		requireBodyContains(t, conversationBody, replyText)
-		requireBodyContains(t, conversationBody, firstSubject)
-
-		secondLoc := requireRedirectPath(t, adminActor.PostForm("/admin/messages/send", formKV(
-			"recipient_id", strconv.FormatInt(recipient.Member.ID, 10),
-			"q", recipient.Member.Email,
-			"subject", "ADMIN Message: Follow-up "+suffix,
-			"body", "Second admin message "+suffix,
-		)), "/admin")
-		requireQueryValue(t, secondLoc, "success", "Message sent.")
-
-		secondSubject := "ADMIN Message: Follow-up " + suffix
-		secondMessage := findMessageBySubjectForRecipient(t, ctx, db, recipient.Member.ID, secondSubject)
-		if strings.Count(secondMessage.Subject, adminMessageSubjectPrefixInTests) != 1 {
-			t.Fatalf("expected exactly one admin subject prefix, got %q", secondMessage.Subject)
-		}
-	})
-}
-
 func TestAdminAuditHTTP(t *testing.T) {
 	db := requireHTTPTestDB(t)
 
@@ -1144,25 +1050,6 @@ func TestAdminAuditHTTP(t *testing.T) {
 			t.Fatalf("write disable audit event: %v", err)
 		}
 
-		messageMetadata, err := json.Marshal(map[string]any{
-			"tab":                 "messages",
-			"org_id":              org.ID,
-			"recipient_member_id": target.Member.ID,
-		})
-		if err != nil {
-			t.Fatalf("marshal message metadata: %v", err)
-		}
-		messageEvent, err := service.WriteAdminAuditEvent(ctx, db, service.WriteAdminAuditEventParams{
-			ActorMemberID: admin.Member.ID,
-			Action:        service.AdminAuditActionMessageSend,
-			Target:        fmt.Sprintf("member:%d", target.Member.ID),
-			Metadata:      messageMetadata,
-			OccurredAt:    now,
-		})
-		if err != nil {
-			t.Fatalf("write message audit event: %v", err)
-		}
-
 		userMetadata, err := json.Marshal(map[string]any{
 			"tab":       "users",
 			"member_id": target.Member.ID,
@@ -1190,26 +1077,22 @@ func TestAdminAuditHTTP(t *testing.T) {
 		auditBody := requireStatus(t, adminActor.Get("/admin?tab=audit"), http.StatusOK)
 		requireBodyContains(t, auditBody, "Admin Audit Log")
 		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, disableEvent.ID))
-		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, messageEvent.ID))
 		requireBodyContains(t, auditBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
 
 		filterDay := now.Format("2006-01-02")
 		filteredURL := "/admin?tab=audit" +
 			"&actor=" + url.QueryEscape(admin.Member.Email) +
-			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
-			"&organization=" + url.QueryEscape(org.Name) +
+			"&action=" + url.QueryEscape(service.AdminAuditActionUserEnable) +
 			"&user=" + url.QueryEscape(target.Member.Email) +
 			"&target=" + url.QueryEscape("member:") +
 			"&start_date=" + url.QueryEscape(filterDay) +
 			"&end_date=" + url.QueryEscape(filterDay)
 		filteredBody := requireStatus(t, adminActor.Get(filteredURL), http.StatusOK)
-		requireBodyContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, messageEvent.ID))
+		requireBodyContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
 		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, disableEvent.ID))
-		requireBodyNotContains(t, filteredBody, fmt.Sprintf(`data-testid="admin-audit-event-%d"`, userEvent.ID))
 
 		exportQuery := "actor=" + url.QueryEscape(admin.Member.Email) +
-			"&action=" + url.QueryEscape(service.AdminAuditActionMessageSend) +
-			"&organization=" + url.QueryEscape(org.Name) +
+			"&action=" + url.QueryEscape(service.AdminAuditActionUserEnable) +
 			"&user=" + url.QueryEscape(target.Member.Email) +
 			"&target=" + url.QueryEscape("member:") +
 			"&start_date=" + url.QueryEscape(filterDay) +
@@ -1228,8 +1111,8 @@ func TestAdminAuditHTTP(t *testing.T) {
 			t.Fatalf("expected csv export content type, got %q", csvResp.Header.Get("Content-Type"))
 		}
 		csvBody := string(csvBodyBytes)
-		requireBodyContains(t, csvBody, "admin.message.send")
-		requireBodyContains(t, csvBody, strconv.FormatInt(messageEvent.ID, 10))
+		requireBodyContains(t, csvBody, string(service.AdminAuditActionUserEnable))
+		requireBodyContains(t, csvBody, strconv.FormatInt(userEvent.ID, 10))
 		afterCSVExportAuditCount := countAdminAuditEventsForActorAction(t, ctx, db, admin.Member.ID, service.AdminAuditActionExportCSV)
 		if afterCSVExportAuditCount != beforeCSVExportAuditCount+1 {
 			t.Fatalf("expected one admin csv-export audit event, before=%d after=%d", beforeCSVExportAuditCount, afterCSVExportAuditCount)
@@ -1293,11 +1176,6 @@ func TestAdminAuthorizationBoundariesHTTP(t *testing.T) {
 			"member_id", "1",
 			"reason", "authz test",
 		)), "/login")
-		requireRedirectPath(t, anonActor.PostForm("/admin/messages/send", formKV(
-			"recipient_id", "1",
-			"subject", "authz test",
-			"body", "authz test",
-		)), "/login")
 		requireRedirectPath(t, anonActor.Get("/admin/audit/export?format=csv"), "/login")
 
 		requireStatus(t, nonAdminActor.Get("/admin"), http.StatusForbidden)
@@ -1316,16 +1194,9 @@ func TestAdminAuthorizationBoundariesHTTP(t *testing.T) {
 			"member_id", "1",
 			"reason", "authz test",
 		)), http.StatusForbidden)
-		requireStatus(t, nonAdminActor.PostForm("/admin/messages/send", formKV(
-			"recipient_id", "1",
-			"subject", "authz test",
-			"body", "authz test",
-		)), http.StatusForbidden)
 		requireStatus(t, nonAdminActor.Get("/admin/audit/export?format=csv"), http.StatusForbidden)
 	})
 }
-
-const adminMessageSubjectPrefixInTests = "ADMIN Message:"
 
 func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
 	t.Helper()
@@ -1583,19 +1454,10 @@ func countAdminAuditEventsForActorAction(t *testing.T, ctx context.Context, db *
 	return count
 }
 
-func countReopenedHopNotificationMessages(t *testing.T, ctx context.Context, db *sql.DB, recipientMemberID int64) int {
+func countReopenedHopNotifications(t *testing.T, ctx context.Context, db *sql.DB, recipientMemberID int64) int {
 	t.Helper()
 
-	var count int
-	if err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM messages
-		WHERE recipient_member_id = $1
-		  AND subject LIKE 'Accepted hop reopened:%'
-	`, recipientMemberID).Scan(&count); err != nil {
-		t.Fatalf("count reopened hop notification messages recipient=%d: %v", recipientMemberID, err)
-	}
-	return count
+	return countMemberNotificationsContaining(t, ctx, db, recipientMemberID, "moved back to open status")
 }
 
 func moderationReportIDForComment(t *testing.T, ctx context.Context, db *sql.DB, commentID int64) int64 {
