@@ -85,6 +85,30 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "Left organization")
 	})
 
+	t.Run("ORG-04B organization page shows manage button for owners only", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "member")
+
+		server := newHTTPServer(t, db)
+
+		owner := newTestActor(t, "owner", server.URL, members["owner"].Member.Email, members["owner"].Password)
+		owner.Login()
+		ownerBody := requireStatus(t, owner.Get("/organization/"+org.URLName), 200)
+		requireBodyContains(t, ownerBody, ">Manage</a>")
+		requireBodyContains(t, ownerBody, `/organizations/manage?org_id=`+strconv.FormatInt(org.ID, 10))
+
+		member := newTestActor(t, "member", server.URL, members["member"].Member.Email, members["member"].Password)
+		member.Login()
+		memberBody := requireStatus(t, member.Get("/organization/"+org.URLName), 200)
+		requireBodyNotContains(t, memberBody, ">Manage</a>")
+
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		anonBody := requireStatus(t, anon.Get("/organization/"+org.URLName), 200)
+		requireBodyNotContains(t, anonBody, ">Manage</a>")
+	})
+
 	t.Run("ORG-05 POST /organizations/request submits membership request", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()

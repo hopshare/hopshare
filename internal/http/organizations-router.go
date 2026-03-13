@@ -161,6 +161,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 	showJoinPanel := true
 	showPendingPanel := false
 	showAllHops := false
+	showManageButton := false
 	var pendingHops []types.Hop
 	currentUser := s.currentUser(r)
 	if currentUser != nil {
@@ -173,6 +174,13 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		showJoinPanel = !hasMembership
 		showPendingPanel = hasMembership
 		showAllHops = hasMembership
+
+		showManageButton, err = service.MemberOwnsOrganization(r.Context(), s.db, currentUser.ID, org.ID)
+		if err != nil {
+			log.Printf("check member organization ownership member=%d org=%d: %v", currentUser.ID, org.ID, err)
+			http.Error(w, "could not load organization", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	metrics, err := service.OrgMetrics(r.Context(), s.db, org.ID)
@@ -232,7 +240,7 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 
 	successMsg := r.URL.Query().Get("success")
 	errorMsg := r.URL.Query().Get("error")
-	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, successMsg, errorMsg))
+	render(w, r, templates.Organization(s.currentUserEmailPtr(r), org, metrics, recentCompleted, pendingHops, showJoinPanel, showPendingPanel, showManageButton, successMsg, errorMsg))
 }
 
 func mergeRecentOrganizationHops(completed []types.Hop, accepted []types.Hop, limit int) []types.Hop {
