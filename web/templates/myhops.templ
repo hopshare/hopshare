@@ -300,7 +300,7 @@ templ MyHopsDesktopList(orgID int64, hops []types.Hop, viewKey string, memberID 
 }
 
 templ MyHopDesktopRow(orgID int64, hop types.Hop, viewKey string, memberID int64) {
-	<li class="px-6 py-5 transition hover:bg-slate-50">
+	<li class="px-6 py-5 transition hover:bg-slate-50" x-data="{ cancelModalOpen: false, completeModalOpen: false }" x-on:keydown.escape.window="cancelModalOpen = false; completeModalOpen = false">
 		<div class="flex items-start justify-between gap-6">
 			<a class="min-w-0 flex-1 space-y-3" href={ myHopsDetailHref(orgID, hop.ID, viewKey) }>
 				<div class="flex flex-wrap items-center gap-2">
@@ -327,6 +327,7 @@ templ MyHopDesktopRow(orgID int64, hop types.Hop, viewKey string, memberID int64
 				@MyHopActionButtonsDesktop(orgID, hop, viewKey, memberID)
 			</div>
 		</div>
+		@MyHopActionModals(orgID, hop, viewKey, memberID)
 	</li>
 }
 
@@ -341,29 +342,17 @@ templ MyHopActionButtonsMobile(orgID int64, hop types.Hop, viewKey string, membe
 		</button>
 	}
 	if hop.CreatedBy == memberID && (hop.Status == types.HopStatusAccepted || (hop.Status == types.HopStatusOpen && !hop.HasPendingOffer)) {
-		<form id={ "cancel-hop-" + strconv.FormatInt(hop.ID, 10) } method="POST" action="/hops/cancel">
-			@CSRFField()
-			<input type="hidden" name="org_id" value={ orgID } />
-			<input type="hidden" name="hop_id" value={ hop.ID } />
-			<input type="hidden" name="redirect_to" value={ myHopsRedirectHref(orgID, viewKey) } />
-			<button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400" type="button" x-on:click="cancelModalOpen = true">
-				Cancel
-			</button>
-		</form>
+		<button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400" type="button" x-on:click="cancelModalOpen = true">
+			Cancel
+		</button>
 	}
 }
 
 templ MyHopActionButtonsDesktop(orgID int64, hop types.Hop, viewKey string, memberID int64) {
 	if hop.CreatedBy == memberID && (hop.Status == types.HopStatusAccepted || (hop.Status == types.HopStatusOpen && !hop.HasPendingOffer)) {
-		<form id={ "cancel-hop-desktop-" + strconv.FormatInt(hop.ID, 10) } method="POST" action="/hops/cancel">
-			@CSRFField()
-			<input type="hidden" name="org_id" value={ orgID } />
-			<input type="hidden" name="hop_id" value={ hop.ID } />
-			<input type="hidden" name="redirect_to" value={ myHopsRedirectHref(orgID, viewKey) } />
-			<button class="inline-flex justify-center rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-800 transition hover:border-slate-400" type="submit">
-				Cancel
-			</button>
-		</form>
+		<button class="inline-flex justify-center rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-800 transition hover:border-slate-400" type="button" x-on:click="cancelModalOpen = true">
+			Cancel
+		</button>
 	}
 	if hop.Status == types.HopStatusAccepted {
 		<a
@@ -394,11 +383,17 @@ templ MyHopActionModals(orgID int64, hop types.Hop, viewKey string, memberID int
 						}
 					</div>
 					<div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 p-6 sm:flex-row-reverse sm:p-7">
-						<button class="inline-flex justify-center rounded-lg bg-rose-700 px-4 py-2.5 font-semibold text-white transition hover:bg-rose-800" type="submit" form={ "cancel-hop-" + strconv.FormatInt(hop.ID, 10) }>
-							Yes, cancel
-						</button>
+						<form method="POST" action="/hops/cancel">
+							@CSRFField()
+							<input type="hidden" name="org_id" value={ orgID } />
+							<input type="hidden" name="hop_id" value={ hop.ID } />
+							<input type="hidden" name="redirect_to" value={ myHopsRedirectHref(orgID, viewKey) } />
+							<button class="inline-flex justify-center rounded-lg bg-rose-700 px-4 py-2.5 font-semibold text-white transition hover:bg-rose-800" type="submit">
+								Yes
+							</button>
+						</form>
 						<button class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400" type="button" x-on:click="cancelModalOpen = false">
-							Go back
+							No
 						</button>
 					</div>
 				</div>

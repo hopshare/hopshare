@@ -293,6 +293,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, ownerBody, "Mark complete")
 		requireBodyContains(t, ownerBody, "data-hop-requester=\"true\"")
 		requireBodyContains(t, ownerBody, "action=\"/hops/cancel\"")
+		requireBodyContains(t, ownerBody, `aria-label="Confirm cancel hop"`)
+		requireBodyContains(t, ownerBody, ">Yes<")
+		requireBodyContains(t, ownerBody, ">No<")
 
 		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, helperBody, "Mark complete")
@@ -333,6 +336,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 
 		ownerBody := requireStatus(t, owner.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, ownerBody, "action=\"/hops/cancel\"")
+		requireBodyContains(t, ownerBody, `aria-label="Confirm cancel hop"`)
+		requireBodyContains(t, ownerBody, ">Yes<")
+		requireBodyContains(t, ownerBody, ">No<")
 
 		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyNotContains(t, helperBody, "action=\"/hops/cancel\"")
@@ -1426,6 +1432,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 
 		requestedBody := requireStatus(t, requester.Get("/my-hops?org_id="+strconv.FormatInt(org.ID, 10)+"&view=requested"), 200)
 		requireBodyContains(t, requestedBody, requestedHop.Title)
+		requireBodyContains(t, requestedBody, `aria-label="Confirm cancel hop"`)
+		requireBodyContains(t, requestedBody, ">Yes<")
+		requireBodyContains(t, requestedBody, ">No<")
 
 		helpedBody := requireStatus(t, helper.Get("/my-hops?org_id="+strconv.FormatInt(org.ID, 10)+"&view=helped"), 200)
 		requireBodyContains(t, helpedBody, helpedHop.Title)
