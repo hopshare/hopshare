@@ -1681,7 +1681,7 @@ func MyhopShareOrganizationsBody(orgs []types.Organization, currentOrgID int64) 
 			templ_7745c5c3_Var64 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<section class=\"space-y-4\"><a class=\"inline-flex text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "<section class=\"space-y-4\"><a class=\"inline-flex text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"/my-hopshare\">Back to My hopShare</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -361,7 +361,7 @@ func MyProfileBody(member types.Member, orgs []types.MemberOrganization, leaveBl
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div><div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Profile tabs\"><a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"/my-hopshare\">Back to My hopShare</a></div><div class=\"border-b border-slate-200\"><nav class=\"-mb-px flex flex-wrap gap-2 sm:gap-4\" aria-label=\"Profile tabs\"><a class=\"border-b-2 px-1 py-2 text-sm font-semibold transition\" x-bind:class=\"activeTab === 'details' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

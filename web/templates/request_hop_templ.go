@@ -151,14 +151,14 @@ func RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg 
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 templ.SafeURL
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 37, Col: 145}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 37, Col: 155}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {

@@ -34,7 +34,7 @@ templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg
 					}
 				}
 			</div>
-			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden" href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
 				Back to My hopShare
 			</a>
 		</div>

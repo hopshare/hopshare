@@ -719,7 +719,7 @@ templ MyhopShareOrganizations(email string, orgs []types.Organization, currentOr
 
 templ MyhopShareOrganizationsBody(orgs []types.Organization, currentOrgID int64) {
 	<section class="space-y-4">
-		<a class="inline-flex text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
+		<a class="inline-flex text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden" href="/my-hopshare">Back to My hopShare</a>
 		@OrganizationSwitcher(orgs, currentOrgID)
 	</section>
 }

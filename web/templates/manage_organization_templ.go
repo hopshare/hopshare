@@ -155,7 +155,7 @@ func ManageOrganizationBody(org types.Organization, requests []types.MembershipR
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><div class=\"space-y-1\"><h1 class=\"text-2xl font-bold text-slate-900\">Manage your organization</h1><p class=\"text-slate-600\">Update organization details and review membership requests.</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><div class=\"space-y-1\"><h1 class=\"text-2xl font-bold text-slate-900\">Manage your organization</h1><p class=\"text-slate-600\">Update organization details and review membership requests.</p></div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"/my-hopshare\">Back to My hopShare</a></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

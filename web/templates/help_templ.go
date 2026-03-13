@@ -58,7 +58,7 @@ func HelpBody() templ.Component {
 			templ_7745c5c3_Var2 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\"><div class=\"flex items-center justify-between gap-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Help with hopShare</h1><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800\" href=\"/my-hopshare\">Back to My hopShare</a></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"space-y-6\"><div class=\"flex items-center justify-between gap-4\"><h1 class=\"text-2xl font-bold text-slate-900\">Help with hopShare</h1><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"/my-hopshare\">Back to My hopShare</a></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

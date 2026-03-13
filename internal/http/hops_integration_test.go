@@ -174,9 +174,24 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		)), "/my-hopshare")
 		requireQueryValue(t, loc, "success", "Hop created.")
 
-		body := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyContains(t, body, "Needed on "+expected)
-		requireBodyNotContains(t, body, "Needed on "+previous)
+		hops, err := service.ListRequestedHops(ctx, db, org.ID, members["requester"].Member.ID)
+		if err != nil {
+			t.Fatalf("list requested hops: %v", err)
+		}
+		var created *types.Hop
+		for i := range hops {
+			if hops[i].Title == "Timezone Date Hop "+suffix {
+				created = &hops[i]
+				break
+			}
+		}
+		if created == nil {
+			t.Fatalf("created hop not found in requested list")
+		}
+
+		body := requireStatus(t, requester.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(created.ID, 10)), 200)
+		requireBodyContains(t, body, "<span class=\"font-semibold text-slate-900\">Needed by:</span> "+expected)
+		requireBodyNotContains(t, body, "<span class=\"font-semibold text-slate-900\">Needed by:</span> "+previous)
 	})
 
 	t.Run("HOP-03 create hop by non-member fails", func(t *testing.T) {

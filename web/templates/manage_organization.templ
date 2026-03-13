@@ -70,7 +70,7 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 				<h1 class="text-2xl font-bold text-slate-900">Manage your organization</h1>
 				<p class="text-slate-600">Update organization details and review membership requests.</p>
 			</div>
-			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href="/my-hopshare">Back to My hopShare</a>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden" href="/my-hopshare">Back to My hopShare</a>
 		</div>
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3">{ successMsg }</div>
