@@ -1330,6 +1330,21 @@ const adminMessageSubjectPrefixInTests = "ADMIN Message:"
 func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID, memberID int64, title, neededByKind string, neededByDate *time.Time) types.Hop {
 	t.Helper()
 
+	createDate := neededByDate
+	backfillPastDate := false
+	if neededByKind != types.HopNeededByAnytime && neededByDate != nil {
+		local := *neededByDate
+		today := time.Now().In(local.Location())
+		today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, local.Location())
+		dateOnly := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
+		if !dateOnly.After(today) {
+			future := time.Now().In(local.Location()).AddDate(0, 0, 7)
+			future = time.Date(future.Year(), future.Month(), future.Day(), 0, 0, 0, 0, local.Location())
+			createDate = &future
+			backfillPastDate = true
+		}
+	}
+
 	hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
 		OrganizationID: orgID,
 		MemberID:       memberID,
@@ -1337,11 +1352,30 @@ func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID
 		Details:        "admin overview integration test hop",
 		EstimatedHours: 2,
 		NeededByKind:   neededByKind,
-		NeededByDate:   neededByDate,
+		NeededByDate:   createDate,
 		IsPrivate:      false,
 	})
 	if err != nil {
 		t.Fatalf("create hop %q: %v", title, err)
+	}
+
+	if backfillPastDate {
+		expiry := time.Date(neededByDate.Year(), neededByDate.Month(), neededByDate.Day(), 23, 59, 59, 0, neededByDate.Location())
+		if neededByKind == types.HopNeededByAround {
+			expiry = expiry.AddDate(0, 0, 2)
+		}
+		if _, err := db.ExecContext(ctx, `
+			UPDATE hops
+			SET needed_by_date = $1, expires_at = $2
+			WHERE id = $3 AND organization_id = $4
+		`, *neededByDate, expiry, hop.ID, orgID); err != nil {
+			t.Fatalf("backfill hop %q needed-by date: %v", title, err)
+		}
+		updated, err := service.GetHopByID(ctx, db, orgID, hop.ID)
+		if err != nil {
+			t.Fatalf("reload hop %q: %v", title, err)
+		}
+		return updated
 	}
 	return hop
 }

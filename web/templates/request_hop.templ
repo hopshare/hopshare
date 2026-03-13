@@ -47,7 +47,12 @@ templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg
 				</p>
 			</div>
 
-			<form method="POST" action="/hops/create" x-data={ "{ neededByKind: '" + types.HopNeededByOn + "' }" }>
+			<form
+				method="POST"
+				action="/hops/create"
+				x-data={ "{ neededByKind: '" + types.HopNeededByOn + "', minNeededByDate: '" + minHopNeededByDateValue() + "', syncNeededByDate() { if (!this.$refs.neededByDate) { return true; } const input = this.$refs.neededByDate; if (this.neededByKind === '" + types.HopNeededByAnytime + "') { input.value = ''; input.setCustomValidity(''); return true; } if (input.value && input.value < this.minNeededByDate) { input.value = this.minNeededByDate; } if (input.value && input.value < this.minNeededByDate) { input.setCustomValidity('Needed by date must be after today.'); } else { input.setCustomValidity(''); } return input.checkValidity(); }, validateNeededByDate(event) { if (!this.syncNeededByDate() && this.$refs.neededByDate) { event.preventDefault(); this.$refs.neededByDate.reportValidity(); } } }" }
+				x-on:submit="validateNeededByDate($event)"
+			>
 				@CSRFField()
 				<input type="hidden" name="org_id" value={ currentOrgID } />
 				<div class="p-6 sm:p-7 space-y-4">
@@ -65,7 +70,7 @@ templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg
 									name="needed_by_kind"
 									class="rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"
 									x-model="neededByKind"
-									x-on:change="if (neededByKind === 'anytime' && $refs.neededByDate) { $refs.neededByDate.value = ''; }"
+									x-on:change="syncNeededByDate()"
 								>
 									<option value={ types.HopNeededByAnytime }>Anytime</option>
 									<option value={ types.HopNeededByOn }>on</option>
@@ -77,10 +82,14 @@ templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, errorMsg
 									name="needed_by_date"
 									class="flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:bg-slate-100 disabled:text-slate-500"
 									type="date"
+									min={ minHopNeededByDateValue() }
 									required
 									x-ref="neededByDate"
 									x-bind:required="neededByKind !== 'anytime'"
 									x-bind:disabled="neededByKind === 'anytime'"
+									x-on:input="syncNeededByDate()"
+									x-on:change="syncNeededByDate()"
+									x-on:blur="syncNeededByDate()"
 								/>
 							</div>
 						</div>

@@ -2799,9 +2799,9 @@ func HopTimingLine(hop types.Hop) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var113 string
-				templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.NeededByDate, "Jan 2, 2006"))
+				templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(formatDateOnly(hop.NeededByDate, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1064, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1064, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
 				if templ_7745c5c3_Err != nil {
@@ -2813,9 +2813,9 @@ func HopTimingLine(hop types.Hop) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var114 string
-				templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.NeededByDate, "Jan 2, 2006"))
+				templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(formatDateOnly(hop.NeededByDate, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1066, Col: 68}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1066, Col: 67}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
 				if templ_7745c5c3_Err != nil {
@@ -2827,9 +2827,9 @@ func HopTimingLine(hop types.Hop) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var115 string
-				templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(formatInAppTime(hop.NeededByDate, "Jan 2, 2006"))
+				templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(formatDateOnly(hop.NeededByDate, "Jan 2, 2006"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1068, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/myhopshare.templ`, Line: 1068, Col: 74}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
 				if templ_7745c5c3_Err != nil {

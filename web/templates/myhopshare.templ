@@ -1061,11 +1061,11 @@ templ HopTimingLine(hop types.Hop) {
 			Needed: anytime
 		} else if hop.NeededByDate != nil {
 			if hop.NeededByKind == types.HopNeededByOn {
-				Needed on { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
+				Needed on { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByAround {
-				Needed around { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
+				Needed around { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByNoLaterThan {
-				Needed no later than { formatInAppTime(hop.NeededByDate, "Jan 2, 2006") }
+				Needed no later than { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			}
 		}
 	</span>

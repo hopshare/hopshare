@@ -75,7 +75,10 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 		if p.NeededByDate == nil || p.NeededByDate.IsZero() {
 			return types.Hop{}, ErrMissingField
 		}
-		date := *p.NeededByDate
+		date := normalizeHopNeededByDate(*p.NeededByDate)
+		if !hopNeededByDateIsFuture(date, time.Now()) {
+			return types.Hop{}, ErrHopNeededByDate
+		}
 		neededByDate = sql.NullTime{Time: date, Valid: true}
 		expiry := hopExpiryAt(neededByKind, date)
 		expiresAt = sql.NullTime{Time: expiry, Valid: true}
@@ -2285,11 +2288,33 @@ func requireActiveMembership(ctx context.Context, q queryer, orgID, memberID int
 }
 
 func hopExpiryAt(kind string, date time.Time) time.Time {
-	expiry := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, time.UTC)
+	loc := date.Location()
+	if loc == nil {
+		loc = time.UTC
+	}
+	expiry := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 0, loc)
 	if kind == types.HopNeededByAround {
 		expiry = expiry.AddDate(0, 0, 2)
 	}
 	return expiry
+}
+
+func normalizeHopNeededByDate(date time.Time) time.Time {
+	loc := date.Location()
+	if loc == nil {
+		loc = time.UTC
+	}
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, loc)
+}
+
+func hopNeededByDateIsFuture(date time.Time, now time.Time) bool {
+	loc := date.Location()
+	if loc == nil {
+		loc = time.UTC
+	}
+	today := now.In(loc)
+	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+	return normalizeHopNeededByDate(date).After(today)
 }
 
 func nullableString(v string) interface{} {

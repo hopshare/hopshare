@@ -26,13 +26,13 @@ func hopNeededByLabel(hop types.Hop) string {
 		}
 		switch hop.NeededByKind {
 		case types.HopNeededByOn:
-			return "On " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+			return "On " + formatDateOnly(hop.NeededByDate, "Jan 2, 2006")
 		case types.HopNeededByAround:
-			return "Around " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+			return "Around " + formatDateOnly(hop.NeededByDate, "Jan 2, 2006")
 		case types.HopNeededByNoLaterThan:
-			return "No later than " + formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+			return "No later than " + formatDateOnly(hop.NeededByDate, "Jan 2, 2006")
 		default:
-			return formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+			return formatDateOnly(hop.NeededByDate, "Jan 2, 2006")
 		}
 	}
 }
@@ -51,7 +51,7 @@ func hopNeededByDateValue(hop types.Hop) string {
 	if hop.NeededByDate == nil {
 		return "Not specified"
 	}
-	return formatInAppTime(hop.NeededByDate, "Jan 2, 2006")
+	return formatDateOnly(hop.NeededByDate, "Jan 2, 2006")
 }
 
 func hopHelperDisplayName(hop types.Hop) string {

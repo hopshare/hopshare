@@ -53,3 +53,24 @@ func formatInAppTime(v any, layout string) string {
 		return ""
 	}
 }
+
+func formatDateOnly(v any, layout string) string {
+	switch t := v.(type) {
+	case time.Time:
+		return t.Format(layout)
+	case *time.Time:
+		if t == nil {
+			return ""
+		}
+		return t.Format(layout)
+	default:
+		return ""
+	}
+}
+
+func minHopNeededByDateValue() string {
+	loc := appTimezoneLocation()
+	now := time.Now().In(loc)
+	tomorrow := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, 1)
+	return tomorrow.Format("2006-01-02")
+}

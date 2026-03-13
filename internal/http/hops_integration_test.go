@@ -3,13 +3,16 @@ package http_test
 import (
 	"context"
 	"database/sql"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	apphttp "hopshare/internal/http"
 	"hopshare/internal/service"
 	"hopshare/internal/types"
+	"hopshare/web/templates"
 )
 
 func TestHopsHTTPMatrix(t *testing.T) {
@@ -85,6 +88,16 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		)), "/my-hopshare")
 		requireQueryValue(t, loc, "error", "Invalid date.")
 
+		today := time.Now().UTC().Format("2006-01-02")
+		loc = requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"title", "Today Date Hop "+suffix,
+			"estimated_hours", "2",
+			"needed_by_kind", types.HopNeededByOn,
+			"needed_by_date", today,
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "error", "Needed by date must be after today.")
+
 		loc = requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"title", "Anytime Ignores Date "+suffix,
@@ -108,11 +121,62 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "Request a hop")
 		requireBodyContains(t, body, `action="/hops/create"`)
 		requireBodyContains(t, body, `name="org_id" value="`+strconv.FormatInt(org.ID, 10)+`"`)
+		requireBodyContains(t, body, `min="`+time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")+`"`)
+		requireBodyContains(t, body, `x-on:submit="validateNeededByDate($event)"`)
 		requireBodyContains(t, body, "Back to My hopShare")
 
 		dashboardBody := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
 		requireBodyContains(t, dashboardBody, `href="/hops/request?org_id=`+strconv.FormatInt(org.ID, 10)+`"`)
 		requireBodyNotContains(t, dashboardBody, `aria-label="Request a hop"`)
+	})
+
+	t.Run("HOP-02c needed by date renders as the selected local day", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester")
+
+		if err := templates.SetAppTimezone("America/New_York"); err != nil {
+			t.Fatalf("set app timezone: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := templates.SetAppTimezone("UTC"); err != nil {
+				t.Fatalf("reset app timezone: %v", err)
+			}
+		})
+
+		appLoc, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			t.Fatalf("load app timezone: %v", err)
+		}
+
+		cookieSecure := false
+		server := httptest.NewServer(apphttp.NewRouterWithOptions(db, apphttp.RouterOptions{
+			CookieSecure: &cookieSecure,
+			AppLocation:  appLoc,
+		}))
+		t.Cleanup(server.Close)
+
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
+		requester.Login()
+
+		chosen := time.Now().In(appLoc).AddDate(0, 0, 3)
+		chosenDate := chosen.Format("2006-01-02")
+		expected := chosen.Format("Jan 2, 2006")
+		previous := chosen.AddDate(0, 0, -1).Format("Jan 2, 2006")
+
+		loc := requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"title", "Timezone Date Hop "+suffix,
+			"estimated_hours", "2",
+			"needed_by_kind", types.HopNeededByOn,
+			"needed_by_date", chosenDate,
+		)), "/my-hopshare")
+		requireQueryValue(t, loc, "success", "Hop created.")
+
+		body := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		requireBodyContains(t, body, "Needed on "+expected)
+		requireBodyNotContains(t, body, "Needed on "+previous)
 	})
 
 	t.Run("HOP-03 create hop by non-member fails", func(t *testing.T) {
@@ -1420,19 +1484,24 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		defer cancel()
 		suffix := uniqueTestSuffix()
 		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner")
-		pastDate := time.Now().UTC().AddDate(0, 0, -7)
 		hop, err := service.CreateHop(ctx, db, service.CreateHopParams{
 			OrganizationID: org.ID,
 			MemberID:       members["owner"].Member.ID,
 			Title:          "Expire hop " + suffix,
 			Details:        "Should expire via my-hopshare render.",
 			EstimatedHours: 1,
-			NeededByKind:   types.HopNeededByOn,
-			NeededByDate:   &pastDate,
+			NeededByKind:   types.HopNeededByAnytime,
 			IsPrivate:      false,
 		})
 		if err != nil {
 			t.Fatalf("create expiring hop: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, `
+			UPDATE hops
+			SET expires_at = $1
+			WHERE id = $2 AND organization_id = $3
+		`, time.Now().UTC().Add(-time.Hour), hop.ID, org.ID); err != nil {
+			t.Fatalf("backdate hop expiry: %v", err)
 		}
 		if _, err := service.ExpireDueHops(ctx, db, time.Now().UTC()); err != nil {
 			t.Fatalf("expire due hops: %v", err)

@@ -14,7 +14,7 @@
 
 ## Bugs
 
-* I can create Hops with a due date in the past- they are then automatically expired!
+* I can create Hops with a due date in the past- they are then automatically expired! Looks like a UI bug- you can pick 'today' in the chooser but it sets the needed by to a day prior.
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * Move to a static tailwind CSS- don't pull dynamically

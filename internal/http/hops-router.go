@@ -411,7 +411,11 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	if neededByKind != types.HopNeededByAnytime {
 		dateStr := strings.TrimSpace(r.FormValue("needed_by_date"))
 		if dateStr != "" {
-			t, err := time.Parse("2006-01-02", dateStr)
+			loc := s.appLocation
+			if loc == nil {
+				loc = time.UTC
+			}
+			t, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 			if err != nil {
 				http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
 				return
@@ -441,6 +445,10 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 			}
 			msg := fmt.Sprintf("You're at this organization's minimum balance (%d). Complete a hop first to earn hours before requesting another.", minBalance)
 			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape(msg), http.StatusSeeOther)
+			return
+		}
+		if errors.Is(err, service.ErrHopNeededByDate) {
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Needed by date must be after today."), http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not create hop."), http.StatusSeeOther)

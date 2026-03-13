@@ -40,6 +40,7 @@ var (
 	ErrHopOfferExists   = errors.New("hop offer already exists")
 	ErrHopImageNotFound = errors.New("hop image not found")
 	ErrHopRequestLimit  = errors.New("hop request blocked by timebank minimum balance")
+	ErrHopNeededByDate  = errors.New("hop needed by date must be after today")
 	ErrInvalidTimebank  = errors.New("invalid timebank policy")
 
 	ErrModerationReportNotFound  = errors.New("moderation report not found")
