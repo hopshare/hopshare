@@ -45,6 +45,17 @@ func myhopShareCurrentOrg(orgs []types.Organization, currentOrgID int64) *types.
 	return nil
 }
 
+func myhopShareBalanceOverviewHref(currentOrgID int64) string {
+	if currentOrgID > 0 {
+		return "/my-hopshare/balance-overview?org_id=" + strconv.FormatInt(currentOrgID, 10)
+	}
+	return "/my-hopshare/balance-overview"
+}
+
+func myhopShareBalanceOverviewDateLabel(occurredAt time.Time) string {
+	return occurredAt.Format("1/2/06")
+}
+
 func myhopShareBalanceState(balanceHours int, minBalance int, maxBalance int, startingBalance int) string {
 	switch {
 	case balanceHours >= maxBalance:
@@ -400,21 +411,30 @@ templ MyhopShareDashboardDesktop(
 					</p>
 					<p class="mt-2 text-lg font-semibold text-slate-900">Hours Earned</p>
 				</div>
-				<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
-					if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
-						You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
+		<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
+			if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
+				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
 					} else if memberStats.BalanceHours >= currentOrgTimebankStartingBalance(orgs, currentOrgID) {
 						You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
 					} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= currentOrgTimebankMinBalance(orgs, currentOrgID)) {
 						You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
 					} else if memberStats.BalanceHours < 0 {
 						You're out of hours but don't worry! You can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)} hours. Find some other users who need help and build up your balance!
-					} else {
-						Pay some forward to another user!
-					}
-				</div>
+			} else {
+				Pay some forward to another user!
+			}
+			<div class="mt-4">
+				<a
+					class="font-semibold text-sky-700 underline hover:text-sky-800"
+					href={ myhopShareBalanceOverviewHref(currentOrgID) }
+					data-testid="myhopshare-balance-overview-link-desktop"
+				>
+					Hour Balance Overview
+				</a>
 			</div>
-		</section>
+		</div>
+	</div>
+</section>
 
 		if activeAcceptedHop != nil {
 			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
@@ -476,7 +496,7 @@ templ MyhopShareCurrentOrgCard(orgs []types.Organization, currentOrgID int64, mo
 }
 
 templ MyhopShareBalanceCard(displayName string, lastLoginLabel string, orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats) {
-	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+	<a class="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md" href={ myhopShareBalanceOverviewHref(currentOrgID) } data-testid="myhopshare-balance-overview-link-mobile">
 		<div class="flex items-start justify-between gap-4">
 			<div class="min-w-0">
 				<p class="text-sm font-semibold text-slate-600">Welcome back</p>
@@ -496,7 +516,7 @@ templ MyhopShareBalanceCard(displayName string, lastLoginLabel string, orgs []ty
 				{ myhopShareBalanceStateGuidance(myhopShareBalanceState(memberStats.BalanceHours, currentOrgTimebankMinBalance(orgs, currentOrgID), currentOrgTimebankMaxBalance(orgs, currentOrgID), currentOrgTimebankStartingBalance(orgs, currentOrgID)), currentOrgTimebankMinBalance(orgs, currentOrgID)) }
 			</p>
 		</div>
-	</section>
+	</a>
 }
 
 templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, memberID int64) {
@@ -579,7 +599,7 @@ templ MyhopSharePrimaryActions(currentOrgID int64, mobile bool) {
 					Request a Hop
 				</a>
 				<a
-					class="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-lg font-semibold text-sky-800 ring-1 ring-slate-300 transition hover:ring-slate-400"
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 px-4 py-4 text-lg font-semibold text-white transition hover:bg-sky-800"
 					href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 				>
 					Give a Hop
@@ -620,10 +640,10 @@ templ MyhopShareQuickAccess(currentOrgID int64, mobile bool) {
 				<p class="text-sm text-slate-600">Jump to your most common destinations.</p>
 			</div>
 			<div class="mt-4 grid grid-cols-2 gap-3">
-				<a class="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
+				<a class="col-span-2 inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-4 text-center text-sm font-semibold text-white transition hover:bg-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
 					My Hops
 				</a>
-				<a class="col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-center text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href="/profile">
+				<a class="col-span-2 inline-flex items-center justify-center rounded-xl bg-sky-700 px-4 py-4 text-center text-sm font-semibold text-white transition hover:bg-sky-800" href="/profile">
 					Profile
 				</a>
 			</div>
@@ -712,6 +732,123 @@ templ MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) {
 
 templ MyhopShareOrganizations(email string, orgs []types.Organization, currentOrgID int64) {
 	@Base(myHopShareOrganizationsPageContext(orgs, currentOrgID), &email, MyhopShareOrganizationsBody(orgs, currentOrgID))
+}
+
+templ MyhopShareBalanceOverview(email string, orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats, transactions []types.MemberBalanceTransaction) {
+	@Base(myHopShareBalanceOverviewPageContext(orgs, currentOrgID), &email, MyhopShareBalanceOverviewBody(orgs, currentOrgID, memberStats, transactions))
+}
+
+templ MyhopShareBalanceOverviewBody(orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats, transactions []types.MemberBalanceTransaction) {
+	<section class="space-y-6">
+		if myhopShareCurrentOrg(orgs, currentOrgID) == nil {
+			<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+				<h1 class="text-2xl font-bold text-slate-900">Hour Balance Overview</h1>
+				<p class="text-sm text-slate-600">Join an organization to see how your hour balance is built.</p>
+				<a class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-semibold text-slate-800 transition hover:border-slate-400" href="/organizations">
+					Find organizations
+				</a>
+			</section>
+		} else {
+			<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+				<div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+					<div class="space-y-2">
+						<p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Hour Balance Overview</p>
+						<h1 class="text-2xl font-bold text-slate-900">{ myhopShareCurrentOrg(orgs, currentOrgID).Name }</h1>
+						<p class="max-w-2xl text-sm leading-relaxed text-slate-600">
+							Each completed hop updates your hour balance. Giving help gets you hours and getting help takes your hours.
+
+						</p>
+					</div>
+					<div class="rounded-2xl bg-sky-100 px-5 py-4 text-center lg:min-w-[12rem]">
+						<p class="text-xs font-semibold uppercase tracking-wide text-slate-600">Current balance</p>
+						<p class="mt-2 text-4xl font-extrabold text-slate-900">{ memberStats.BalanceHours }</p>
+						<p class="mt-1 text-sm font-semibold text-slate-700">{ myhopShareBalanceStateLabel(myhopShareBalanceState(memberStats.BalanceHours, currentOrgTimebankMinBalance(orgs, currentOrgID), currentOrgTimebankMaxBalance(orgs, currentOrgID), currentOrgTimebankStartingBalance(orgs, currentOrgID))) }</p>
+					</div>
+				</div>
+				<div class="mt-5 flex flex-wrap gap-3">
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400" href={ memberRootHref(currentOrgID) }>
+						Back to My hopShare
+					</a>
+					<a class="inline-flex justify-center rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400" href="/my-hopshare/organizations">
+						Switch organization
+					</a>
+				</div>
+			</section>
+			@MyhopShareBalanceOverviewMobile(orgs, currentOrgID, memberStats, transactions)
+			@MyhopShareBalanceOverviewDesktop(orgs, currentOrgID, memberStats, transactions)
+		}
+	</section>
+}
+
+templ MyhopShareBalanceOverviewMobile(orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats, transactions []types.MemberBalanceTransaction) {
+	<section class="space-y-4 md:hidden">
+		<div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+			<p class="text-sm font-semibold text-slate-900">
+				{ myhopShareBalanceStateGuidance(myhopShareBalanceState(memberStats.BalanceHours, currentOrgTimebankMinBalance(orgs, currentOrgID), currentOrgTimebankMaxBalance(orgs, currentOrgID), currentOrgTimebankStartingBalance(orgs, currentOrgID)), currentOrgTimebankMinBalance(orgs, currentOrgID)) }
+			</p>
+		</div>
+		if len(transactions) == 0 {
+			<div class="rounded-xl border border-slate-200 bg-white px-4 py-5 text-sm text-slate-600 shadow-sm">
+				No balance activity yet.
+			</div>
+		} else {
+			<div class="space-y-3">
+				for idx, transaction := range transactions {
+					<article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-testid={ "balance-overview-mobile-" + strconv.Itoa(idx) }>
+						<div class="flex items-start justify-between gap-3">
+							<div>
+								<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{ myhopShareBalanceOverviewDateLabel(transaction.OccurredAt) }</p>
+								<p class="mt-1 text-sm font-semibold text-slate-900">{ transaction.Description }</p>
+							</div>
+							<div class="text-right">
+								<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hours</p>
+								<p class="text-lg font-bold text-slate-900">{ transaction.HoursExchanged }</p>
+							</div>
+						</div>
+						<div class="mt-4 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+							<p class="text-sm font-semibold text-slate-600">Balance</p>
+							<p class="text-sm font-bold text-slate-900" data-testid={ "balance-overview-balance-mobile-" + strconv.Itoa(idx) }>{ transaction.BalanceAfterTxn }</p>
+						</div>
+					</article>
+				}
+			</div>
+		}
+	</section>
+}
+
+templ MyhopShareBalanceOverviewDesktop(orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats, transactions []types.MemberBalanceTransaction) {
+	<section class="hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:block">
+		<div class="border-b border-slate-200 px-6 py-4">
+			<h2 class="text-lg font-bold text-slate-900">Transaction history</h2>
+			<p class="mt-1 text-sm text-slate-600">Most recent activity first for { myhopShareCurrentOrg(orgs, currentOrgID).Name }.</p>
+		</div>
+		if len(transactions) == 0 {
+			<p class="px-6 py-5 text-sm text-slate-600">No balance activity yet.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="min-w-full divide-y divide-slate-200 text-sm">
+					<thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+						<tr>
+							<th class="px-6 py-3">Date</th>
+							<th class="px-6 py-3">Activity</th>
+							<th class="px-6 py-3 text-right">Hours</th>
+							<th class="px-6 py-3 text-right">Balance</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-slate-100 bg-white">
+						for idx, transaction := range transactions {
+							<tr data-testid={ "balance-overview-row-" + strconv.Itoa(idx) }>
+								<td class="whitespace-nowrap px-6 py-4 text-slate-700">{ myhopShareBalanceOverviewDateLabel(transaction.OccurredAt) }</td>
+								<td class="px-6 py-4 text-slate-900" data-testid={ "balance-overview-description-" + strconv.Itoa(idx) }>{ transaction.Description }</td>
+								<td class="whitespace-nowrap px-6 py-4 text-right font-semibold text-slate-900">{ transaction.HoursExchanged }</td>
+								<td class="whitespace-nowrap px-6 py-4 text-right font-semibold text-slate-900" data-testid={ "balance-overview-balance-" + strconv.Itoa(idx) }>{ transaction.BalanceAfterTxn }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</section>
 }
 
 templ MyhopShareOrganizationsBody(orgs []types.Organization, currentOrgID int64) {

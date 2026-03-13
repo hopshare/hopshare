@@ -48,6 +48,7 @@ type PageContext struct {
 	BrowserTitle  string
 	ActiveSection string
 	Breadcrumbs   []PageBreadcrumb
+	MobileBack    *PageBreadcrumb
 	CurrentOrg    *PageOrganization
 }
 
@@ -217,6 +218,18 @@ func myHopShareOrganizationsPageContext(orgs []types.Organization, currentOrgID 
 	)
 }
 
+func myHopShareBalanceOverviewPageContext(orgs []types.Organization, currentOrgID int64) PageContext {
+	return newPageContext(
+		"hopShare | Hour Balance Overview",
+		pageSectionMyHopShare,
+		[]PageBreadcrumb{
+			newBreadcrumb("My hopShare", memberRootHref(currentOrgID)),
+			newBreadcrumb("Hour Balance Overview", ""),
+		},
+		pageOrganizationFromMemberOrgs(orgs, currentOrgID),
+	)
+}
+
 func myHopsPageContext(orgs []types.Organization, currentOrgID int64, viewKey string) PageContext {
 	breadcrumbs := []PageBreadcrumb{
 		newBreadcrumb("My hopShare", memberRootHref(currentOrgID)),
@@ -228,7 +241,12 @@ func myHopsPageContext(orgs []types.Organization, currentOrgID int64, viewKey st
 		newBreadcrumb("My Hops", "/my-hops?org_id="+strconv.FormatInt(currentOrgID, 10)),
 		newBreadcrumb(myHopsViewLabel(viewKey), ""),
 	)
-	return newPageContext("hopShare | My hops", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromMemberOrgs(orgs, currentOrgID))
+	page := newPageContext("hopShare | My hops", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromMemberOrgs(orgs, currentOrgID))
+	page.MobileBack = &PageBreadcrumb{
+		Label: "My hopShare",
+		Href:  memberRootHref(currentOrgID),
+	}
+	return page
 }
 
 func requestHopPageContext(orgs []types.Organization, currentOrgID int64) PageContext {

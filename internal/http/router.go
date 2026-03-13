@@ -168,6 +168,7 @@ func NewRouterWithOptions(db *sql.DB, opts RouterOptions) http.Handler {
 	srv.register(mux, "/verify-email/resend", srv.handleVerifyEmailResend, srv.requireMethod(http.MethodPost), srv.rateLimitAuthEndpoint("verify-email-resend"))
 	srv.register(mux, "/invite", srv.handleInvite, srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare", srv.handleMyHopshare, srv.requireAuth(), srv.requireMethod(http.MethodGet))
+	srv.register(mux, "/my-hopshare/balance-overview", srv.handleMyHopshareBalanceOverview, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/my-hopshare/organizations", srv.handleMyHopshareOrganizations, srv.requireAuth(), srv.requireMethod(http.MethodGet))
 	srv.register(mux, "/notifications/dismiss", srv.handleDismissNotification, srv.requireAuth(), srv.requireMethod(http.MethodPost))
 	srv.register(mux, "/my-hops", srv.handleMyHops, srv.requireAuth(), srv.requireMethod(http.MethodGet))
@@ -755,30 +756,45 @@ func (s *Server) handleMyHopshareOrganizations(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var currentOrgID int64
-	var selectedFromQuery bool
-	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
-		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
-			currentOrgID = parsed
-			selectedFromQuery = true
+	currentOrgID := s.resolveCurrentOrganization(r, user, orgs)
+
+	render(w, r, templates.MyhopShareOrganizations(user.Email, orgs, currentOrgID))
+}
+
+func (s *Server) handleMyHopshareBalanceOverview(w http.ResponseWriter, r *http.Request) {
+	user := s.currentUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	orgs, err := service.ActiveOrganizationsForMember(r.Context(), s.db, user.ID)
+	if err != nil {
+		log.Printf("load organizations for member %d: %v", user.ID, err)
+		http.Error(w, "could not load organizations", http.StatusInternalServerError)
+		return
+	}
+
+	currentOrgID := s.resolveCurrentOrganization(r, user, orgs)
+
+	var memberStats types.MemberHopStats
+	var balanceTransactions []types.MemberBalanceTransaction
+	if currentOrgID != 0 {
+		memberStats, err = service.MemberStats(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load member stats org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load balance overview", http.StatusInternalServerError)
+			return
 		}
-	}
-	if currentOrgID == 0 && user.CurrentOrganization != nil {
-		currentOrgID = *user.CurrentOrganization
-	}
-	if len(orgs) > 0 && currentOrgID == 0 {
-		currentOrgID = orgs[0].ID
-	}
-	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
-		currentOrgID = orgs[0].ID
-	}
-	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
-		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
-			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		balanceTransactions, err = service.ListMemberBalanceTransactions(r.Context(), s.db, currentOrgID, user.ID)
+		if err != nil {
+			log.Printf("load balance transactions org=%d member=%d: %v", currentOrgID, user.ID, err)
+			http.Error(w, "could not load balance overview", http.StatusInternalServerError)
+			return
 		}
 	}
 
-	render(w, r, templates.MyhopShareOrganizations(user.Email, orgs, currentOrgID))
+	render(w, r, templates.MyhopShareBalanceOverview(user.Email, orgs, currentOrgID, memberStats, balanceTransactions))
 }
 
 func (s *Server) handleDismissNotification(w http.ResponseWriter, r *http.Request) {
@@ -857,30 +873,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 		return
 	}
 
-	var currentOrgID int64
-	var selectedFromQuery bool
-	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
-		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
-			currentOrgID = parsed
-			selectedFromQuery = true
-		}
-	}
-	if currentOrgID == 0 && user.CurrentOrganization != nil {
-		currentOrgID = *user.CurrentOrganization
-	}
-	if len(orgs) > 0 && currentOrgID == 0 {
-		currentOrgID = orgs[0].ID
-	}
-	// WHAT SORT OF HACK IS THIS??
-	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
-		currentOrgID = orgs[0].ID
-	}
-
-	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
-		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
-			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
-		}
-	}
+	currentOrgID := s.resolveCurrentOrganization(r, user, orgs)
 
 	isOwnerCurrent := false
 	if currentOrgID != 0 {
@@ -983,6 +976,32 @@ func orgIDInList(orgs []types.Organization, orgID int64) bool {
 		}
 	}
 	return false
+}
+
+func (s *Server) resolveCurrentOrganization(r *http.Request, user *types.Member, orgs []types.Organization) int64 {
+	var currentOrgID int64
+	var selectedFromQuery bool
+	if orgIDStr := strings.TrimSpace(r.URL.Query().Get("org_id")); orgIDStr != "" {
+		if parsed, err := strconv.ParseInt(orgIDStr, 10, 64); err == nil && parsed > 0 {
+			currentOrgID = parsed
+			selectedFromQuery = true
+		}
+	}
+	if currentOrgID == 0 && user.CurrentOrganization != nil {
+		currentOrgID = *user.CurrentOrganization
+	}
+	if len(orgs) > 0 && currentOrgID == 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && !orgIDInList(orgs, currentOrgID) && len(orgs) > 0 {
+		currentOrgID = orgs[0].ID
+	}
+	if currentOrgID != 0 && (selectedFromQuery || user.CurrentOrganization == nil || *user.CurrentOrganization != currentOrgID) {
+		if err := service.UpdateMemberCurrentOrganization(r.Context(), s.db, user.ID, currentOrgID); err != nil {
+			log.Printf("update current organization member=%d org=%d: %v", user.ID, currentOrgID, err)
+		}
+	}
+	return currentOrgID
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {

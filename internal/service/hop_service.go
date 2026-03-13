@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1826,6 +1827,181 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	}
 
 	return stats, nil
+}
+
+type memberBalanceLedgerRow struct {
+	OccurredAt     time.Time
+	Description    string
+	HoursExchanged int
+	BalanceDelta   int
+	SourceRank     int
+	SourceID       int64
+}
+
+// ListMemberBalanceTransactions returns the active member's balance history for
+// one organization, newest first, with the running balance after each entry.
+func ListMemberBalanceTransactions(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]types.MemberBalanceTransaction, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, ErrMissingOrgID
+	}
+	if memberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	if err := requireActiveMembership(ctx, db, orgID, memberID); err != nil {
+		return nil, err
+	}
+
+	rows := make([]memberBalanceLedgerRow, 0)
+
+	adjustments, err := db.QueryContext(ctx, `
+		SELECT id, created_at, hours_delta, reason, is_starting_balance
+		FROM hour_balance_adjustments
+		WHERE organization_id = $1 AND member_id = $2
+	`, orgID, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list balance adjustments: %w", err)
+	}
+	defer adjustments.Close()
+
+	for adjustments.Next() {
+		var (
+			id                int64
+			occurredAt        time.Time
+			hoursDelta        int
+			reason            string
+			isStartingBalance bool
+		)
+		if err := adjustments.Scan(&id, &occurredAt, &hoursDelta, &reason, &isStartingBalance); err != nil {
+			return nil, fmt.Errorf("scan balance adjustment: %w", err)
+		}
+
+		description := "Adjustment: " + strings.TrimSpace(reason)
+		if isStartingBalance {
+			description = "Initial balance"
+		}
+
+		rows = append(rows, memberBalanceLedgerRow{
+			OccurredAt:     occurredAt,
+			Description:    description,
+			HoursExchanged: hoursDelta,
+			BalanceDelta:   hoursDelta,
+			SourceRank:     0,
+			SourceID:       id,
+		})
+	}
+	if err := adjustments.Err(); err != nil {
+		return nil, fmt.Errorf("list balance adjustments: %w", err)
+	}
+
+	transactions, err := db.QueryContext(ctx, `
+		SELECT
+			ht.id,
+			ht.created_at,
+			ht.hours,
+			ht.from_member_id,
+			ht.to_member_id,
+			from_member.first_name,
+			from_member.last_name,
+			from_member.email,
+			to_member.first_name,
+			to_member.last_name,
+			to_member.email
+		FROM hop_transactions ht
+		JOIN members from_member ON from_member.id = ht.from_member_id
+		JOIN members to_member ON to_member.id = ht.to_member_id
+		WHERE ht.organization_id = $1 AND (ht.from_member_id = $2 OR ht.to_member_id = $2)
+	`, orgID, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("list hop transactions: %w", err)
+	}
+	defer transactions.Close()
+
+	for transactions.Next() {
+		var (
+			id            int64
+			occurredAt    time.Time
+			hours         int
+			fromMemberID  int64
+			toMemberID    int64
+			fromFirstName string
+			fromLastName  string
+			fromEmail     string
+			toFirstName   string
+			toLastName    string
+			toEmail       string
+		)
+		if err := transactions.Scan(
+			&id,
+			&occurredAt,
+			&hours,
+			&fromMemberID,
+			&toMemberID,
+			&fromFirstName,
+			&fromLastName,
+			&fromEmail,
+			&toFirstName,
+			&toLastName,
+			&toEmail,
+		); err != nil {
+			return nil, fmt.Errorf("scan hop transaction: %w", err)
+		}
+
+		description := ""
+		balanceDelta := -hours
+		switch {
+		case toMemberID == memberID:
+			description = "You helped " + memberDisplayName(fromFirstName, fromLastName, fromEmail)
+			balanceDelta = hours
+		case fromMemberID == memberID:
+			description = memberDisplayName(toFirstName, toLastName, toEmail) + " helped You"
+		default:
+			continue
+		}
+
+		rows = append(rows, memberBalanceLedgerRow{
+			OccurredAt:     occurredAt,
+			Description:    description,
+			HoursExchanged: balanceDelta,
+			BalanceDelta:   balanceDelta,
+			SourceRank:     1,
+			SourceID:       id,
+		})
+	}
+	if err := transactions.Err(); err != nil {
+		return nil, fmt.Errorf("list hop transactions: %w", err)
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if !rows[i].OccurredAt.Equal(rows[j].OccurredAt) {
+			return rows[i].OccurredAt.Before(rows[j].OccurredAt)
+		}
+		if rows[i].SourceRank != rows[j].SourceRank {
+			return rows[i].SourceRank < rows[j].SourceRank
+		}
+		return rows[i].SourceID < rows[j].SourceID
+	})
+
+	ledger := make([]types.MemberBalanceTransaction, 0, len(rows))
+	balance := 0
+	for _, row := range rows {
+		balance += row.BalanceDelta
+		ledger = append(ledger, types.MemberBalanceTransaction{
+			OccurredAt:      row.OccurredAt,
+			Description:     row.Description,
+			HoursExchanged:  row.HoursExchanged,
+			BalanceAfterTxn: balance,
+		})
+	}
+
+	for i, j := 0, len(ledger)-1; i < j; i, j = i+1, j-1 {
+		ledger[i], ledger[j] = ledger[j], ledger[i]
+	}
+
+	return ledger, nil
 }
 
 func ReopenAcceptedHopsForMember(ctx context.Context, tx *sql.Tx, memberID int64) ([]ReopenedAcceptedHop, error) {

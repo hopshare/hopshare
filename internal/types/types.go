@@ -222,6 +222,13 @@ type MemberHopStats struct {
 	LastHopFulfilledAt *time.Time
 }
 
+type MemberBalanceTransaction struct {
+	OccurredAt      time.Time
+	Description     string
+	HoursExchanged  int
+	BalanceAfterTxn int
+}
+
 type AdminEnabledDisabledCounts struct {
 	Enabled  int
 	Disabled int

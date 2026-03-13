@@ -3,6 +3,7 @@ package http_test
 import (
 	"context"
 	"database/sql"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -1423,6 +1424,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, requestedBody, `aria-label="Confirm cancel hop"`)
 		requireBodyContains(t, requestedBody, ">Yes<")
 		requireBodyContains(t, requestedBody, ">No<")
+		requireBodyContains(t, requestedBody, `href="/my-hopshare?org_id=`+strconv.FormatInt(org.ID, 10)+`"`)
+		requireBodyContains(t, requestedBody, "&larr;")
+		requireBodyContains(t, requestedBody, ">My hopShare<")
 
 		helpedBody := requireStatus(t, helper.Get("/my-hops?org_id="+strconv.FormatInt(org.ID, 10)+"&view=helped"), 200)
 		requireBodyContains(t, helpedBody, helpedHop.Title)
@@ -1606,6 +1610,94 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "Find more Organizations...")
 		requireBodyNotContains(t, body, `name="org_id"`)
 		requireBodyNotContains(t, body, "Choose a different organization")
+	})
+
+	t.Run("HOP-40 /my-hopshare balance overview is linked from dashboard and shows organization ledger", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		owner := createSeededMember(t, ctx, db, "owner", suffix)
+		member := createSeededMember(t, ctx, db, "member", suffix)
+		simon := createSeededMember(t, ctx, db, "simon", suffix)
+		jung := createSeededMember(t, ctx, db, "jung", suffix)
+
+		org, err := service.CreateOrganization(ctx, db, "Balance Overview "+suffix, "Test City", "TS", "Organization for balance overview tests.", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create organization: %v", err)
+		}
+		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, member.Member.ID)
+		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, simon.Member.ID)
+		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, jung.Member.ID)
+
+		requesterHop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       member.Member.ID,
+			Title:          "Need help " + suffix,
+			Details:        "Need help from Jung.",
+			EstimatedHours: 2,
+			NeededByKind:   types.HopNeededByAnytime,
+		})
+		if err != nil {
+			t.Fatalf("create requester hop: %v", err)
+		}
+		if err := service.AcceptHop(ctx, db, org.ID, requesterHop.ID, jung.Member.ID); err != nil {
+			t.Fatalf("accept requester hop: %v", err)
+		}
+		if err := service.CompleteHop(ctx, db, service.CompleteHopParams{
+			OrganizationID: org.ID,
+			HopID:          requesterHop.ID,
+			CompletedBy:    member.Member.ID,
+			Comment:        "Thanks for the help.",
+			CompletedHours: 2,
+		}); err != nil {
+			t.Fatalf("complete requester hop: %v", err)
+		}
+
+		helperHop, err := service.CreateHop(ctx, db, service.CreateHopParams{
+			OrganizationID: org.ID,
+			MemberID:       simon.Member.ID,
+			Title:          "Simon needs help " + suffix,
+			Details:        "Member helps Simon.",
+			EstimatedHours: 1,
+			NeededByKind:   types.HopNeededByAnytime,
+		})
+		if err != nil {
+			t.Fatalf("create helper hop: %v", err)
+		}
+		if err := service.AcceptHop(ctx, db, org.ID, helperHop.ID, member.Member.ID); err != nil {
+			t.Fatalf("accept helper hop: %v", err)
+		}
+		if err := service.CompleteHop(ctx, db, service.CompleteHopParams{
+			OrganizationID: org.ID,
+			HopID:          helperHop.ID,
+			CompletedBy:    simon.Member.ID,
+			Comment:        "Thanks for helping Simon.",
+			CompletedHours: 1,
+		}); err != nil {
+			t.Fatalf("complete helper hop: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "member", server.URL, member.Member.Email, member.Password)
+		actor.Login()
+
+		dashboardBody := requireStatus(t, actor.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), http.StatusOK)
+		requireBodyContains(t, dashboardBody, "Hour Balance Overview")
+		requireBodyContains(t, dashboardBody, `data-testid="myhopshare-balance-overview-link-desktop"`)
+		requireBodyContains(t, dashboardBody, `data-testid="myhopshare-balance-overview-link-mobile"`)
+		requireBodyContains(t, dashboardBody, `/my-hopshare/balance-overview?org_id=`+strconv.FormatInt(org.ID, 10))
+
+		overviewBody := requireStatus(t, actor.Get("/my-hopshare/balance-overview?org_id="+strconv.FormatInt(org.ID, 10)), http.StatusOK)
+		requireBodyContains(t, overviewBody, "Hour Balance Overview")
+		requireBodyContains(t, overviewBody, org.Name)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-description-0">You helped simon Integration<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-balance-0">4<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-description-1">jung Integration helped You<`)
+		requireBodyContains(t, overviewBody, `>-2<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-balance-1">3<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-description-2">Initial balance<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-balance-2">5<`)
+		requireBodyContains(t, overviewBody, `data-testid="balance-overview-mobile-0"`)
 	})
 }
 

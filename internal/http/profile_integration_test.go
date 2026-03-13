@@ -38,6 +38,7 @@ func TestProfileHTTPMatrix(t *testing.T) {
 		requireBodyContains(t, body, "Danger Zone!")
 		requireBodyContains(t, body, "Delete my Account")
 		requireBodyContains(t, body, "I want to leave hopShare")
+		requireBodyNotContains(t, body, "Hour Balance Overview")
 	})
 
 	t.Run("PROF-02 POST /profile action=profile updates member details", func(t *testing.T) {

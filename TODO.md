@@ -51,7 +51,6 @@
 
 * Need an Organization-public Member page with more details about each member. Maybe have a way to send them a message?
 
-
 ## Later
 
 * Hop images should not be stored in the database- instead use reliable external storage. We should use a filesystem instead. Not needed right now.
