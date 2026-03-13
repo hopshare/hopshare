@@ -212,7 +212,6 @@ func TestExpireDueHopsJobLogic(t *testing.T) {
 	orgA, ownerA := createWorkerTestOrganization(t, ctx, db, "expire_a")
 	orgB, ownerB := createWorkerTestOrganization(t, ctx, db, "expire_b")
 
-	pastDate := now.AddDate(0, 0, -2)
 	futureDate := now.AddDate(0, 0, 2)
 
 	expiredA, err := service.CreateHop(ctx, db, service.CreateHopParams{
@@ -221,7 +220,7 @@ func TestExpireDueHopsJobLogic(t *testing.T) {
 		Title:          "Expired A",
 		EstimatedHours: 1,
 		NeededByKind:   types.HopNeededByOn,
-		NeededByDate:   &pastDate,
+		NeededByDate:   &futureDate,
 	})
 	if err != nil {
 		t.Fatalf("create expired hop A: %v", err)
@@ -232,7 +231,7 @@ func TestExpireDueHopsJobLogic(t *testing.T) {
 		Title:          "Expired B",
 		EstimatedHours: 1,
 		NeededByKind:   types.HopNeededByOn,
-		NeededByDate:   &pastDate,
+		NeededByDate:   &futureDate,
 	})
 	if err != nil {
 		t.Fatalf("create expired hop B: %v", err)
@@ -247,6 +246,15 @@ func TestExpireDueHopsJobLogic(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create active hop: %v", err)
+	}
+
+	expiredAt := now.Add(-2 * time.Hour)
+	if _, err := db.ExecContext(ctx, `
+		UPDATE hops
+		SET expires_at = $1
+		WHERE id IN ($2, $3)
+	`, expiredAt, expiredA.ID, expiredB.ID); err != nil {
+		t.Fatalf("mark hops expired: %v", err)
 	}
 
 	count, err := service.ExpireDueHops(ctx, db, now)
