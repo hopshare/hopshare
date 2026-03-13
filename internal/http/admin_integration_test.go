@@ -397,10 +397,18 @@ func TestAdminModerationHTTP(t *testing.T) {
 		approveMemberForOrganization(t, ctx, db, org.ID, owner.Member.ID, reporter.Member.ID)
 
 		hop := createAdminOverviewHop(t, ctx, db, org.ID, owner.Member.ID, "Admin Moderation Hop "+suffix, types.HopNeededByAnytime, nil)
-		if err := service.AddHopComment(ctx, db, hop.ID, owner.Member.ID, "Comment to delete "+suffix); err != nil {
+		if err := service.AddHopComment(ctx, db, service.AddHopCommentParams{
+			HopID:    hop.ID,
+			MemberID: owner.Member.ID,
+			Body:     "Comment to delete " + suffix,
+		}); err != nil {
 			t.Fatalf("add hop comment to delete: %v", err)
 		}
-		if err := service.AddHopComment(ctx, db, hop.ID, owner.Member.ID, "Comment to dismiss "+suffix); err != nil {
+		if err := service.AddHopComment(ctx, db, service.AddHopCommentParams{
+			HopID:    hop.ID,
+			MemberID: owner.Member.ID,
+			Body:     "Comment to dismiss " + suffix,
+		}); err != nil {
 			t.Fatalf("add hop comment to dismiss: %v", err)
 		}
 		if err := service.AddHopImage(ctx, db, hop.ID, owner.Member.ID, "image/png", tinyPNGData()); err != nil {

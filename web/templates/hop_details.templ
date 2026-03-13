@@ -202,7 +202,7 @@ templ HopPrivacyToggle(orgID int64, hopID int64, from string, backView string, h
 	</form>
 }
 
-templ HopCommentComposer(org types.Organization, hop types.Hop, from string, backView string, compact bool) {
+templ HopCommentComposer(org types.Organization, hop types.Hop, from string, backView string, compact bool, privateCommentLabel string) {
 	<form method="POST" action="/hops/comments/create" class="space-y-3">
 		@CSRFField()
 		<input type="hidden" name="org_id" value={ org.ID } />
@@ -224,6 +224,12 @@ templ HopCommentComposer(org types.Organization, hop types.Hop, from string, bac
 				placeholder="Share an update, ask a question, or say thanks."
 			></textarea>
 		</div>
+		if privateCommentLabel != "" {
+			<label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+				<input class="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-500" type="checkbox" name="private_comment" value="1" />
+				<span>{ privateCommentLabel }</span>
+			</label>
+		}
 		<button class="inline-flex items-center justify-center rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800" type="submit">Post comment</button>
 	</form>
 }
@@ -350,11 +356,11 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, from string, bac
 	}
 }
 
-templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
-	@Base(hopDetailsPageContext(org, hop, from, backView), userEmail, HopDetailsBody(org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, showPictures, comments, images))
+templ HopDetails(userEmail *string, org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, privateCommentLabel string, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+	@Base(hopDetailsPageContext(org, hop, from, backView), userEmail, HopDetailsBody(org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, privateCommentLabel, showPictures, comments, images))
 }
 
-templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, showPictures bool, comments []types.HopComment, images []types.HopImage) {
+templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backView string, successMsg string, errorMsg string, canToggle bool, canComment bool, canUpload bool, canOfferHelp bool, hasOfferedToHelp bool, canManageOffers bool, pendingOffers []types.PendingHopOffer, canCancel bool, canComplete bool, canSetCompletionHours bool, privateCommentLabel string, showPictures bool, comments []types.HopComment, images []types.HopImage) {
 	<div class="space-y-6 pb-32 md:pb-0">
 		if successMsg != "" {
 			<div class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">{ successMsg }</div>
@@ -689,7 +695,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 
 			if canComment {
 				<div class="md:hidden">
-					@HopCommentComposer(org, hop, from, backView, true)
+					@HopCommentComposer(org, hop, from, backView, true, privateCommentLabel)
 				</div>
 			}
 
@@ -708,6 +714,9 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 								<div class="flex flex-wrap items-center gap-2">
 									<p class="text-sm font-semibold text-slate-900">{ comment.MemberName }</p>
 									<p class="text-xs text-slate-500">{ formatInAppTime(comment.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
+									if comment.PrivateToMemberID != nil {
+										<span class="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-700">Private</span>
+									}
 								</div>
 								<p class="text-sm text-slate-700 whitespace-pre-line">{ comment.Body }</p>
 								<form method="POST" action="/hops/comments/report">
@@ -727,7 +736,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 
 			if canComment {
 				<div class="hidden md:block">
-					@HopCommentComposer(org, hop, from, backView, false)
+					@HopCommentComposer(org, hop, from, backView, false, privateCommentLabel)
 				</div>
 			} else {
 				<p class="text-sm text-slate-500">Comments are limited to members on this hop.</p>

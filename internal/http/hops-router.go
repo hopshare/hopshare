@@ -194,7 +194,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comments, err := service.ListHopComments(r.Context(), s.db, hopID)
+	comments, err := service.ListVisibleHopComments(r.Context(), s.db, hopID, user.ID)
 	if err != nil {
 		log.Printf("load hop comments %d: %v", hopID, err)
 		http.Error(w, "could not load hop", http.StatusInternalServerError)
@@ -223,6 +223,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	canSetCompletionHours := hop.CreatedBy == user.ID
 	canOfferHelp := hop.Status == types.HopStatusOpen && hop.CreatedBy != user.ID
 	canManageOffers := hop.Status == types.HopStatusOpen && hop.CreatedBy == user.ID
+	privateCommentLabel, _ := hopPrivateCommentOption(hop, user)
 	hasOfferedToHelp := false
 	if canOfferHelp {
 		hasPendingOffer, err := service.HasPendingHopOffer(r.Context(), s.db, hop.ID, user.ID)
@@ -243,7 +244,7 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, s.featureHopPictures, comments, images))
+	render(w, r, templates.HopDetails(s.currentUserEmailPtr(r), org, hop, from, backView, successMsg, errorMsg, canToggle, canComment, canUpload, canOfferHelp, hasOfferedToHelp, canManageOffers, pendingOffers, canCancel, canComplete, canSetCompletionHours, privateCommentLabel, s.featureHopPictures, comments, images))
 }
 
 func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
@@ -729,22 +730,53 @@ func (s *Server) handleCreateHopComment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := service.AddHopComment(r.Context(), s.db, hopID, user.ID, r.FormValue("body")); err != nil {
-		log.Printf("add hop comment failed: %v", err)
-		http.Error(w, "could not add comment", http.StatusInternalServerError)
+	_, privateCommentRecipientID := hopPrivateCommentOption(hop, user)
+	var privateToMemberID *int64
+	if r.FormValue("private_comment") == "1" {
+		privateToMemberID = privateCommentRecipientID
+		if privateToMemberID == nil {
+			http.Redirect(w, r, hopDetailsRedirectWithError(orgID, hopID, r.FormValue("from"), r.FormValue("view"), "Private comments are only available between the requester and helper on this hop."), http.StatusSeeOther)
+			return
+		}
+	}
+
+	if err := service.AddHopComment(r.Context(), s.db, service.AddHopCommentParams{
+		HopID:             hopID,
+		MemberID:          user.ID,
+		Body:              r.FormValue("body"),
+		PrivateToMemberID: privateToMemberID,
+	}); err != nil {
+		switch {
+		case errors.Is(err, service.ErrHopForbidden):
+			s.renderUnauthorized(w, r)
+		case errors.Is(err, service.ErrHopInvalidState):
+			http.Redirect(w, r, hopDetailsRedirectWithError(orgID, hopID, r.FormValue("from"), r.FormValue("view"), "Private comments are only available once a helper has been accepted."), http.StatusSeeOther)
+		case errors.Is(err, service.ErrMissingField):
+			http.Redirect(w, r, hopDetailsRedirectWithError(orgID, hopID, r.FormValue("from"), r.FormValue("view"), "Comment body is required."), http.StatusSeeOther)
+		default:
+			log.Printf("add hop comment failed: %v", err)
+			http.Error(w, "could not add comment", http.StatusInternalServerError)
+		}
 		return
 	}
 
-	notifyMemberIDs := map[int64]struct{}{}
-	if hop.CreatedBy != user.ID {
-		notifyMemberIDs[hop.CreatedBy] = struct{}{}
-	}
-	if hop.AcceptedBy != nil && *hop.AcceptedBy != user.ID {
-		notifyMemberIDs[*hop.AcceptedBy] = struct{}{}
-	}
 	commenterName := memberDisplayName(user)
 	notificationText := fmt.Sprintf("%s commented on your hop: %s.", commenterName, hop.Title)
+	if privateToMemberID != nil {
+		notificationText = fmt.Sprintf("%s sent you a private comment on hop: %s.", commenterName, hop.Title)
+	}
 	notificationHref := fmt.Sprintf("/hops/view?org_id=%d&hop_id=%d", orgID, hopID)
+	notifyMemberIDs := map[int64]struct{}{}
+	if privateToMemberID != nil {
+		notifyMemberIDs[*privateToMemberID] = struct{}{}
+	} else {
+		if hop.CreatedBy != user.ID {
+			notifyMemberIDs[hop.CreatedBy] = struct{}{}
+		}
+		if hop.AcceptedBy != nil && *hop.AcceptedBy != user.ID {
+			notifyMemberIDs[*hop.AcceptedBy] = struct{}{}
+		}
+	}
 	for recipientID := range notifyMemberIDs {
 		if err := service.CreateMemberNotification(r.Context(), s.db, recipientID, notificationText, notificationHref); err != nil {
 			log.Printf("create hop comment notification failed recipient=%d hop=%d: %v", recipientID, hopID, err)
@@ -800,6 +832,17 @@ func (s *Server) handleReportHopComment(w http.ResponseWriter, r *http.Request) 
 	}
 	if hop.IsPrivate && !isAssociated {
 		s.renderUnauthorized(w, r)
+		return
+	}
+
+	visible, err := service.HopCommentVisibleToMember(r.Context(), s.db, hopID, commentID, user.ID)
+	if err != nil {
+		log.Printf("check hop comment visibility for report hop=%d comment=%d member=%d: %v", hopID, commentID, user.ID, err)
+		http.Error(w, "could not submit report", http.StatusInternalServerError)
+		return
+	}
+	if !visible {
+		http.NotFound(w, r)
 		return
 	}
 
@@ -1104,6 +1147,34 @@ func hopDetailsRedirect(orgID, hopID int64, from string, view string) string {
 		}
 	}
 	return base
+}
+
+func hopDetailsRedirectWithError(orgID, hopID int64, from string, view string, msg string) string {
+	return redirectWithMessage(hopDetailsRedirect(orgID, hopID, from, view), "error", msg)
+}
+
+func hopPrivateCommentOption(hop types.Hop, viewer *types.Member) (string, *int64) {
+	if viewer == nil || hop.AcceptedBy == nil {
+		return "", nil
+	}
+
+	if viewer.ID == hop.CreatedBy {
+		recipientID := *hop.AcceptedBy
+		recipientName := "the helper"
+		if hop.AcceptedByName != nil && strings.TrimSpace(*hop.AcceptedByName) != "" {
+			recipientName = strings.TrimSpace(*hop.AcceptedByName)
+		}
+		return "This is a private comment between you and " + recipientName, &recipientID
+	}
+	if viewer.ID == *hop.AcceptedBy {
+		recipientID := hop.CreatedBy
+		recipientName := strings.TrimSpace(hop.CreatedByName)
+		if recipientName == "" {
+			recipientName = "the requester"
+		}
+		return "This is a private comment between you and " + recipientName, &recipientID
+	}
+	return "", nil
 }
 
 func normalizeHopOrigin(raw string) string {

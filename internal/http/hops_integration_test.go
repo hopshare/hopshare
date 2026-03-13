@@ -1144,6 +1144,69 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		)), "/hops/view")
 	})
 
+	t.Run("HOP-24A requester and helper private comments are hidden from other members", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		org, members := createOrganizationWithMembers(t, ctx, db, suffix, "owner", "requester", "helper", "observer")
+		hop := createAcceptedHopViaOffer(t, ctx, db, org.ID, members["requester"].Member.ID, members["helper"].Member.ID, "Private comment exchange "+suffix)
+
+		server := newHTTPServer(t, db)
+		requester := newTestActor(t, "requester", server.URL, members["requester"].Member.Email, members["requester"].Password)
+		helper := newTestActor(t, "helper", server.URL, members["helper"].Member.Email, members["helper"].Password)
+		observer := newTestActor(t, "observer", server.URL, members["observer"].Member.Email, members["observer"].Password)
+		requester.Login()
+		helper.Login()
+		observer.Login()
+
+		helperName := strings.TrimSpace(members["helper"].Member.FirstName + " " + members["helper"].Member.LastName)
+		if helperName == "" {
+			helperName = members["helper"].Member.Email
+		}
+		requesterBody := requireStatus(t, requester.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, requesterBody, "This is a private comment between you and "+helperName)
+
+		requesterComment := "Private coordination note " + suffix
+		requireRedirectPath(t, requester.PostForm("/hops/comments/create", formKV(
+			"org_id", strconv.FormatInt(org.ID, 10),
+			"hop_id", strconv.FormatInt(hop.ID, 10),
+			"body", requesterComment,
+			"private_comment", "1",
+		)), "/hops/view")
+
+		requesterComments, err := service.ListVisibleHopComments(ctx, db, hop.ID, members["requester"].Member.ID)
+		if err != nil {
+			t.Fatalf("list requester-visible hop comments: %v", err)
+		}
+		if len(requesterComments) != 1 || requesterComments[0].PrivateToMemberID == nil || *requesterComments[0].PrivateToMemberID != members["helper"].Member.ID {
+			t.Fatalf("expected requester to see one private comment to helper, got %+v", requesterComments)
+		}
+
+		helperComments, err := service.ListVisibleHopComments(ctx, db, hop.ID, members["helper"].Member.ID)
+		if err != nil {
+			t.Fatalf("list helper-visible hop comments: %v", err)
+		}
+		if len(helperComments) != 1 || helperComments[0].Body != requesterComment {
+			t.Fatalf("expected helper to see requester private comment, got %+v", helperComments)
+		}
+
+		observerComments, err := service.ListVisibleHopComments(ctx, db, hop.ID, members["observer"].Member.ID)
+		if err != nil {
+			t.Fatalf("list observer-visible hop comments: %v", err)
+		}
+		if len(observerComments) != 0 {
+			t.Fatalf("expected observer to see no private comments, got %+v", observerComments)
+		}
+
+		helperBody := requireStatus(t, helper.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyContains(t, helperBody, requesterComment)
+		requireBodyContains(t, helperBody, ">Private</span>")
+
+		observerBody := requireStatus(t, observer.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
+		requireBodyNotContains(t, observerBody, requesterComment)
+		requireBodyNotContains(t, observerBody, "This is a private comment between you and")
+	})
+
 	t.Run("HOP-25 image upload by associated member succeeds", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()

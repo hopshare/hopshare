@@ -180,12 +180,13 @@ type PendingHopOffer struct {
 
 // HopComment represents a comment on a hop.
 type HopComment struct {
-	ID         int64
-	HopID      int64
-	MemberID   int64
-	MemberName string
-	Body       string
-	CreatedAt  time.Time
+	ID                int64
+	HopID             int64
+	MemberID          int64
+	MemberName        string
+	Body              string
+	PrivateToMemberID *int64
+	CreatedAt         time.Time
 }
 
 // HopImage represents an uploaded hop image.

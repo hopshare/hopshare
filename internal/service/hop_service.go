@@ -2052,7 +2052,7 @@ func ListHopComments(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopC
 		SELECT
 			c.id, c.hop_id, c.member_id,
 			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
-			c.body, c.created_at
+			c.body, c.private_to_member_id, c.created_at
 		FROM hop_comments c
 		JOIN members m ON m.id = c.member_id
 		WHERE c.hop_id = $1
@@ -2066,8 +2066,13 @@ func ListHopComments(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopC
 	var out []types.HopComment
 	for rows.Next() {
 		var c types.HopComment
-		if err := rows.Scan(&c.ID, &c.HopID, &c.MemberID, &c.MemberName, &c.Body, &c.CreatedAt); err != nil {
+		var privateToMemberID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.HopID, &c.MemberID, &c.MemberName, &c.Body, &privateToMemberID, &c.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan hop comment: %w", err)
+		}
+		if privateToMemberID.Valid {
+			v := privateToMemberID.Int64
+			c.PrivateToMemberID = &v
 		}
 		out = append(out, c)
 	}
@@ -2077,28 +2082,146 @@ func ListHopComments(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopC
 	return out, nil
 }
 
-func AddHopComment(ctx context.Context, db *sql.DB, hopID, memberID int64, body string) error {
+func ListVisibleHopComments(ctx context.Context, db *sql.DB, hopID, viewerMemberID int64) ([]types.HopComment, error) {
+	if db == nil {
+		return nil, ErrNilDB
+	}
+	if hopID == 0 {
+		return nil, ErrHopNotFound
+	}
+	if viewerMemberID == 0 {
+		return nil, ErrMissingMemberID
+	}
+
+	rows, err := db.QueryContext(ctx, `
+		SELECT
+			c.id, c.hop_id, c.member_id,
+			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
+			c.body, c.private_to_member_id, c.created_at
+		FROM hop_comments c
+		JOIN members m ON m.id = c.member_id
+		WHERE c.hop_id = $1
+			AND (c.private_to_member_id IS NULL OR c.member_id = $2 OR c.private_to_member_id = $2)
+		ORDER BY c.created_at DESC
+	`, hopID, viewerMemberID)
+	if err != nil {
+		return nil, fmt.Errorf("list visible hop comments: %w", err)
+	}
+	defer rows.Close()
+
+	var out []types.HopComment
+	for rows.Next() {
+		var c types.HopComment
+		var privateToMemberID sql.NullInt64
+		if err := rows.Scan(&c.ID, &c.HopID, &c.MemberID, &c.MemberName, &c.Body, &privateToMemberID, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan visible hop comment: %w", err)
+		}
+		if privateToMemberID.Valid {
+			v := privateToMemberID.Int64
+			c.PrivateToMemberID = &v
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list visible hop comments: %w", err)
+	}
+	return out, nil
+}
+
+type AddHopCommentParams struct {
+	HopID             int64
+	MemberID          int64
+	Body              string
+	PrivateToMemberID *int64
+}
+
+func AddHopComment(ctx context.Context, db *sql.DB, p AddHopCommentParams) error {
 	if db == nil {
 		return ErrNilDB
 	}
-	if hopID == 0 {
+	if p.HopID == 0 {
 		return ErrHopNotFound
 	}
-	if memberID == 0 {
+	if p.MemberID == 0 {
 		return ErrMissingMemberID
 	}
-	body = strings.TrimSpace(body)
+	body := strings.TrimSpace(p.Body)
 	if body == "" {
 		return ErrMissingField
 	}
 
+	privateToMemberID, err := normalizeHopCommentAudience(ctx, db, p.HopID, p.MemberID, p.PrivateToMemberID)
+	if err != nil {
+		return err
+	}
+
 	if _, err := db.ExecContext(ctx, `
-		INSERT INTO hop_comments (hop_id, member_id, body)
-		VALUES ($1, $2, $3)
-	`, hopID, memberID, body); err != nil {
+		INSERT INTO hop_comments (hop_id, member_id, body, private_to_member_id)
+		VALUES ($1, $2, $3, $4)
+	`, p.HopID, p.MemberID, body, nullableInt64(privateToMemberID)); err != nil {
 		return fmt.Errorf("create hop comment: %w", err)
 	}
 	return nil
+}
+
+func HopCommentVisibleToMember(ctx context.Context, db *sql.DB, hopID, commentID, viewerMemberID int64) (bool, error) {
+	if db == nil {
+		return false, ErrNilDB
+	}
+	if hopID == 0 || commentID == 0 {
+		return false, ErrHopNotFound
+	}
+	if viewerMemberID == 0 {
+		return false, ErrMissingMemberID
+	}
+
+	var visible bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM hop_comments
+			WHERE id = $1
+				AND hop_id = $2
+				AND (private_to_member_id IS NULL OR member_id = $3 OR private_to_member_id = $3)
+		)
+	`, commentID, hopID, viewerMemberID).Scan(&visible); err != nil {
+		return false, fmt.Errorf("check hop comment visibility: %w", err)
+	}
+	return visible, nil
+}
+
+func normalizeHopCommentAudience(ctx context.Context, db *sql.DB, hopID, memberID int64, privateToMemberID *int64) (*int64, error) {
+	if privateToMemberID == nil {
+		return nil, nil
+	}
+	if *privateToMemberID == 0 || *privateToMemberID == memberID {
+		return nil, ErrHopForbidden
+	}
+
+	var createdBy int64
+	var acceptedBy sql.NullInt64
+	if err := db.QueryRowContext(ctx, `
+		SELECT created_by, accepted_by
+		FROM hops
+		WHERE id = $1
+	`, hopID).Scan(&createdBy, &acceptedBy); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrHopNotFound
+		}
+		return nil, fmt.Errorf("load hop for comment audience: %w", err)
+	}
+	if !acceptedBy.Valid {
+		return nil, ErrHopInvalidState
+	}
+
+	requesterID := createdBy
+	helperID := acceptedBy.Int64
+	validPair := (memberID == requesterID && *privateToMemberID == helperID) || (memberID == helperID && *privateToMemberID == requesterID)
+	if !validPair {
+		return nil, ErrHopForbidden
+	}
+
+	return privateToMemberID, nil
 }
 
 func ListHopImages(ctx context.Context, db *sql.DB, hopID int64) ([]types.HopImage, error) {
@@ -2312,6 +2435,13 @@ func nullableTime(nt sql.NullTime) interface{} {
 		return nil
 	}
 	return nt.Time
+}
+
+func nullableInt64(v *int64) interface{} {
+	if v == nil || *v == 0 {
+		return nil
+	}
+	return *v
 }
 
 func stringPtrFromNull(ns sql.NullString) *string {
