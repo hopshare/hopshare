@@ -14,7 +14,6 @@
 
 ## Bugs
 
-* I can create Hops with a due date in the past- they are then automatically expired! Looks like a UI bug- you can pick 'today' in the chooser but it sets the needed by to a day prior.
 * It is possible to get 'orphaned' offers to help. If the requesting User deletes your Offer message and doesn't respond, then you never get an answer...is that a problem?
 * Race condition when multiple users sign up at the same time with the same First and Last name. The first one in will win as username must be unique. There is some code in here to detect unique constraint violation but it's not working.
 * Move to a static tailwind CSS- don't pull dynamically
@@ -36,7 +35,7 @@
 * Header
 
 * My Profile
-    * If the User is not primary owner of their own Organization, give them a button at bottom of "Organizations" tab that lets them create their own Organization. 
+    * If the User is not already an Owner in an Organization, give them a button at bottom of "Organizations" tab that lets them create their own Organization. 
     * Remove "Preferred Contact" field- and database
  
 * Hop Detail Page
@@ -47,15 +46,6 @@
     * Users
     * Organizations
         * We should let Admins 'inject' new Owners into an Organization if they get abandoned
-        * The Organization name in the detail pane should be clickable to take you directly to the Organization page
- 
-* Joining an Organization 
-    * Users can individually request to join an organization
-        * We should use messages for this
-        * All Owners of the organization get a message with the request- they can approve or deny.
-            * The User asking to join gets a message letting them know if they've been approved or not.
-        * The User asking to join gets a message telling them their request has been sent.
-
 
 * Owners are moderators for listings- they can flag/delete inappropriate requests/comments
 

@@ -247,6 +247,9 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		body := requireStatus(t, member.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)), 200)
 		requireBodyContains(t, body, "Viewable Hop")
 		requireBodyContains(t, body, "Is asking for help")
+		requireBodyContains(t, body, `data-testid="hop-hours-metric"`)
+		requireBodyContains(t, body, `data-testid="hop-hours-value">1<`)
+		requireBodyContains(t, body, ">HOURS<")
 		requireBodyNotContains(t, body, ">Unknown<")
 	})
 

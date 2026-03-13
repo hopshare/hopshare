@@ -36,6 +36,13 @@ func hopHoursLabel(hours int) string {
 	return strconv.Itoa(hours) + " hours"
 }
 
+templ HopHoursMetric(hours int) {
+	<div class="flex min-w-[5.5rem] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-center shadow-sm" data-testid="hop-hours-metric">
+		<p class="text-2xl font-bold leading-none text-slate-900" data-testid="hop-hours-value">{ hours }</p>
+		<p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">HOURS</p>
+	</div>
+}
+
 func hopNeededByDateValue(hop types.Hop) string {
 	if hop.NeededByKind == types.HopNeededByAnytime {
 		return "Anytime"
@@ -369,11 +376,14 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 
 		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
 			<div class="space-y-3">
-				<div class="flex flex-wrap items-center gap-3">
-					@HopDetailsStatusPill(hop.Status)
+				<div class="flex flex-wrap items-stretch gap-3">
+					@HopHoursMetric(hop.EstimatedHours)
+					<div class="flex flex-wrap items-center gap-3">
+						@HopDetailsStatusPill(hop.Status)
 						if canToggle && hop.Status != types.HopStatusOpen {
 							@HopPrivacyToggle(org.ID, hop.ID, from, backView, hop)
-					}
+						}
+					</div>
 				</div>
 				<h1 class="text-2xl font-bold text-slate-900">{ hop.Title }</h1>
 			</div>
