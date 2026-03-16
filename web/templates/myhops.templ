@@ -14,6 +14,25 @@ func myHopsRedirectHref(orgID int64, viewKey string) string {
 	return myHopsViewHref(orgID, viewKey)
 }
 
+func myHopsCurrentOrg(orgs []types.Organization, currentOrgID int64) *types.Organization {
+	for i := range orgs {
+		if orgs[i].ID != currentOrgID {
+			continue
+		}
+		org := orgs[i]
+		return &org
+	}
+	return nil
+}
+
+func myHopsCurrentOrgBannerURL(orgs []types.Organization, currentOrgID int64) string {
+	org := myHopsCurrentOrg(orgs, currentOrgID)
+	if org == nil {
+		return ""
+	}
+	return organizationBannerURL(*org)
+}
+
 func myHopsDetailHref(orgID, hopID int64, viewKey string) string {
 	return "/hops/view?hop_id=" + strconv.FormatInt(hopID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=my-hops&view=" + viewKey
 }
@@ -147,44 +166,33 @@ templ MyHopsBody(
 }
 
 templ MyHopsPageHeader(orgs []types.Organization, currentOrgID int64) {
-	<div class="space-y-3 md:space-y-0 md:flex md:items-center md:justify-between md:gap-4">
-		<div class="md:hidden space-y-3">
-			for _, org := range orgs {
-				if org.ID == currentOrgID {
-					<div class="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-						<div class="flex items-center gap-3 min-w-0">
-							<img
-								src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-								alt={ org.Name + " logo" }
-								class="h-11 w-11 shrink-0 rounded-xl bg-white object-contain ring-1 ring-slate-200"
-							/>
-							<div class="min-w-0">
-								<p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">My Hops</p>
-								<a class="block truncate text-lg font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
-							</div>
-						</div>
-					</div>
-				}
+	if myHopsCurrentOrg(orgs, currentOrgID) != nil {
+		<section class="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+			if myHopsCurrentOrg(orgs, currentOrgID).HasBanner {
+				<img
+					src={ myHopsCurrentOrgBannerURL(orgs, currentOrgID) }
+					alt={ myHopsCurrentOrg(orgs, currentOrgID).Name + " banner" }
+					class="absolute inset-0 h-full w-full object-cover"
+				/>
+			} else {
+				<div class="absolute inset-0 bg-gradient-to-br from-sky-700 via-sky-600 to-slate-800"></div>
 			}
-		</div>
-		<div class="hidden min-w-0 md:block">
-			for _, org := range orgs {
-				if org.ID == currentOrgID {
-					<div class="flex items-center gap-3 min-w-0">
-						<img
-							src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-							alt={ org.Name + " logo" }
-							class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
-						/>
-						<div class="min-w-0">
-							<p class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">My Hops</p>
-							<a class="block truncate text-2xl font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
-						</div>
+			<div class="absolute inset-0 bg-slate-900/45"></div>
+			<div class="relative px-4 py-4 md:px-6 md:py-5">
+				<div class="flex items-center gap-3 min-w-0">
+					<img
+						src={ "/organizations/logo?org_id=" + strconv.FormatInt(myHopsCurrentOrg(orgs, currentOrgID).ID, 10) + "&v=" + strconv.FormatInt(myHopsCurrentOrg(orgs, currentOrgID).UpdatedAt.Unix(), 10) }
+						alt={ myHopsCurrentOrg(orgs, currentOrgID).Name + " logo" }
+						class="h-11 w-11 shrink-0 rounded-xl bg-white object-contain ring-1 ring-white/40 md:h-12 md:w-12"
+					/>
+					<div class="min-w-0">
+						<p class="text-xs font-semibold uppercase tracking-[0.2em] text-white/75 md:text-sm">My Hops</p>
+						<a class="block truncate text-lg font-bold text-white underline decoration-white/60 underline-offset-2 hover:text-white md:text-2xl" href={ "/organization/" + myHopsCurrentOrg(orgs, currentOrgID).URLName }>{ myHopsCurrentOrg(orgs, currentOrgID).Name }</a>
 					</div>
-				}
-			}
-		</div>
-	</div>
+				</div>
+			</div>
+		</section>
+	}
 }
 
 templ MyHopsViewSwitcher(orgID int64, viewKey string) {

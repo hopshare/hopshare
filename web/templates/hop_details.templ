@@ -376,16 +376,26 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 			<div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800">{ errorMsg }</div>
 		}
 
-		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-			<div class="flex items-center gap-3 min-w-0">
+		<section class="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+			if org.HasBanner {
+				<img
+					src={ organizationBannerURL(org) }
+					alt={ org.Name + " banner" }
+					class="absolute inset-0 h-full w-full object-cover"
+				/>
+			} else {
+				<div class="absolute inset-0 bg-gradient-to-br from-sky-700 via-sky-600 to-slate-800"></div>
+			}
+			<div class="absolute inset-0 bg-slate-900/45"></div>
+			<div class="relative flex items-center gap-3 min-w-0 px-4 py-4 md:px-6 md:py-5">
 				<img
 					src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
 					alt={ org.Name + " logo" }
-					class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+					class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-white/40 md:h-11 md:w-11"
 				/>
-				<a class="text-2xl font-bold text-slate-900 truncate underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
+				<a class="block truncate text-2xl font-bold text-white underline decoration-white/60 underline-offset-2 hover:text-white" href={ "/organization/" + org.URLName }>{ org.Name }</a>
 			</div>
-		</div>
+		</section>
 
 		<section class={ "border rounded-xl shadow-sm p-8 space-y-6 " + hopSurfaceClass(hop) }>
 			<div class="space-y-3">

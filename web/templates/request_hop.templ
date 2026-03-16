@@ -34,23 +34,29 @@ templ RequestHopPageBody(orgs []types.Organization, currentOrgID int64, org type
 		}
 
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-			<div class="min-w-0">
-				for _, org := range orgs {
-					if org.ID == currentOrgID {
-						<div class="flex items-center gap-3 min-w-0">
-							<img
-								src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
-								alt={ org.Name + " logo" }
-								class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
-							/>
-							<div class="min-w-0">
-								<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
-								<a class="block truncate text-xl font-bold text-slate-900 underline hover:text-sky-800" href={ "/organization/" + org.URLName }>{ org.Name }</a>
-							</div>
-						</div>
-					}
+			<section class="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+				if org.HasBanner {
+					<img
+						src={ organizationBannerURL(org) }
+						alt={ org.Name + " banner" }
+						class="absolute inset-0 h-full w-full object-cover"
+					/>
+				} else {
+					<div class="absolute inset-0 bg-gradient-to-br from-sky-700 via-sky-600 to-slate-800"></div>
 				}
-			</div>
+				<div class="absolute inset-0 bg-slate-900/45"></div>
+				<div class="relative flex items-center gap-3 min-w-0 px-4 py-4">
+					<img
+						src={ "/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10) }
+						alt={ org.Name + " logo" }
+						class="h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-white/40"
+					/>
+					<div class="min-w-0">
+						<p class="text-xs font-semibold uppercase tracking-wide text-white/75">Current organization</p>
+						<a class="block truncate text-xl font-bold text-white underline decoration-white/60 underline-offset-2 hover:text-white" href={ "/organization/" + org.URLName }>{ org.Name }</a>
+					</div>
+				</div>
+			</section>
 			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden" href={ "/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10) }>
 				Back to My hopShare
 			</a>

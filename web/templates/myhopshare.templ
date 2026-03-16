@@ -52,6 +52,14 @@ func myhopShareBalanceOverviewHref(currentOrgID int64) string {
 	return "/my-hopshare/balance-overview"
 }
 
+func myhopShareCurrentOrgBannerURL(orgs []types.Organization, currentOrgID int64) string {
+	org := myhopShareCurrentOrg(orgs, currentOrgID)
+	if org == nil {
+		return ""
+	}
+	return organizationBannerURL(*org)
+}
+
 func myhopShareBalanceOverviewDateLabel(occurredAt time.Time) string {
 	return occurredAt.Format("1/2/06")
 }
@@ -454,31 +462,41 @@ templ MyhopShareDashboardDesktop(
 
 templ MyhopShareCurrentOrgCard(orgs []types.Organization, currentOrgID int64, mobile bool) {
 	if myhopShareCurrentOrg(orgs, currentOrgID) != nil {
-		<section class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-			<div class="flex items-start justify-between gap-3">
+		<section class="relative overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+			if myhopShareCurrentOrg(orgs, currentOrgID).HasBanner {
+				<img
+					src={ myhopShareCurrentOrgBannerURL(orgs, currentOrgID) }
+					alt={ myhopShareCurrentOrg(orgs, currentOrgID).Name + " banner" }
+					class="absolute inset-0 h-full w-full object-cover"
+				/>
+			} else {
+				<div class="absolute inset-0 bg-gradient-to-br from-sky-700 via-sky-600 to-slate-800"></div>
+			}
+			<div class="absolute inset-0 bg-slate-900/45"></div>
+			<div class="relative flex items-start justify-between gap-3 px-4 py-4">
 				<div class="min-w-0">
 					<div class="flex items-center gap-3 min-w-0">
 						<img
 							src={ "/organizations/logo?org_id=" + strconv.FormatInt(myhopShareCurrentOrg(orgs, currentOrgID).ID, 10) + "&v=" + strconv.FormatInt(myhopShareCurrentOrg(orgs, currentOrgID).UpdatedAt.Unix(), 10) }
 							alt={ myhopShareCurrentOrg(orgs, currentOrgID).Name + " logo" }
-							class="h-9 w-9 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200"
+							class="h-9 w-9 shrink-0 rounded bg-white object-contain ring-1 ring-white/40"
 						/>
 						<div class="min-w-0">
-							<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current organization</p>
+							<p class="text-xs font-semibold uppercase tracking-wide text-white/75">Current organization</p>
 							<a class={ myhopShareCurrentOrgLinkClass(mobile) } href={ "/organization/" + myhopShareCurrentOrg(orgs, currentOrgID).URLName }>{ myhopShareCurrentOrg(orgs, currentOrgID).Name }</a>
 						</div>
 					</div>
 				</div>
 				if mobile {
 					<a
-						class="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-sky-800"
+						class="inline-flex shrink-0 items-center justify-center rounded-lg border border-white/35 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:border-white/55 hover:bg-white/15"
 						href="/my-hopshare/organizations"
 					>
 						Switch
 					</a>
 				} else {
 					<a
-						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-300 text-slate-600 transition hover:border-slate-400 hover:text-sky-800"
+						class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/35 bg-white/10 text-white transition hover:border-white/55 hover:bg-white/15"
 						href="/my-hopshare/organizations"
 						aria-label="Switch organization"
 						title="Switch organization"
@@ -496,9 +514,9 @@ templ MyhopShareCurrentOrgCard(orgs []types.Organization, currentOrgID int64, mo
 
 func myhopShareCurrentOrgLinkClass(mobile bool) string {
 	if mobile {
-		return "block text-lg font-bold leading-snug text-slate-900 underline hover:text-sky-800 break-words"
+		return "block text-lg font-bold leading-snug text-white underline decoration-white/60 underline-offset-2 hover:text-white break-words"
 	}
-	return "block truncate text-lg font-bold text-slate-900 underline hover:text-sky-800"
+	return "block truncate text-lg font-bold text-white underline decoration-white/60 underline-offset-2 hover:text-white"
 }
 
 templ MyhopShareBalanceCard(displayName string, lastLoginLabel string, orgs []types.Organization, currentOrgID int64, memberStats types.MemberHopStats) {

@@ -104,97 +104,126 @@ func RequestHopPageBody(orgs []types.Organization, currentOrgID int64, org types
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><div class=\"min-w-0\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between\"><section class=\"relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 shadow-sm\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, org := range orgs {
-			if org.ID == currentOrgID {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div class=\"flex items-center gap-3 min-w-0\"><img src=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var4 string
-				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 42, Col: 129}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" alt=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 43, Col: 32}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-slate-200\"><div class=\"min-w-0\"><p class=\"text-xs font-semibold uppercase tracking-wide text-slate-500\">Current organization</p><a class=\"block truncate text-xl font-bold text-slate-900 underline hover:text-sky-800\" href=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var6 templ.SafeURL
-				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs("/organization/" + org.URLName)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 48, Col: 133}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var7 string
-				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 48, Col: 146}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</a></div></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+		if org.HasBanner {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<img src=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(organizationBannerURL(org))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 40, Col: 38}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" alt=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var5 string
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " banner")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 41, Col: 32}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"absolute inset-0 h-full w-full object-cover\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div class=\"absolute inset-0 bg-gradient-to-br from-sky-700 via-sky-600 to-slate-800\"></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"absolute inset-0 bg-slate-900/45\"></div><div class=\"relative flex items-center gap-3 min-w-0 px-4 py-4\"><img src=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs("/organizations/logo?org_id=" + strconv.FormatInt(org.ID, 10) + "&v=" + strconv.FormatInt(org.UpdatedAt.Unix(), 10))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 50, Col: 127}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" alt=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var7 string
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name + " logo")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 51, Col: 30}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" class=\"h-10 w-10 shrink-0 rounded bg-white object-contain ring-1 ring-white/40\"><div class=\"min-w-0\"><p class=\"text-xs font-semibold uppercase tracking-wide text-white/75\">Current organization</p><a class=\"block truncate text-xl font-bold text-white underline decoration-white/60 underline-offset-2 hover:text-white\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 templ.SafeURL
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs("/organization/" + org.URLName)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 54, Col: 155}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 56, Col: 164}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\">Back to My hopShare</a></div><section class=\"bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden\"><div class=\"p-6 sm:p-7 space-y-2 border-b border-slate-200\"><h1 class=\"text-2xl font-bold text-slate-900\">New Hop</h1><p class=\"text-slate-600 leading-relaxed\">Create an Ask if you need help, or an Offer if you want to help someone else.</p></div><form method=\"POST\" action=\"/hops/create\" x-data=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs("{ hopKind: '" + selectedKind + "', neededByKind: '" + types.HopNeededByOn + "', minNeededByDate: '" + minHopNeededByDateValue() + "', canAsk: " + strconv.FormatBool(canCreateAsk(memberStats.BalanceHours, org)) + ", canOffer: " + strconv.FormatBool(canCreateOffer(memberStats.BalanceHours, org)) + ", syncNeededByDate() { if (!this.$refs.neededByDate) { return true; } const input = this.$refs.neededByDate; if (this.neededByKind === '" + types.HopNeededByAnytime + "') { input.value = ''; input.setCustomValidity(''); return true; } if (input.value && input.value < this.minNeededByDate) { input.value = this.minNeededByDate; } if (input.value && input.value < this.minNeededByDate) { input.setCustomValidity('When date must be after today.'); } else { input.setCustomValidity(''); } return input.checkValidity(); }, validateNeededByDate(event) { if (!this.syncNeededByDate() && this.$refs.neededByDate) { event.preventDefault(); this.$refs.neededByDate.reportValidity(); } }, selectKind(kind) { if ((kind === '" + types.HopKindAsk + "' && !this.canAsk) || (kind === '" + types.HopKindOffer + "' && !this.canOffer)) { return; } this.hopKind = kind; } }")
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(org.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 70, Col: 1167}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 56, Col: 177}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" x-on:submit=\"validateNeededByDate($event)\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</a></div></div></section><a class=\"text-sm font-semibold text-sky-700 underline hover:text-sky-800 md:hidden\" href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var10 templ.SafeURL
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 60, Col: 155}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\">Back to My hopShare</a></div><section class=\"bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden\"><div class=\"p-6 sm:p-7 space-y-2 border-b border-slate-200\"><h1 class=\"text-2xl font-bold text-slate-900\">New Hop</h1><p class=\"text-slate-600 leading-relaxed\">Create an Ask if you need help, or an Offer if you want to help someone else.</p></div><form method=\"POST\" action=\"/hops/create\" x-data=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var11 string
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs("{ hopKind: '" + selectedKind + "', neededByKind: '" + types.HopNeededByOn + "', minNeededByDate: '" + minHopNeededByDateValue() + "', canAsk: " + strconv.FormatBool(canCreateAsk(memberStats.BalanceHours, org)) + ", canOffer: " + strconv.FormatBool(canCreateOffer(memberStats.BalanceHours, org)) + ", syncNeededByDate() { if (!this.$refs.neededByDate) { return true; } const input = this.$refs.neededByDate; if (this.neededByKind === '" + types.HopNeededByAnytime + "') { input.value = ''; input.setCustomValidity(''); return true; } if (input.value && input.value < this.minNeededByDate) { input.value = this.minNeededByDate; } if (input.value && input.value < this.minNeededByDate) { input.setCustomValidity('When date must be after today.'); } else { input.setCustomValidity(''); } return input.checkValidity(); }, validateNeededByDate(event) { if (!this.syncNeededByDate() && this.$refs.neededByDate) { event.preventDefault(); this.$refs.neededByDate.reportValidity(); } }, selectKind(kind) { if ((kind === '" + types.HopKindAsk + "' && !this.canAsk) || (kind === '" + types.HopKindOffer + "' && !this.canOffer)) { return; } this.hopKind = kind; } }")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 76, Col: 1167}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\" x-on:submit=\"validateNeededByDate($event)\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -202,138 +231,138 @@ func RequestHopPageBody(orgs []types.Organization, currentOrgID int64, org types
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<input type=\"hidden\" name=\"org_id\" value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(currentOrgID)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 74, Col: 59}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"> <input type=\"hidden\" name=\"hop_kind\" x-bind:value=\"hopKind\"><div class=\"p-6 sm:p-7 space-y-5\"><div class=\"space-y-2\"><label class=\"block text-sm font-semibold text-slate-800\">What kind of hop is this?</label><div class=\"grid gap-3 sm:grid-cols-2\"><button type=\"button\" class=\"rounded-xl border px-4 py-4 text-left transition\" x-bind:class=\"hopKind === 'ask' ? 'border-sky-700 bg-sky-50' : 'border-slate-200 bg-white'\" x-bind:disabled=\"!canAsk\" x-on:click=\"selectKind('ask')\"><div class=\"flex items-center justify-between gap-3\"><span class=\"inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800\">Ask</span> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !canCreateAsk(memberStats.BalanceHours, org) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<span class=\"text-xs font-semibold text-red-700\">Unavailable</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</div><p class=\"mt-3 text-sm text-slate-700\">You need help and want someone else to match with you.</p>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !canCreateAsk(memberStats.BalanceHours, org) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<p class=\"mt-2 text-xs text-red-700\">You're at the minimum balance for this timebank.</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</button> <button type=\"button\" class=\"rounded-xl border px-4 py-4 text-left transition\" x-bind:class=\"hopKind === 'offer' ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white'\" x-bind:disabled=\"!canOffer\" x-on:click=\"selectKind('offer')\"><div class=\"flex items-center justify-between gap-3\"><span class=\"inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800\">Offer</span> ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !canCreateOffer(memberStats.BalanceHours, org) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<span class=\"text-xs font-semibold text-red-700\">Unavailable</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><p class=\"mt-3 text-sm text-slate-700\">You want to help and are offering your time to someone else.</p>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if !canCreateOffer(memberStats.BalanceHours, org) {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<p class=\"mt-2 text-xs text-red-700\">You're at the maximum balance for this timebank.</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</button></div><p class=\"text-sm text-slate-600\" x-text=\"hopKind === 'offer' ? 'Offer your time to someone else in the organization.' : 'Ask the organization for help with something you need.'\"></p></div><div class=\"grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3\"><div class=\"space-y-1 sm:col-span-2\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-title\">What is this hop about?</label> <input id=\"hop-title\" name=\"title\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" placeholder=\"Example: Help moving a couch\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-when-kind\">When?</label><div class=\"flex gap-2\"><select id=\"hop-when-kind\" name=\"needed_by_kind\" class=\"rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" x-model=\"neededByKind\" x-on:change=\"syncNeededByDate()\"><option value=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAnytime)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 136, Col: 49}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\">Anytime</option> <option value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<input type=\"hidden\" name=\"org_id\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByOn)
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(currentOrgID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 137, Col: 44}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 80, Col: 59}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\">on</option> <option value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"> <input type=\"hidden\" name=\"hop_kind\" x-bind:value=\"hopKind\"><div class=\"p-6 sm:p-7 space-y-5\"><div class=\"space-y-2\"><label class=\"block text-sm font-semibold text-slate-800\">What kind of hop is this?</label><div class=\"grid gap-3 sm:grid-cols-2\"><button type=\"button\" class=\"rounded-xl border px-4 py-4 text-left transition\" x-bind:class=\"hopKind === 'ask' ? 'border-sky-700 bg-sky-50' : 'border-slate-200 bg-white'\" x-bind:disabled=\"!canAsk\" x-on:click=\"selectKind('ask')\"><div class=\"flex items-center justify-between gap-3\"><span class=\"inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-sky-800\">Ask</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !canCreateAsk(memberStats.BalanceHours, org) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"text-xs font-semibold text-red-700\">Unavailable</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div><p class=\"mt-3 text-sm text-slate-700\">You need help and want someone else to match with you.</p>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !canCreateAsk(memberStats.BalanceHours, org) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<p class=\"mt-2 text-xs text-red-700\">You're at the minimum balance for this timebank.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</button> <button type=\"button\" class=\"rounded-xl border px-4 py-4 text-left transition\" x-bind:class=\"hopKind === 'offer' ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white'\" x-bind:disabled=\"!canOffer\" x-on:click=\"selectKind('offer')\"><div class=\"flex items-center justify-between gap-3\"><span class=\"inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800\">Offer</span> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !canCreateOffer(memberStats.BalanceHours, org) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<span class=\"text-xs font-semibold text-red-700\">Unavailable</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div><p class=\"mt-3 text-sm text-slate-700\">You want to help and are offering your time to someone else.</p>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if !canCreateOffer(memberStats.BalanceHours, org) {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<p class=\"mt-2 text-xs text-red-700\">You're at the maximum balance for this timebank.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</button></div><p class=\"text-sm text-slate-600\" x-text=\"hopKind === 'offer' ? 'Offer your time to someone else in the organization.' : 'Ask the organization for help with something you need.'\"></p></div><div class=\"grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-3\"><div class=\"space-y-1 sm:col-span-2\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-title\">What is this hop about?</label> <input id=\"hop-title\" name=\"title\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" type=\"text\" placeholder=\"Example: Help moving a couch\" required></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-when-kind\">When?</label><div class=\"flex gap-2\"><select id=\"hop-when-kind\" name=\"needed_by_kind\" class=\"rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" x-model=\"neededByKind\" x-on:change=\"syncNeededByDate()\"><option value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAround)
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAnytime)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 138, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 142, Col: 49}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">around</option> <option value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\">Anytime</option> <option value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByNoLaterThan)
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByOn)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 139, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 143, Col: 44}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\">no later than</option></select> <input id=\"hop-when-date\" name=\"needed_by_date\" class=\"flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:bg-slate-100 disabled:text-slate-500\" type=\"date\" min=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">on</option> <option value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(minHopNeededByDateValue())
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByAround)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 146, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 144, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\" required x-ref=\"neededByDate\" x-bind:required=\"neededByKind !== 'anytime'\" x-bind:disabled=\"neededByKind === 'anytime'\" x-on:input=\"syncNeededByDate()\" x-on:change=\"syncNeededByDate()\" x-on:blur=\"syncNeededByDate()\"></div></div><div class=\"space-y-1 sm:justify-self-end\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-hours\">How long will it take?</label> <select id=\"hop-hours\" name=\"estimated_hours\" class=\"w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><option value=\"1\">1 hour</option> <option value=\"2\">2 hours</option> <option value=\"3\">3 hours</option> <option value=\"4\">4 hours</option> <option value=\"5\">5 hours</option> <option value=\"6\">6 hours</option> <option value=\"7\">7 hours</option> <option value=\"8\">8 hours</option></select></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-details\">Details</label> <textarea id=\"hop-details\" name=\"details\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" rows=\"4\" placeholder=\"Share what matters: location, timing, tools, accessibility needs...\"></textarea></div></div><div class=\"p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3\"><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition disabled:bg-slate-300 disabled:text-slate-600\" type=\"submit\" x-bind:disabled=\"(hopKind === 'ask' && !canAsk) || (hopKind === 'offer' && !canOffer)\">Create hop</button> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\">around</option> <option value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var16 templ.SafeURL
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
+		var templ_7745c5c3_Var16 string
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(types.HopNeededByNoLaterThan)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 187, Col: 220}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 145, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\">Cancel</a></div></form></section></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\">no later than</option></select> <input id=\"hop-when-date\" name=\"needed_by_date\" class=\"flex-1 rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:bg-slate-100 disabled:text-slate-500\" type=\"date\" min=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var17 string
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(minHopNeededByDateValue())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 152, Col: 40}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" required x-ref=\"neededByDate\" x-bind:required=\"neededByKind !== 'anytime'\" x-bind:disabled=\"neededByKind === 'anytime'\" x-on:input=\"syncNeededByDate()\" x-on:change=\"syncNeededByDate()\" x-on:blur=\"syncNeededByDate()\"></div></div><div class=\"space-y-1 sm:justify-self-end\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-hours\">How long will it take?</label> <select id=\"hop-hours\" name=\"estimated_hours\" class=\"w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\"><option value=\"1\">1 hour</option> <option value=\"2\">2 hours</option> <option value=\"3\">3 hours</option> <option value=\"4\">4 hours</option> <option value=\"5\">5 hours</option> <option value=\"6\">6 hours</option> <option value=\"7\">7 hours</option> <option value=\"8\">8 hours</option></select></div></div><div class=\"space-y-1\"><label class=\"block text-sm font-semibold text-slate-800\" for=\"hop-details\">Details</label> <textarea id=\"hop-details\" name=\"details\" class=\"w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500\" rows=\"4\" placeholder=\"Share what matters: location, timing, tools, accessibility needs...\"></textarea></div></div><div class=\"p-6 sm:p-7 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row-reverse gap-3\"><button class=\"inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition disabled:bg-slate-300 disabled:text-slate-600\" type=\"submit\" x-bind:disabled=\"(hopKind === 'ask' && !canAsk) || (hopKind === 'offer' && !canOffer)\">Create hop</button> <a class=\"inline-flex justify-center rounded-lg border border-slate-300 text-slate-800 font-semibold px-4 py-2.5 hover:border-slate-400 transition\" href=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 templ.SafeURL
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs("/my-hopshare?org_id=" + strconv.FormatInt(currentOrgID, 10))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/request_hop.templ`, Line: 193, Col: 220}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\">Cancel</a></div></form></section></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
