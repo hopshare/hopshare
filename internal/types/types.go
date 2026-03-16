@@ -258,6 +258,11 @@ type AdminHopStatusCount struct {
 	Count  int
 }
 
+type AdminHopKindCount struct {
+	Kind  string
+	Count int
+}
+
 type AdminOrganizationLeaderboardEntry struct {
 	OrganizationID      int64
 	OrganizationName    string
@@ -284,6 +289,7 @@ type AdminAppOverview struct {
 	UserVerificationCounts  AdminVerifiedNotVerifiedCounts
 	HourOverrideCounts      AdminHourOverrideCounts
 	HopsByStatus            []AdminHopStatusCount
+	HopsByKind              []AdminHopKindCount
 	TotalHoursExchanged     int
 	TopOrgsByHopsCreated    []AdminOrganizationLeaderboardEntry
 	TopOrgsByHoursExchanged []AdminOrganizationLeaderboardEntry
@@ -351,7 +357,13 @@ type AdminOrganizationDetail struct {
 	DisabledMemberCount int
 	HourOverrideCounts  AdminHourOverrideCounts
 	HopCounts           []AdminHopStatusCount
+	HopKinds            []AdminHopKindCount
 	Hops                []AdminOrganizationHop
+}
+
+type OrganizationHopMetricsDetail struct {
+	HopsByStatus []AdminHopStatusCount
+	HopsByKind   []AdminHopKindCount
 }
 
 type AdminOrganizationTabData struct {

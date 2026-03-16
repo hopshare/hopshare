@@ -399,6 +399,8 @@ func manageOrganizationTabLabel(activeTab string) string {
 		return "Skills"
 	case "timebank":
 		return "Time Bank"
+	case "metrics":
+		return "Metrics"
 	case "invite":
 		return "Invite"
 	default:

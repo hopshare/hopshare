@@ -83,17 +83,16 @@ templ AdminAppOverviewTab(overview types.AdminAppOverview) {
 					</div>
 				</div>
 			</div>
-			<div class="rounded-lg border border-slate-200 p-4">
-				<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hops By Status</p>
-				<div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-					for _, statusCount := range overview.HopsByStatus {
-						<div class="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
-							<span class="text-sm font-medium text-slate-700">{ adminHopStatusLabel(statusCount.Status) }</span>
-							<span class="text-base font-semibold text-slate-900" data-testid={ "admin-hop-status-count-" + statusCount.Status }>{ statusCount.Count }</span>
-						</div>
-					}
+			<section class="rounded-lg border border-slate-200 p-4 space-y-4">
+				<div>
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Hop Metrics</p>
+					<p class="mt-1 text-sm text-slate-600">Distribution by status and by Ask versus Offer.</p>
 				</div>
-			</div>
+				<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+					@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(overview.HopsByStatus, "admin-hop-status-count-"))
+					@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(overview.HopsByKind, "admin-hop-kind-count-"))
+				</div>
+			</section>
 		</section>
 
 		<section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
@@ -107,6 +106,33 @@ templ AdminAppOverviewTab(overview types.AdminAppOverview) {
 				@AdminLeaderboardCardByUsers(overview.TopOrgsByUsers)
 			</div>
 		</section>
+	</div>
+}
+
+templ HopMetricsCard(title string, segments []hopMetricSegment) {
+	<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+		<p class="text-sm font-semibold text-slate-900">{ title }</p>
+		<div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center">
+			<div class="mx-auto shrink-0">
+				<div class="flex h-40 w-40 items-center justify-center rounded-full border border-slate-200 shadow-inner" style={ hopMetricChartStyle(segments) }>
+					<div class="flex h-20 w-20 flex-col items-center justify-center rounded-full border border-slate-200 bg-white text-center shadow-sm">
+						<p class="text-2xl font-bold text-slate-900">{ hopMetricTotal(segments) }</p>
+						<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+					</div>
+				</div>
+			</div>
+			<div class="flex-1 space-y-2">
+				for _, segment := range segments {
+					<div class="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2">
+						<div class="flex min-w-0 items-center gap-2">
+							<span class="h-3 w-3 shrink-0 rounded-full" style={ "background-color: " + segment.Color }></span>
+							<span class="truncate text-sm font-medium text-slate-700">{ segment.Label }</span>
+						</div>
+						<span class="text-base font-semibold text-slate-900" data-testid={ segment.TestID }>{ segment.Count }</span>
+					</div>
+				}
+			</div>
+		</div>
 	</div>
 }
 
@@ -385,6 +411,13 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 			}
 		</div>
 	</div>
+}
+
+type hopMetricSegment struct {
+	Label  string
+	Color  string
+	Count  int
+	TestID string
 }
 
 templ AdminModerationTab(data types.AdminModerationTabData) {
@@ -1186,6 +1219,118 @@ func adminTotalHopCount(counts []types.AdminHopStatusCount) int {
 		total += c.Count
 	}
 	return total
+}
+
+func adminHopKindLabel(kind string) string {
+	switch kind {
+	case types.HopKindAsk:
+		return "Ask"
+	case types.HopKindOffer:
+		return "Offer"
+	default:
+		raw := strings.TrimSpace(strings.ReplaceAll(kind, "_", " "))
+		if raw == "" {
+			return "Unknown"
+		}
+		return strings.ToUpper(raw[:1]) + raw[1:]
+	}
+}
+
+func hopMetricColorForStatus(status string) string {
+	switch status {
+	case types.HopStatusOpen:
+		return "#f59e0b"
+	case types.HopStatusAccepted:
+		return "#0ea5e9"
+	case types.HopStatusCompleted:
+		return "#10b981"
+	case types.HopStatusCanceled:
+		return "#ef4444"
+	case types.HopStatusExpired:
+		return "#64748b"
+	default:
+		return "#94a3b8"
+	}
+}
+
+func hopMetricColorForKind(kind string) string {
+	switch kind {
+	case types.HopKindAsk:
+		return "#0ea5e9"
+	case types.HopKindOffer:
+		return "#10b981"
+	default:
+		return "#94a3b8"
+	}
+}
+
+func hopMetricSegmentsForStatus(counts []types.AdminHopStatusCount, testIDPrefix string) []hopMetricSegment {
+	segments := make([]hopMetricSegment, 0, len(counts))
+	for _, count := range counts {
+		segments = append(segments, hopMetricSegment{
+			Label:  adminHopStatusLabel(count.Status),
+			Color:  hopMetricColorForStatus(count.Status),
+			Count:  count.Count,
+			TestID: testIDPrefix + count.Status,
+		})
+	}
+	return segments
+}
+
+func hopMetricSegmentsForKind(counts []types.AdminHopKindCount, testIDPrefix string) []hopMetricSegment {
+	segments := make([]hopMetricSegment, 0, len(counts))
+	for _, count := range counts {
+		segments = append(segments, hopMetricSegment{
+			Label:  adminHopKindLabel(count.Kind),
+			Color:  hopMetricColorForKind(count.Kind),
+			Count:  count.Count,
+			TestID: testIDPrefix + count.Kind,
+		})
+	}
+	return segments
+}
+
+func hopMetricTotal(segments []hopMetricSegment) int {
+	total := 0
+	for _, segment := range segments {
+		total += segment.Count
+	}
+	return total
+}
+
+func hopMetricChartStyle(segments []hopMetricSegment) string {
+	total := hopMetricTotal(segments)
+	if total <= 0 {
+		return "background: conic-gradient(#e2e8f0 0 100%);"
+	}
+
+	var b strings.Builder
+	b.WriteString("background: conic-gradient(")
+	progress := 0.0
+	written := 0
+	for _, segment := range segments {
+		if segment.Count <= 0 {
+			continue
+		}
+		start := progress / float64(total) * 100
+		progress += float64(segment.Count)
+		end := progress / float64(total) * 100
+		if written > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(segment.Color)
+		b.WriteString(" ")
+		b.WriteString(strconv.FormatFloat(start, 'f', 2, 64))
+		b.WriteString("% ")
+		b.WriteString(strconv.FormatFloat(end, 'f', 2, 64))
+		b.WriteString("%")
+		written++
+	}
+	if written == 0 {
+		return "background: conic-gradient(#e2e8f0 0 100%);"
+	}
+	b.WriteString(");")
+	return b.String()
 }
 
 func adminCanExpireHopStatus(status string) bool {

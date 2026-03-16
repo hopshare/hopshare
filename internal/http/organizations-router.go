@@ -457,7 +457,14 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, successMsg, errorMsg, activeTab, invitePostRedirect))
+		metricsDetail, err := service.OrganizationHopMetricsDetail(r.Context(), s.db, org.ID)
+		if err != nil {
+			log.Printf("load organization metrics detail org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization metrics", http.StatusInternalServerError)
+			return
+		}
+
+		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, successMsg, errorMsg, activeTab, invitePostRedirect))
 	case http.MethodPost:
 		const maxLogoUploadBytes = 20 << 20
 		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
@@ -542,6 +549,13 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		}
 
+		metricsDetail, err := service.OrganizationHopMetricsDetail(r.Context(), s.db, org.ID)
+		if err != nil {
+			log.Printf("load organization metrics detail org=%d: %v", org.ID, err)
+			http.Error(w, "could not load organization metrics", http.StatusInternalServerError)
+			return
+		}
+
 		action := strings.TrimSpace(r.FormValue("action"))
 		if action == "" {
 			action = "details"
@@ -560,7 +574,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			description := strings.TrimSpace(r.FormValue("description"))
 			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", err.Error(), activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", err.Error(), activeTab, invitePostRedirect))
 				return
 			}
 
@@ -574,14 +588,14 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			}
 			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
 				log.Printf("update organization %d: %v", org.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not update organization.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not update organization.", activeTab, invitePostRedirect))
 				return
 			}
 
 			if hasLogo {
 				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
 					log.Printf("set org logo org=%d: %v", org.ID, err)
-					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not upload logo.", activeTab, invitePostRedirect))
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not upload logo.", activeTab, invitePostRedirect))
 					return
 				}
 			}
@@ -592,7 +606,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			skillNames := parseSkillLines(r.FormValue("skills_text"))
 			if err := service.ReplaceOrganizationSkills(r.Context(), s.db, org.ID, user.ID, skillNames); err != nil {
 				log.Printf("replace organization skills org=%d actor=%d: %v", org.ID, user.ID, err)
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Could not update skills.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not update skills.", activeTab, invitePostRedirect))
 				return
 			}
 			redirectURL := manageOrganizationRedirectURL(org.ID, "Organization skills updated.", activeTab, invitePostRedirect)
@@ -600,17 +614,17 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 		case "timebank":
 			minBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_min_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Minimum balance must be a whole number.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Minimum balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 			maxBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_max_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Maximum balance must be a whole number.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Maximum balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 			startingBalance, err := parseRequiredInt(strings.TrimSpace(r.FormValue("timebank_starting_balance")))
 			if err != nil {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Starting balance must be a whole number.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Starting balance must be a whole number.", activeTab, invitePostRedirect))
 				return
 			}
 
@@ -626,7 +640,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				case errors.Is(err, service.ErrInvalidTimebank):
 					msg = "Starting balance must be less than or equal to the maximum balance."
 				}
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
 				return
 			}
 
@@ -648,6 +662,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 						orgSkills,
 						invitations,
 						inviteRemaining,
+						metricsDetail,
 						s.featureEmail,
 						user.ID,
 						"",
@@ -676,6 +691,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 						orgSkills,
 						invitations,
 						inviteRemaining,
+						metricsDetail,
 						s.featureEmail,
 						user.ID,
 						"",
@@ -691,7 +707,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			return
 		case "invites":
 			if !s.featureEmail {
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", "Invitations are currently unavailable.", activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Invitations are currently unavailable.", activeTab, invitePostRedirect))
 				return
 			}
 
@@ -706,7 +722,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				if len(result.InvalidEmails) == 0 && len(result.DuplicateEmails) == 0 {
 					msg = "Please enter one or more comma-separated email addresses."
 				}
-				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", msg, activeTab, invitePostRedirect))
 				return
 			}
 
@@ -806,7 +822,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 func normalizeManageOrganizationTab(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "details", "members", "skills", "timebank", "invite":
+	case "details", "members", "skills", "timebank", "metrics", "invite":
 		return strings.ToLower(strings.TrimSpace(raw))
 	case "invites":
 		return "invite"

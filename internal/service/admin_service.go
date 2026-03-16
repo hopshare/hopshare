@@ -19,6 +19,11 @@ var adminHopStatusOrder = []string{
 	types.HopStatusExpired,
 }
 
+var adminHopKindOrder = []string{
+	types.HopKindAsk,
+	types.HopKindOffer,
+}
+
 func AdminAppOverview(ctx context.Context, db *sql.DB, leaderboardLimit int) (types.AdminAppOverview, error) {
 	if db == nil {
 		return types.AdminAppOverview{}, ErrNilDB
@@ -74,6 +79,12 @@ func AdminAppOverview(ctx context.Context, db *sql.DB, leaderboardLimit int) (ty
 	}
 	out.HopsByStatus = hopCountsByStatus
 
+	hopCountsByKind, err := adminHopCountsByKind(ctx, db)
+	if err != nil {
+		return types.AdminAppOverview{}, err
+	}
+	out.HopsByKind = hopCountsByKind
+
 	if err := db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(hours), 0)
 		FROM hop_transactions
@@ -113,6 +124,24 @@ func adminHopCountsByStatus(ctx context.Context, db *sql.DB) ([]types.AdminHopSt
 	}
 	defer rows.Close()
 
+	return scanAdminHopStatusCounts(rows)
+}
+
+func adminHopCountsByKind(ctx context.Context, db *sql.DB) ([]types.AdminHopKindCount, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT hop_kind, COUNT(*)
+		FROM hops
+		GROUP BY hop_kind
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("count hops by kind: %w", err)
+	}
+	defer rows.Close()
+
+	return scanAdminHopKindCounts(rows)
+}
+
+func scanAdminHopStatusCounts(rows *sql.Rows) ([]types.AdminHopStatusCount, error) {
 	countsByStatus := make(map[string]int)
 	for rows.Next() {
 		var status string
@@ -145,6 +174,46 @@ func adminHopCountsByStatus(ctx context.Context, db *sql.DB) ([]types.AdminHopSt
 			out = append(out, types.AdminHopStatusCount{
 				Status: status,
 				Count:  countsByStatus[status],
+			})
+		}
+	}
+
+	return out, nil
+}
+
+func scanAdminHopKindCounts(rows *sql.Rows) ([]types.AdminHopKindCount, error) {
+	countsByKind := make(map[string]int)
+	for rows.Next() {
+		var kind string
+		var count int
+		if err := rows.Scan(&kind, &count); err != nil {
+			return nil, fmt.Errorf("scan hop kind count: %w", err)
+		}
+		countsByKind[kind] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("count hops by kind: %w", err)
+	}
+
+	out := make([]types.AdminHopKindCount, 0, len(adminHopKindOrder)+len(countsByKind))
+	for _, kind := range adminHopKindOrder {
+		out = append(out, types.AdminHopKindCount{
+			Kind:  kind,
+			Count: countsByKind[kind],
+		})
+		delete(countsByKind, kind)
+	}
+
+	if len(countsByKind) > 0 {
+		extraKinds := make([]string, 0, len(countsByKind))
+		for kind := range countsByKind {
+			extraKinds = append(extraKinds, kind)
+		}
+		sort.Strings(extraKinds)
+		for _, kind := range extraKinds {
+			out = append(out, types.AdminHopKindCount{
+				Kind:  kind,
+				Count: countsByKind[kind],
 			})
 		}
 	}

@@ -20,7 +20,7 @@ func skillLines(skills []types.Skill) string {
 
 func manageOrganizationActiveTab(tab string) string {
 	switch strings.ToLower(strings.TrimSpace(tab)) {
-	case "details", "members", "skills", "timebank", "invite":
+	case "details", "members", "skills", "timebank", "metrics", "invite":
 		return strings.ToLower(strings.TrimSpace(tab))
 	case "invites":
 		return "invite"
@@ -55,15 +55,15 @@ func manageOrganizationTabHref(orgID int64, tab string, invitePostRedirect strin
 	return "/organizations/manage" + query
 }
 
-templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
-	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
+templ ManageOrganization(userEmail *string, org types.Organization, requests []types.MembershipRequest, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, metrics types.OrganizationHopMetricsDetail, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
+	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, nil, orgSkills, invitations, inviteRemaining, metrics, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
 }
 
-templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
-	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
+templ ManageOrganizationWithMembers(userEmail *string, org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, metrics types.OrganizationHopMetricsDetail, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
+	@Base(manageOrganizationPageContext(org, activeTab), userEmail, ManageOrganizationBody(org, requests, members, orgSkills, invitations, inviteRemaining, metrics, invitesEnabled, currentMemberID, successMsg, errorMsg, activeTab, invitePostRedirect))
 }
 
-templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
+templ ManageOrganizationBody(org types.Organization, requests []types.MembershipRequest, members []types.OrganizationMember, orgSkills []types.Skill, invitations []types.OrganizationInvitation, inviteRemaining int, metrics types.OrganizationHopMetricsDetail, invitesEnabled bool, currentMemberID int64, successMsg string, errorMsg string, activeTab string, invitePostRedirect string) {
 	<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6" x-data={ "{ activeTab: '" + manageOrganizationActiveTab(activeTab) + "' }" }>
 		<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<div class="space-y-1">
@@ -87,6 +87,13 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					href={ manageOrganizationTabHref(org.ID, "details", invitePostRedirect) }
 				>
 					Details
+				</a>
+				<a
+					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
+					x-bind:class="activeTab === 'metrics' ? 'border-sky-700 text-sky-700' : 'border-transparent text-slate-600 hover:text-slate-800'"
+					href={ manageOrganizationTabHref(org.ID, "metrics", invitePostRedirect) }
+				>
+					Metrics
 				</a>
 				<a
 					class="border-b-2 px-1 py-2 text-sm font-semibold transition"
@@ -479,6 +486,16 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 					Save time bank settings
 				</button>
 			</form>
+		</div>
+		<div x-show="activeTab === 'metrics'" class="space-y-4">
+			<div class="space-y-1">
+				<h2 class="text-lg font-semibold text-slate-900">Hop metrics</h2>
+				<p class="text-sm text-slate-600">Current hop distribution for this organization.</p>
+			</div>
+			<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+				@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(metrics.HopsByStatus, "manage-org-hop-status-count-"))
+				@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(metrics.HopsByKind, "manage-org-hop-kind-count-"))
+			</div>
 		</div>
 		if invitesEnabled {
 			<div x-show="activeTab === 'invite'" class="space-y-4">

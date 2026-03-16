@@ -59,6 +59,12 @@ func AdminOrganizationDetail(ctx context.Context, db *sql.DB, orgID int64, hopLi
 	}
 	detail.HopCounts = statusCounts
 
+	kindCounts, err := organizationHopCountsByKind(ctx, db, orgID)
+	if err != nil {
+		return types.AdminOrganizationDetail{}, err
+	}
+	detail.HopKinds = kindCounts
+
 	hops, err := adminOrganizationRecentHops(ctx, db, orgID, hopLimit)
 	if err != nil {
 		return types.AdminOrganizationDetail{}, err
@@ -80,34 +86,46 @@ func adminOrganizationHopCountsByStatus(ctx context.Context, db *sql.DB, orgID i
 	}
 	defer rows.Close()
 
-	countsByStatus := make(map[string]int)
-	for rows.Next() {
-		var status string
-		var count int
-		if err := rows.Scan(&status, &count); err != nil {
-			return nil, fmt.Errorf("scan organization hop status count: %w", err)
-		}
-		countsByStatus[status] = count
+	return scanAdminHopStatusCounts(rows)
+}
+
+func organizationHopCountsByKind(ctx context.Context, db *sql.DB, orgID int64) ([]types.AdminHopKindCount, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT hop_kind, COUNT(*)
+		FROM hops
+		WHERE organization_id = $1
+		GROUP BY hop_kind
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("count organization hops by kind: %w", err)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("count organization hops by status: %w", err)
+	defer rows.Close()
+
+	return scanAdminHopKindCounts(rows)
+}
+
+func OrganizationHopMetricsDetail(ctx context.Context, db *sql.DB, orgID int64) (types.OrganizationHopMetricsDetail, error) {
+	if db == nil {
+		return types.OrganizationHopMetricsDetail{}, ErrNilDB
+	}
+	if orgID == 0 {
+		return types.OrganizationHopMetricsDetail{}, ErrMissingOrgID
 	}
 
-	out := make([]types.AdminHopStatusCount, 0, len(adminHopStatusOrder)+len(countsByStatus))
-	for _, status := range adminHopStatusOrder {
-		out = append(out, types.AdminHopStatusCount{
-			Status: status,
-			Count:  countsByStatus[status],
-		})
-		delete(countsByStatus, status)
+	var detail types.OrganizationHopMetricsDetail
+	statusCounts, err := adminOrganizationHopCountsByStatus(ctx, db, orgID)
+	if err != nil {
+		return types.OrganizationHopMetricsDetail{}, err
 	}
-	for status, count := range countsByStatus {
-		out = append(out, types.AdminHopStatusCount{
-			Status: status,
-			Count:  count,
-		})
+	detail.HopsByStatus = statusCounts
+
+	kindCounts, err := organizationHopCountsByKind(ctx, db, orgID)
+	if err != nil {
+		return types.OrganizationHopMetricsDetail{}, err
 	}
-	return out, nil
+	detail.HopsByKind = kindCounts
+
+	return detail, nil
 }
 
 func adminOrganizationRecentHops(ctx context.Context, db *sql.DB, orgID int64, limit int) ([]types.AdminOrganizationHop, error) {
