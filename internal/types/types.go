@@ -362,8 +362,24 @@ type AdminOrganizationDetail struct {
 }
 
 type OrganizationHopMetricsDetail struct {
-	HopsByStatus []AdminHopStatusCount
-	HopsByKind   []AdminHopKindCount
+	HopsByStatus           []AdminHopStatusCount
+	HopsByKind             []AdminHopKindCount
+	TotalHoursExchanged    int
+	JoinersPast30Days      int
+	LeaversPast30Days      int
+	TopParticipants        []OrganizationParticipantMetric
+	ParticipatedUsers      int
+	NeverParticipatedUsers int
+	AvgOffersAccepted      float64
+	AvgOffersCompleted     float64
+}
+
+type OrganizationParticipantMetric struct {
+	MemberID           int64
+	MemberName         string
+	ParticipationCount int
+	CreatedCount       int
+	MatchedCount       int
 }
 
 type AdminOrganizationTabData struct {

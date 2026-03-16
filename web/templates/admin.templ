@@ -89,8 +89,8 @@ templ AdminAppOverviewTab(overview types.AdminAppOverview) {
 					<p class="mt-1 text-sm text-slate-600">Distribution by status and by Ask versus Offer.</p>
 				</div>
 				<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-					@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(overview.HopsByStatus, "admin-hop-status-count-"))
-					@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(overview.HopsByKind, "admin-hop-kind-count-"))
+					@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(overview.HopsByStatus, "admin-hop-status-count-"), adminHopMetricTotalValue(overview.HopsByStatus), "Total")
+					@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(overview.HopsByKind, "admin-hop-kind-count-"), adminHopMetricTotalValueForKinds(overview.HopsByKind), "Total")
 				</div>
 			</section>
 		</section>
@@ -109,15 +109,15 @@ templ AdminAppOverviewTab(overview types.AdminAppOverview) {
 	</div>
 }
 
-templ HopMetricsCard(title string, segments []hopMetricSegment) {
+templ HopMetricsCard(title string, segments []hopMetricSegment, centerValue string, centerLabel string) {
 	<div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
 		<p class="text-sm font-semibold text-slate-900">{ title }</p>
 		<div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center">
 			<div class="mx-auto shrink-0">
 				<div class="flex h-40 w-40 items-center justify-center rounded-full border border-slate-200 shadow-inner" style={ hopMetricChartStyle(segments) }>
 					<div class="flex h-20 w-20 flex-col items-center justify-center rounded-full border border-slate-200 bg-white text-center shadow-sm">
-						<p class="text-2xl font-bold text-slate-900">{ hopMetricTotal(segments) }</p>
-						<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+						<p class="text-2xl font-bold text-slate-900">{ centerValue }</p>
+						<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{ centerLabel }</p>
 					</div>
 				</div>
 			</div>
@@ -128,7 +128,7 @@ templ HopMetricsCard(title string, segments []hopMetricSegment) {
 							<span class="h-3 w-3 shrink-0 rounded-full" style={ "background-color: " + segment.Color }></span>
 							<span class="truncate text-sm font-medium text-slate-700">{ segment.Label }</span>
 						</div>
-						<span class="text-base font-semibold text-slate-900" data-testid={ segment.TestID }>{ segment.Count }</span>
+						<span class="text-base font-semibold text-slate-900" data-testid={ segment.TestID }>{ segment.Display }</span>
 					</div>
 				}
 			</div>
@@ -416,7 +416,8 @@ templ AdminOrganizationDetailView(detail types.AdminOrganizationDetail, query st
 type hopMetricSegment struct {
 	Label  string
 	Color  string
-	Count  int
+	Value  float64
+	Display string
 	TestID string
 }
 
@@ -1270,7 +1271,8 @@ func hopMetricSegmentsForStatus(counts []types.AdminHopStatusCount, testIDPrefix
 		segments = append(segments, hopMetricSegment{
 			Label:  adminHopStatusLabel(count.Status),
 			Color:  hopMetricColorForStatus(count.Status),
-			Count:  count.Count,
+			Value:  float64(count.Count),
+			Display: strconv.Itoa(count.Count),
 			TestID: testIDPrefix + count.Status,
 		})
 	}
@@ -1283,23 +1285,19 @@ func hopMetricSegmentsForKind(counts []types.AdminHopKindCount, testIDPrefix str
 		segments = append(segments, hopMetricSegment{
 			Label:  adminHopKindLabel(count.Kind),
 			Color:  hopMetricColorForKind(count.Kind),
-			Count:  count.Count,
+			Value:  float64(count.Count),
+			Display: strconv.Itoa(count.Count),
 			TestID: testIDPrefix + count.Kind,
 		})
 	}
 	return segments
 }
 
-func hopMetricTotal(segments []hopMetricSegment) int {
-	total := 0
-	for _, segment := range segments {
-		total += segment.Count
-	}
-	return total
-}
-
 func hopMetricChartStyle(segments []hopMetricSegment) string {
-	total := hopMetricTotal(segments)
+	total := 0.0
+	for _, segment := range segments {
+		total += segment.Value
+	}
 	if total <= 0 {
 		return "background: conic-gradient(#e2e8f0 0 100%);"
 	}
@@ -1309,12 +1307,12 @@ func hopMetricChartStyle(segments []hopMetricSegment) string {
 	progress := 0.0
 	written := 0
 	for _, segment := range segments {
-		if segment.Count <= 0 {
+		if segment.Value <= 0 {
 			continue
 		}
-		start := progress / float64(total) * 100
-		progress += float64(segment.Count)
-		end := progress / float64(total) * 100
+		start := progress / total * 100
+		progress += segment.Value
+		end := progress / total * 100
 		if written > 0 {
 			b.WriteString(", ")
 		}
@@ -1331,6 +1329,41 @@ func hopMetricChartStyle(segments []hopMetricSegment) string {
 	}
 	b.WriteString(");")
 	return b.String()
+}
+
+func adminHopMetricTotalValue(counts []types.AdminHopStatusCount) string {
+	return strconv.Itoa(adminTotalHopCount(counts))
+}
+
+func adminHopMetricTotalValueForKinds(counts []types.AdminHopKindCount) string {
+	total := 0
+	for _, count := range counts {
+		total += count.Count
+	}
+	return strconv.Itoa(total)
+}
+
+func hopMetricSegmentsForAverageOffers(accepted float64, completed float64, testIDPrefix string) []hopMetricSegment {
+	return []hopMetricSegment{
+		{
+			Label:   "Accepted hops",
+			Color:   hopMetricColorForStatus(types.HopStatusAccepted),
+			Value:   accepted,
+			Display: formatHopMetricDecimal(accepted),
+			TestID:  testIDPrefix + "accepted",
+		},
+		{
+			Label:   "Completed hops",
+			Color:   hopMetricColorForStatus(types.HopStatusCompleted),
+			Value:   completed,
+			Display: formatHopMetricDecimal(completed),
+			TestID:  testIDPrefix + "completed",
+		},
+	}
+}
+
+func formatHopMetricDecimal(value float64) string {
+	return strconv.FormatFloat(value, 'f', 1, 64)
 }
 
 func adminCanExpireHopStatus(status string) bool {

@@ -490,11 +490,54 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 		<div x-show="activeTab === 'metrics'" class="space-y-4">
 			<div class="space-y-1">
 				<h2 class="text-lg font-semibold text-slate-900">Hop metrics</h2>
-				<p class="text-sm text-slate-600">Current hop distribution for this organization.</p>
+				<p class="text-sm text-slate-600">Current activity and participation metrics for this organization.</p>
+			</div>
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2 text-center">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Total hours exchanged</p>
+					<p class="text-3xl font-bold text-slate-900" data-testid="manage-org-metrics-total-hours">{ metrics.TotalHoursExchanged }</p>
+					<p class="text-xs text-slate-500">Across all completed hop transactions.</p>
+				</div>
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2 text-center">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Joiners in 30 days</p>
+					<p class="text-3xl font-bold text-slate-900" data-testid="manage-org-metrics-joiners-30d">{ metrics.JoinersPast30Days }</p>
+					<p class="text-xs text-slate-500">Members who joined this organization in the last 30 days.</p>
+				</div>
+				<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2 text-center">
+					<p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Leavers in 30 days</p>
+					<p class="text-3xl font-bold text-slate-900" data-testid="manage-org-metrics-leavers-30d">{ metrics.LeaversPast30Days }</p>
+					<p class="text-xs text-slate-500">Members who left this organization in the last 30 days.</p>
+				</div>
 			</div>
 			<div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
-				@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(metrics.HopsByStatus, "manage-org-hop-status-count-"))
-				@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(metrics.HopsByKind, "manage-org-hop-kind-count-"))
+				@HopMetricsCard("Hops by status", hopMetricSegmentsForStatus(metrics.HopsByStatus, "manage-org-hop-status-count-"), adminHopMetricTotalValue(metrics.HopsByStatus), "Total")
+				@HopMetricsCard("Hops by type", hopMetricSegmentsForKind(metrics.HopsByKind, "manage-org-hop-kind-count-"), adminHopMetricTotalValueForKinds(metrics.HopsByKind), "Total")
+				@HopMetricsCard("User participation", hopMetricSegmentsForParticipation(metrics.ParticipatedUsers, metrics.NeverParticipatedUsers, "manage-org-user-participation-"), strconv.Itoa(metrics.ParticipatedUsers+metrics.NeverParticipatedUsers), "Users")
+				@HopMetricsCard("Average offers per accepted or completed hop", hopMetricSegmentsForAverageOffers(metrics.AvgOffersAccepted, metrics.AvgOffersCompleted, "manage-org-avg-offers-"), formatHopMetricDecimal(overallAverageOffers(metrics.AvgOffersAccepted, metrics.AvgOffersCompleted)), "Avg")
+			</div>
+			<div class="rounded-lg border border-slate-200 bg-white p-4">
+				<div class="space-y-1">
+					<h3 class="text-sm font-semibold text-slate-900">Top participating members</h3>
+					<p class="text-sm text-slate-600">Top 5 current members by hop creation plus being matched on hops.</p>
+				</div>
+				if len(metrics.TopParticipants) == 0 {
+					<p class="mt-4 text-sm text-slate-600">No members have participated in hops yet.</p>
+				} else {
+					<ul class="mt-4 space-y-2">
+						for _, participant := range metrics.TopParticipants {
+							<li class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3" data-testid={ "manage-org-top-participant-" + strconv.FormatInt(participant.MemberID, 10) }>
+								<div class="min-w-0">
+									<p class="truncate text-sm font-semibold text-slate-900">{ participant.MemberName }</p>
+									<p class="text-xs text-slate-600">Created { participant.CreatedCount } • Matched { participant.MatchedCount }</p>
+								</div>
+								<div class="shrink-0 text-center">
+									<p class="text-lg font-bold text-slate-900" data-testid={ "manage-org-top-participant-count-" + strconv.FormatInt(participant.MemberID, 10) }>{ participant.ParticipationCount }</p>
+									<p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
+								</div>
+							</li>
+						}
+					</ul>
+				}
 			</div>
 		</div>
 		if invitesEnabled {
@@ -550,4 +593,36 @@ templ ManageOrganizationBody(org types.Organization, requests []types.Membership
 		}
 
 	</section>
+}
+
+func hopMetricSegmentsForParticipation(participated int, neverParticipated int, testIDPrefix string) []hopMetricSegment {
+	return []hopMetricSegment{
+		{
+			Label:   "Participated in a hop",
+			Color:   "#10b981",
+			Value:   float64(participated),
+			Display: strconv.Itoa(participated),
+			TestID:  testIDPrefix + "participated",
+		},
+		{
+			Label:   "Never participated",
+			Color:   "#cbd5e1",
+			Value:   float64(neverParticipated),
+			Display: strconv.Itoa(neverParticipated),
+			TestID:  testIDPrefix + "never",
+		},
+	}
+}
+
+func overallAverageOffers(accepted float64, completed float64) float64 {
+	if accepted == 0 && completed == 0 {
+		return 0
+	}
+	if accepted == 0 {
+		return completed
+	}
+	if completed == 0 {
+		return accepted
+	}
+	return (accepted + completed) / 2
 }
