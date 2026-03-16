@@ -42,7 +42,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"/static/assets/js/htmx.min.js\" defer></script><script defer src=\"/static/assets/js/alpine.min-3.15.2.js\"></script></head><body class=\"bg-slate-50 text-slate-900 min-h-screen flex flex-col\"><header class=\"bg-white border-b border-slate-200\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/static/assets/css/organization-themes.css\"><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"/static/assets/js/htmx.min.js\" defer></script><script defer src=\"/static/assets/js/alpine.min-3.15.2.js\"></script></head><body class=\"bg-slate-50 text-slate-900 min-h-screen flex flex-col\"><header class=\"bg-white border-b border-slate-200\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -371,7 +371,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 				var templ_7745c5c3_Var25 templ.SafeURL
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinURLErrs(page.MobileBack.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 124, Col: 132}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 125, Col: 132}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -384,7 +384,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(page.MobileBack.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 126, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 127, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -402,7 +402,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 				var templ_7745c5c3_Var27 templ.SafeURL
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(back.Href)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 131, Col: 121}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 132, Col: 121}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -415,7 +415,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(back.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 133, Col: 22}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 134, Col: 22}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -458,7 +458,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 						var templ_7745c5c3_Var31 string
 						templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 142, Col: 84}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 143, Col: 84}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 						if templ_7745c5c3_Err != nil {
@@ -498,7 +498,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 						var templ_7745c5c3_Var34 templ.SafeURL
 						templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinURLErrs(item.Href)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 145, Col: 69}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 146, Col: 69}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 						if templ_7745c5c3_Err != nil {
@@ -511,7 +511,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 						var templ_7745c5c3_Var35 string
 						templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 145, Col: 84}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 146, Col: 84}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 						if templ_7745c5c3_Err != nil {
@@ -535,7 +535,7 @@ func Base(page PageContext, userEmail *string, body templ.Component) templ.Compo
 					var templ_7745c5c3_Var36 string
 					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(current.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 155, Col: 73}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `web/templates/base.templ`, Line: 156, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 					if templ_7745c5c3_Err != nil {

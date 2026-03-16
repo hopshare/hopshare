@@ -18,7 +18,44 @@ const (
 	organizationURLNameDefault          = "organization"
 	organizationURLNameUniqueConstraint = "organizations_url_name_key"
 	organizationURLNameMaxAttempts      = 1000
+	organizationSelectColumns           = "id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), theme, banner_content_type, (banner_data IS NOT NULL), enabled, created_by, created_at, updated_at"
+	organizationAliasedSelectColumns    = "o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.theme, o.banner_content_type, (o.banner_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at"
 )
+
+type organizationScanner interface {
+	Scan(dest ...any) error
+}
+
+func organizationScanDest(org *types.Organization) []any {
+	return []any{
+		&org.ID,
+		&org.Name,
+		&org.URLName,
+		&org.City,
+		&org.State,
+		&org.Description,
+		&org.TimebankMinBalance,
+		&org.TimebankMaxBalance,
+		&org.TimebankStartingBalance,
+		&org.LogoContentType,
+		&org.HasLogo,
+		&org.Theme,
+		&org.BannerContentType,
+		&org.HasBanner,
+		&org.Enabled,
+		&org.CreatedBy,
+		&org.CreatedAt,
+		&org.UpdatedAt,
+	}
+}
+
+func scanOrganization(scanner organizationScanner, org *types.Organization) error {
+	if err := scanner.Scan(organizationScanDest(org)...); err != nil {
+		return err
+	}
+	org.Theme = types.NormalizeOrganizationTheme(org.Theme)
+	return nil
+}
 
 // PrimaryOwnedOrganization returns one enabled organization where the member is an active owner.
 // When multiple organizations match, the first by name is returned.
@@ -31,7 +68,7 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT `+organizationAliasedSelectColumns+`
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.role = 'owner' AND om.left_at IS NULL AND o.enabled = TRUE
@@ -40,7 +77,7 @@ func PrimaryOwnedOrganization(ctx context.Context, db *sql.DB, memberID int64) (
 	`, memberID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := scanOrganization(row, &o); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -78,7 +115,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT `+organizationAliasedSelectColumns+`
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.left_at IS NULL AND o.enabled = TRUE
@@ -92,7 +129,7 @@ func ActiveOrganizationsForMember(ctx context.Context, db *sql.DB, memberID int6
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := scanOrganization(rows, &o); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -114,7 +151,7 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at,
+		SELECT `+organizationAliasedSelectColumns+`,
 		       om.role
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
@@ -129,9 +166,10 @@ func MemberOrganizations(ctx context.Context, db *sql.DB, memberID int64) ([]typ
 	var orgs []types.MemberOrganization
 	for rows.Next() {
 		var o types.MemberOrganization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt, &o.Role); err != nil {
+		if err := rows.Scan(append(organizationScanDest(&o.Organization), &o.Role)...); err != nil {
 			return nil, fmt.Errorf("scan member organization: %w", err)
 		}
+		o.Theme = types.NormalizeOrganizationTheme(o.Theme)
 		orgs = append(orgs, o)
 	}
 	if err := rows.Err(); err != nil {
@@ -154,14 +192,14 @@ func OrganizationForOwner(ctx context.Context, db *sql.DB, memberID, orgID int64
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT o.id, o.name, o.url_name, o.city, o.state, o.description, o.timebank_min_balance, o.timebank_max_balance, o.timebank_starting_balance, o.logo_content_type, (o.logo_data IS NOT NULL), o.enabled, o.created_by, o.created_at, o.updated_at
+		SELECT `+organizationAliasedSelectColumns+`
 		FROM organizations o
 		JOIN organization_memberships om ON om.organization_id = o.id
 		WHERE om.member_id = $1 AND om.organization_id = $2 AND om.role = 'owner' AND om.left_at IS NULL AND o.enabled = TRUE
 	`, memberID, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := scanOrganization(row, &o); err != nil {
 		return types.Organization{}, err
 	}
 	return o, nil
@@ -317,13 +355,13 @@ func GetOrganizationByID(ctx context.Context, db *sql.DB, orgID int64) (types.Or
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT `+organizationSelectColumns+`
 		FROM organizations
 		WHERE id = $1
 	`, orgID)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := scanOrganization(row, &o); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by id: %w", err)
 	}
 	return o, nil
@@ -352,13 +390,13 @@ func GetOrganizationByURLName(ctx context.Context, db *sql.DB, urlName string) (
 	}
 
 	row := db.QueryRowContext(ctx, `
-		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT `+organizationSelectColumns+`
 		FROM organizations
 		WHERE url_name = $1
 	`, urlName)
 
 	var o types.Organization
-	if err := row.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+	if err := scanOrganization(row, &o); err != nil {
 		return types.Organization{}, fmt.Errorf("get organization by url name: %w", err)
 	}
 	return o, nil
@@ -383,7 +421,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT `+organizationSelectColumns+`
 		FROM organizations
 		WHERE enabled = TRUE
 		ORDER BY name
@@ -396,7 +434,7 @@ func ListOrganizations(ctx context.Context, db *sql.DB) ([]types.Organization, e
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := scanOrganization(rows, &o); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -425,7 +463,7 @@ func SearchOrganizationsForAdmin(ctx context.Context, db *sql.DB, query string, 
 	}
 
 	rows, err := db.QueryContext(ctx, `
-		SELECT id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+		SELECT `+organizationSelectColumns+`
 		FROM organizations
 		WHERE ($1 = '%' OR LOWER(name) LIKE $1)
 		ORDER BY name
@@ -439,7 +477,7 @@ func SearchOrganizationsForAdmin(ctx context.Context, db *sql.DB, query string, 
 	var orgs []types.Organization
 	for rows.Next() {
 		var o types.Organization
-		if err := rows.Scan(&o.ID, &o.Name, &o.URLName, &o.City, &o.State, &o.Description, &o.TimebankMinBalance, &o.TimebankMaxBalance, &o.TimebankStartingBalance, &o.LogoContentType, &o.HasLogo, &o.Enabled, &o.CreatedBy, &o.CreatedAt, &o.UpdatedAt); err != nil {
+		if err := scanOrganization(rows, &o); err != nil {
 			return nil, fmt.Errorf("scan organization: %w", err)
 		}
 		orgs = append(orgs, o)
@@ -553,6 +591,91 @@ func SetOrganizationLogo(ctx context.Context, db *sql.DB, orgID int64, contentTy
 	affected, err := res.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("set organization logo rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func OrganizationBanner(ctx context.Context, db *sql.DB, orgID int64) ([]byte, string, bool, error) {
+	if db == nil {
+		return nil, "", false, ErrNilDB
+	}
+	if orgID == 0 {
+		return nil, "", false, ErrMissingOrgID
+	}
+
+	var contentType sql.NullString
+	var data []byte
+	if err := db.QueryRowContext(ctx, `
+		SELECT banner_content_type, banner_data
+		FROM organizations
+		WHERE id = $1
+	`, orgID).Scan(&contentType, &data); err != nil {
+		return nil, "", false, fmt.Errorf("get organization banner: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, "", false, nil
+	}
+
+	ct := contentType.String
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+
+	return data, ct, true, nil
+}
+
+func SetOrganizationBanner(ctx context.Context, db *sql.DB, orgID int64, contentType string, data []byte) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+	if strings.TrimSpace(contentType) == "" || len(data) == 0 {
+		return ErrMissingField
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET banner_content_type = $1, banner_data = $2, updated_at = NOW()
+		WHERE id = $3
+	`, contentType, data, orgID)
+	if err != nil {
+		return fmt.Errorf("set organization banner: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("set organization banner rows affected: %w", err)
+	}
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func ClearOrganizationBanner(ctx context.Context, db *sql.DB, orgID int64) error {
+	if db == nil {
+		return ErrNilDB
+	}
+	if orgID == 0 {
+		return ErrMissingOrgID
+	}
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE organizations
+		SET banner_content_type = NULL, banner_data = NULL, updated_at = NOW()
+		WHERE id = $1
+	`, orgID)
+	if err != nil {
+		return fmt.Errorf("clear organization banner: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("clear organization banner rows affected: %w", err)
 	}
 	if affected == 0 {
 		return sql.ErrNoRows
@@ -1241,6 +1364,7 @@ func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization)
 	}
 	city := strings.TrimSpace(org.City)
 	state := strings.TrimSpace(org.State)
+	theme := types.NormalizeOrganizationTheme(org.Theme)
 
 	if _, err := db.ExecContext(ctx, `
 		UPDATE organizations
@@ -1248,9 +1372,10 @@ func UpdateOrganization(ctx context.Context, db *sql.DB, org types.Organization)
 			city = $2,
 			state = $3,
 			description = $4,
+			theme = $5,
 			updated_at = NOW()
-		WHERE id = $5
-	`, name, city, state, description, org.ID); err != nil {
+		WHERE id = $6
+	`, name, city, state, description, theme, org.ID); err != nil {
 		return fmt.Errorf("update organization: %w", err)
 	}
 	return nil
@@ -1439,9 +1564,9 @@ func CreateOrganization(ctx context.Context, db *sql.DB, name, city, state, desc
 					name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, created_by
 				)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-				RETURNING id, name, url_name, city, state, description, timebank_min_balance, timebank_max_balance, timebank_starting_balance, logo_content_type, (logo_data IS NOT NULL), enabled, created_by, created_at, updated_at
+				RETURNING `+organizationSelectColumns+`
 			`, name, urlName, city, state, description, defaultPolicy.MinBalance, defaultPolicy.MaxBalance, defaultPolicy.StartingBalance, creatorMemberID)
-		if err = row.Scan(&org.ID, &org.Name, &org.URLName, &org.City, &org.State, &org.Description, &org.TimebankMinBalance, &org.TimebankMaxBalance, &org.TimebankStartingBalance, &org.LogoContentType, &org.HasLogo, &org.Enabled, &org.CreatedBy, &org.CreatedAt, &org.UpdatedAt); err != nil {
+		if err = scanOrganization(row, &org); err != nil {
 			if isUniqueConstraintViolation(err, organizationURLNameUniqueConstraint) {
 				continue
 			}

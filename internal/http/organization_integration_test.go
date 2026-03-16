@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"hopshare/internal/service"
+	"hopshare/internal/types"
 )
 
 func TestOrganizationHTTPMatrix(t *testing.T) {
@@ -107,6 +108,30 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		anon := newTestActor(t, "anon", server.URL, "", "")
 		anonBody := requireStatus(t, anon.Get("/organization/"+org.URLName), 200)
 		requireBodyNotContains(t, anonBody, ">Manage</a>")
+	})
+
+	t.Run("ORG-04C organization page applies selected theme and banner", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		suffix := uniqueTestSuffix()
+		owner := createSeededMember(t, ctx, db, "org_theme_owner", suffix)
+		org, err := service.CreateOrganization(ctx, db, "Theme Org "+suffix, "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		org.Theme = types.OrganizationThemeFun
+		if err := service.UpdateOrganization(ctx, db, org); err != nil {
+			t.Fatalf("update organization theme: %v", err)
+		}
+		if err := service.SetOrganizationBanner(ctx, db, org.ID, "image/png", tinyPNGData()); err != nil {
+			t.Fatalf("set organization banner: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		body := requireStatus(t, anon.Get("/organization/"+org.URLName), 200)
+		requireBodyContains(t, body, "organization-page theme-fun")
+		requireBodyContains(t, body, "/organizations/banner?org_id="+strconv.FormatInt(org.ID, 10))
 	})
 
 	t.Run("ORG-05 POST /organizations/request submits membership request", func(t *testing.T) {
@@ -307,6 +332,38 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		}
 	})
 
+	t.Run("ORG-13A GET /organizations/banner without uploaded banner returns 404", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_banner_default_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Banner Default Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		requireStatus(t, anon.Get("/organizations/banner?org_id="+strconv.FormatInt(org.ID, 10)), 404)
+	})
+
+	t.Run("ORG-13B GET /organizations/banner with uploaded banner returns image", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_banner_uploaded_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Banner Uploaded Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		if err := service.SetOrganizationBanner(ctx, db, org.ID, "image/png", tinyPNGData()); err != nil {
+			t.Fatalf("set banner: %v", err)
+		}
+		server := newHTTPServer(t, db)
+		anon := newTestActor(t, "anon", server.URL, "", "")
+		body := requireStatus(t, anon.Get("/organizations/banner?org_id="+strconv.FormatInt(org.ID, 10)), 200)
+		if body == "" {
+			t.Fatalf("expected image body")
+		}
+	})
+
 	t.Run("ORG-14 GET /organizations/manage owner succeeds", func(t *testing.T) {
 		ctx, cancel := newTestContext(t)
 		defer cancel()
@@ -375,6 +432,82 @@ func TestOrganizationHTTPMatrix(t *testing.T) {
 		if updated.Name != updatedName {
 			t.Fatalf("expected updated name, got %q", updated.Name)
 		}
+	})
+
+	t.Run("ORG-17A POST /organizations/manage action=details saves theme and banner", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_manage_theme_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Theme Manage Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
+		actor.Login()
+		loc := requireRedirectPath(t, actor.PostMultipartWithFiles("/organizations/manage", map[string]string{
+			"action":      "details",
+			"org_id":      strconv.FormatInt(org.ID, 10),
+			"name":        org.Name,
+			"city":        org.City,
+			"state":       org.State,
+			"description": org.Description,
+			"theme":       types.OrganizationThemeSerious,
+		}, []multipartFile{{
+			FieldName:   "banner_file",
+			FileName:    "banner.png",
+			ContentType: "image/png",
+			Data:        tinyPNGData(),
+		}}), "/organizations/manage")
+		requireQueryValue(t, loc, "success", "Organization updated.")
+
+		updated, err := service.GetOrganizationByID(ctx, db, org.ID)
+		if err != nil {
+			t.Fatalf("get org: %v", err)
+		}
+		if updated.Theme != types.OrganizationThemeSerious {
+			t.Fatalf("expected theme %q, got %q", types.OrganizationThemeSerious, updated.Theme)
+		}
+		if !updated.HasBanner {
+			t.Fatalf("expected uploaded banner to be present")
+		}
+	})
+
+	t.Run("ORG-17B POST /organizations/manage action=details can remove banner", func(t *testing.T) {
+		ctx, cancel := newTestContext(t)
+		defer cancel()
+		owner := createSeededMember(t, ctx, db, "org_manage_remove_banner_owner", uniqueTestSuffix())
+		org, err := service.CreateOrganization(ctx, db, "Banner Remove Org "+uniqueTestSuffix(), "City", "ST", "Desc", owner.Member.ID)
+		if err != nil {
+			t.Fatalf("create org: %v", err)
+		}
+		if err := service.SetOrganizationBanner(ctx, db, org.ID, "image/png", tinyPNGData()); err != nil {
+			t.Fatalf("set banner: %v", err)
+		}
+
+		server := newHTTPServer(t, db)
+		actor := newTestActor(t, "owner", server.URL, owner.Member.Email, owner.Password)
+		actor.Login()
+		loc := requireRedirectPath(t, actor.PostMultipart("/organizations/manage", map[string]string{
+			"action":        "details",
+			"org_id":        strconv.FormatInt(org.ID, 10),
+			"name":          org.Name,
+			"city":          org.City,
+			"state":         org.State,
+			"description":   org.Description,
+			"theme":         org.Theme,
+			"remove_banner": "1",
+		}), "/organizations/manage")
+		requireQueryValue(t, loc, "success", "Organization updated.")
+
+		updated, err := service.GetOrganizationByID(ctx, db, org.ID)
+		if err != nil {
+			t.Fatalf("get org: %v", err)
+		}
+		if updated.HasBanner {
+			t.Fatalf("expected banner to be removed")
+		}
+		requireStatus(t, actor.Get("/organizations/banner?org_id="+strconv.FormatInt(org.ID, 10)), 404)
 	})
 
 	t.Run("ORG-18 POST /organizations/manage action=skills success", func(t *testing.T) {

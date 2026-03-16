@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -47,6 +48,27 @@ const (
 	ModerationResolutionDeleteImage   = "delete_image"
 )
 
+const (
+	OrganizationThemeDefault = "default"
+	OrganizationThemeBright  = "bright"
+	OrganizationThemeSerious = "serious"
+	OrganizationThemeFun     = "fun"
+)
+
+// NormalizeOrganizationTheme returns a supported theme name, falling back to default.
+func NormalizeOrganizationTheme(theme string) string {
+	switch strings.ToLower(strings.TrimSpace(theme)) {
+	case OrganizationThemeBright:
+		return OrganizationThemeBright
+	case OrganizationThemeSerious:
+		return OrganizationThemeSerious
+	case OrganizationThemeFun:
+		return OrganizationThemeFun
+	default:
+		return OrganizationThemeDefault
+	}
+}
+
 // Member represents a row in the members table.
 type Member struct {
 	ID                  int64
@@ -81,6 +103,9 @@ type Organization struct {
 	TimebankStartingBalance int
 	LogoContentType         *string
 	HasLogo                 bool
+	Theme                   string
+	BannerContentType       *string
+	HasBanner               bool
 	Enabled                 bool
 	CreatedBy               *int64
 	CreatedAt               time.Time

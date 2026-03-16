@@ -55,7 +55,7 @@ func (s *Server) handleCreateOrganization(w http.ResponseWriter, r *http.Request
 		city := strings.TrimSpace(r.FormValue("city"))
 		state := strings.TrimSpace(r.FormValue("state"))
 		description := strings.TrimSpace(r.FormValue("description"))
-		logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+		logoData, logoContentType, hasLogo, err := readImageUpload(r, "logo_file", maxLogoUploadBytes, "logo")
 		if err != nil {
 			render(w, r, templates.CreateOrganization(s.currentUserEmailPtr(r), name, city, state, description, "", err.Error()))
 			return
@@ -310,6 +310,44 @@ func (s *Server) handleOrganizationLogo(w http.ResponseWriter, r *http.Request) 
 	_, _ = w.Write(data)
 }
 
+func (s *Server) handleOrganizationBanner(w http.ResponseWriter, r *http.Request) {
+	orgID, err := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("org_id")), 10, 64)
+	if err != nil || orgID <= 0 {
+		http.Error(w, "invalid organization", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := service.GetEnabledOrganizationByID(r.Context(), s.db, orgID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load organization for banner org=%d: %v", orgID, err)
+		http.Error(w, "could not load banner", http.StatusInternalServerError)
+		return
+	}
+
+	data, contentType, ok, err := service.OrganizationBanner(r.Context(), s.db, orgID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("load organization banner org=%d: %v", orgID, err)
+		http.Error(w, "could not load banner", http.StatusInternalServerError)
+		return
+	}
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 func (s *Server) handleRequestMembership(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	if user == nil {
@@ -466,8 +504,8 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 
 		render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, successMsg, errorMsg, activeTab, invitePostRedirect))
 	case http.MethodPost:
-		const maxLogoUploadBytes = 20 << 20
-		const maxBodyBytes = maxLogoUploadBytes + (1 << 20)
+		const maxImageUploadBytes = 20 << 20
+		const maxBodyBytes = (2 * maxImageUploadBytes) + (1 << 20)
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		if err := r.ParseMultipartForm(maxBodyBytes); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 			http.Error(w, "invalid form", http.StatusBadRequest)
@@ -572,7 +610,14 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 			city := strings.TrimSpace(r.FormValue("city"))
 			state := strings.TrimSpace(r.FormValue("state"))
 			description := strings.TrimSpace(r.FormValue("description"))
-			logoData, logoContentType, hasLogo, err := readLogoUpload(r, "logo_file", maxLogoUploadBytes)
+			theme := strings.TrimSpace(r.FormValue("theme"))
+			removeBanner := strings.TrimSpace(r.FormValue("remove_banner")) != ""
+			logoData, logoContentType, hasLogo, err := readImageUpload(r, "logo_file", maxImageUploadBytes, "logo")
+			if err != nil {
+				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", err.Error(), activeTab, invitePostRedirect))
+				return
+			}
+			bannerData, bannerContentType, hasBanner, err := readImageUpload(r, "banner_file", maxImageUploadBytes, "banner")
 			if err != nil {
 				render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", err.Error(), activeTab, invitePostRedirect))
 				return
@@ -584,6 +629,7 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				City:        city,
 				State:       state,
 				Description: description,
+				Theme:       theme,
 				Enabled:     org.Enabled,
 			}
 			if err := service.UpdateOrganization(r.Context(), s.db, updateOrg); err != nil {
@@ -596,6 +642,19 @@ func (s *Server) handleManageOrganization(w http.ResponseWriter, r *http.Request
 				if err := service.SetOrganizationLogo(r.Context(), s.db, org.ID, logoContentType, logoData); err != nil {
 					log.Printf("set org logo org=%d: %v", org.ID, err)
 					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not upload logo.", activeTab, invitePostRedirect))
+					return
+				}
+			}
+			if hasBanner {
+				if err := service.SetOrganizationBanner(r.Context(), s.db, org.ID, bannerContentType, bannerData); err != nil {
+					log.Printf("set org banner org=%d: %v", org.ID, err)
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not upload banner.", activeTab, invitePostRedirect))
+					return
+				}
+			} else if removeBanner {
+				if err := service.ClearOrganizationBanner(r.Context(), s.db, org.ID); err != nil {
+					log.Printf("clear org banner org=%d: %v", org.ID, err)
+					render(w, r, templates.ManageOrganizationWithMembers(s.currentUserEmailPtr(r), org, requests, members, orgSkills, invitations, inviteRemaining, metricsDetail, s.featureEmail, user.ID, "", "Could not remove banner.", activeTab, invitePostRedirect))
 					return
 				}
 			}
@@ -859,25 +918,25 @@ func manageOrganizationRedirectURL(orgID int64, successMsg, activeTab string, in
 	return "/organizations/manage?" + query.Encode()
 }
 
-func readLogoUpload(r *http.Request, field string, maxBytes int64) ([]byte, string, bool, error) {
+func readImageUpload(r *http.Request, field string, maxBytes int64, label string) ([]byte, string, bool, error) {
 	f, _, err := r.FormFile(field)
 	if err != nil {
 		if errors.Is(err, http.ErrMissingFile) {
 			return nil, "", false, nil
 		}
-		return nil, "", false, fmt.Errorf("read logo file: %w", err)
+		return nil, "", false, fmt.Errorf("read %s file: %w", label, err)
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
 	if err != nil {
-		return nil, "", false, fmt.Errorf("read logo file: %w", err)
+		return nil, "", false, fmt.Errorf("read %s file: %w", label, err)
 	}
 	if int64(len(data)) > maxBytes {
-		return nil, "", false, fmt.Errorf("logo file too large (max 20MB)")
+		return nil, "", false, fmt.Errorf("%s file too large (max 20MB)", label)
 	}
 	if len(data) == 0 {
-		return nil, "", false, fmt.Errorf("logo file is empty")
+		return nil, "", false, fmt.Errorf("%s file is empty", label)
 	}
 
 	contentType := http.DetectContentType(data)
@@ -885,7 +944,7 @@ func readLogoUpload(r *http.Request, field string, maxBytes int64) ([]byte, stri
 	case "image/png", "image/jpeg":
 		return data, contentType, true, nil
 	default:
-		return nil, "", false, fmt.Errorf("logo must be a PNG or JPEG")
+		return nil, "", false, fmt.Errorf("%s must be a PNG or JPEG", label)
 	}
 }
 

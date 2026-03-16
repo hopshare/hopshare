@@ -1,0 +1,293 @@
+.organization-page {
+  --org-heading: #0f172a;
+  --org-hero-heading: #ffffff;
+  --org-muted: #475569;
+  --org-subtle: #64748b;
+  --org-panel-bg: #ffffff;
+  --org-panel-muted-bg: #f8fafc;
+  --org-panel-border: #e2e8f0;
+  --org-primary: #0369a1;
+  --org-primary-hover: #075985;
+  --org-secondary-bg: rgba(255, 255, 255, 0.9);
+  --org-secondary-border: rgba(148, 163, 184, 0.45);
+  --org-secondary-text: #1e293b;
+  --org-hero-gradient: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 55%, #dbeafe 100%);
+  --org-hero-overlay: linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.5));
+  --org-hero-card-bg: rgba(255, 255, 255, 0.45);
+  --org-hero-card-border: rgba(255, 255, 255, 0.75);
+  --org-stat-bg: rgba(255, 255, 255, 0.82);
+  --org-stat-border: rgba(148, 163, 184, 0.24);
+  --org-recent-bg: #f8fafc;
+  --org-recent-border: #cbd5e1;
+  --org-recent-hover-bg: #ffffff;
+  --org-recent-completed-bg: #ecfdf5;
+  --org-recent-completed-border: #a7f3d0;
+  --org-recent-completed-hover-bg: #d1fae5;
+  --org-recent-active-bg: #e0f2fe;
+  --org-recent-active-border: #7dd3fc;
+  --org-recent-active-hover-bg: #bae6fd;
+}
+
+.organization-page.theme-bright {
+  --org-heading: #1f2937;
+  --org-hero-heading: #ffffff;
+  --org-muted: #334155;
+  --org-subtle: #475569;
+  --org-panel-bg: #fffdf8;
+  --org-panel-muted-bg: #fff7ed;
+  --org-panel-border: #fed7aa;
+  --org-primary: #ea580c;
+  --org-primary-hover: #c2410c;
+  --org-secondary-bg: rgba(255, 247, 237, 0.94);
+  --org-secondary-border: rgba(251, 146, 60, 0.45);
+  --org-secondary-text: #9a3412;
+  --org-hero-gradient: linear-gradient(135deg, #fff7ed 0%, #fef3c7 45%, #fee2e2 100%);
+  --org-hero-overlay: linear-gradient(180deg, rgba(124, 45, 18, 0.08), rgba(124, 45, 18, 0.42));
+  --org-hero-card-bg: rgba(255, 251, 235, 0.45);
+  --org-hero-card-border: rgba(255, 237, 213, 0.88);
+  --org-stat-bg: rgba(255, 247, 237, 0.84);
+  --org-stat-border: rgba(251, 146, 60, 0.2);
+  --org-recent-bg: #fff7ed;
+  --org-recent-border: #fdba74;
+  --org-recent-hover-bg: #ffedd5;
+  --org-recent-completed-bg: #fefce8;
+  --org-recent-completed-border: #facc15;
+  --org-recent-completed-hover-bg: #fef08a;
+  --org-recent-active-bg: #fee2e2;
+  --org-recent-active-border: #fb7185;
+  --org-recent-active-hover-bg: #fecdd3;
+}
+
+.organization-page.theme-serious {
+  --org-heading: #e5e7eb;
+  --org-hero-heading: #ffffff;
+  --org-muted: #cbd5e1;
+  --org-subtle: #94a3b8;
+  --org-panel-bg: #0f172a;
+  --org-panel-muted-bg: #111827;
+  --org-panel-border: #334155;
+  --org-primary: #0f766e;
+  --org-primary-hover: #115e59;
+  --org-secondary-bg: rgba(15, 23, 42, 0.72);
+  --org-secondary-border: rgba(100, 116, 139, 0.55);
+  --org-secondary-text: #e2e8f0;
+  --org-hero-gradient: linear-gradient(135deg, #0f172a 0%, #1f2937 45%, #0b1120 100%);
+  --org-hero-overlay: linear-gradient(180deg, rgba(2, 6, 23, 0.18), rgba(2, 6, 23, 0.68));
+  --org-hero-card-bg: rgba(15, 23, 42, 0.45);
+  --org-hero-card-border: rgba(51, 65, 85, 0.9);
+  --org-stat-bg: rgba(30, 41, 59, 0.92);
+  --org-stat-border: rgba(100, 116, 139, 0.3);
+  --org-recent-bg: #111827;
+  --org-recent-border: #334155;
+  --org-recent-hover-bg: #1f2937;
+  --org-recent-completed-bg: #0f2c2a;
+  --org-recent-completed-border: #134e4a;
+  --org-recent-completed-hover-bg: #134e4a;
+  --org-recent-active-bg: #10253d;
+  --org-recent-active-border: #1d4ed8;
+  --org-recent-active-hover-bg: #153f66;
+}
+
+.organization-page.theme-fun {
+  --org-heading: #3b0764;
+  --org-hero-heading: #ffffff;
+  --org-muted: #6b21a8;
+  --org-subtle: #7c3aed;
+  --org-panel-bg: #fffaff;
+  --org-panel-muted-bg: #fdf2f8;
+  --org-panel-border: #f5d0fe;
+  --org-primary: #db2777;
+  --org-primary-hover: #be185d;
+  --org-secondary-bg: rgba(255, 250, 255, 0.92);
+  --org-secondary-border: rgba(217, 70, 239, 0.34);
+  --org-secondary-text: #86198f;
+  --org-hero-gradient: linear-gradient(135deg, #fdf2f8 0%, #e0f2fe 45%, #fce7f3 100%);
+  --org-hero-overlay: linear-gradient(180deg, rgba(109, 40, 217, 0.08), rgba(109, 40, 217, 0.34));
+  --org-hero-card-bg: rgba(255, 252, 255, 0.45);
+  --org-hero-card-border: rgba(244, 114, 182, 0.4);
+  --org-stat-bg: rgba(255, 250, 255, 0.86);
+  --org-stat-border: rgba(217, 70, 239, 0.16);
+  --org-recent-bg: #fdf2f8;
+  --org-recent-border: #f5d0fe;
+  --org-recent-hover-bg: #fae8ff;
+  --org-recent-completed-bg: #ecfdf3;
+  --org-recent-completed-border: #86efac;
+  --org-recent-completed-hover-bg: #dcfce7;
+  --org-recent-active-bg: #ede9fe;
+  --org-recent-active-border: #c4b5fd;
+  --org-recent-active-hover-bg: #ddd6fe;
+}
+
+.organization-heading {
+  color: var(--org-heading);
+}
+
+.organization-heading--hero {
+  color: var(--org-hero-heading);
+  text-shadow: 0 2px 10px rgba(15, 23, 42, 0.35);
+}
+
+.organization-muted {
+  color: var(--org-muted);
+}
+
+.organization-muted--hero {
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 8px rgba(15, 23, 42, 0.35);
+}
+
+.organization-subtle {
+  color: var(--org-subtle);
+}
+
+.organization-panel {
+  border: 1px solid var(--org-panel-border);
+  background: var(--org-panel-bg);
+}
+
+.organization-panel--muted {
+  background: var(--org-panel-muted-bg);
+}
+
+.organization-primary-button {
+  background: var(--org-primary);
+  color: #fff;
+}
+
+.organization-primary-button:hover {
+  background: var(--org-primary-hover);
+}
+
+.organization-secondary-button {
+  border: 1px solid var(--org-secondary-border);
+  background: var(--org-secondary-bg);
+  color: var(--org-secondary-text);
+  backdrop-filter: blur(14px);
+}
+
+.organization-secondary-button:hover {
+  filter: brightness(0.98);
+}
+
+.organization-metrics-card {
+  width: 100%;
+  border: 1px solid var(--org-panel-border);
+  border-radius: 1.25rem;
+  background: var(--org-panel-bg);
+  padding: 0.85rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.organization-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--org-panel-border);
+  border-radius: 1.5rem;
+  background: var(--org-hero-gradient);
+  min-height: 18rem;
+}
+
+.organization-hero--with-banner {
+  background: transparent;
+}
+
+.organization-hero--with-banner .organization-hero__shade {
+  display: none;
+}
+
+.organization-hero__banner,
+.organization-hero__shade {
+  position: absolute;
+  inset: 0;
+}
+
+.organization-hero__banner {
+  overflow: hidden;
+}
+
+.organization-hero__banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.organization-hero__shade {
+  background: var(--org-hero-overlay);
+}
+
+.organization-hero__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 18rem;
+  align-items: flex-start;
+  padding: 1rem;
+}
+
+.organization-hero__card {
+  width: 100%;
+  max-width: 40rem;
+  border: none;
+  border-radius: 1.25rem;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.organization-stat {
+  border: 1px solid var(--org-stat-border);
+  border-radius: 1rem;
+  background: var(--org-stat-bg);
+  padding: 0.6rem 0.55rem;
+  text-align: center;
+}
+
+.organization-recent-card {
+  border: 1px solid var(--org-recent-border);
+  background: var(--org-recent-bg);
+}
+
+.organization-recent-card:hover {
+  background: var(--org-recent-hover-bg);
+}
+
+.organization-recent-card--completed {
+  border-color: var(--org-recent-completed-border);
+  background: var(--org-recent-completed-bg);
+}
+
+.organization-recent-card--completed:hover {
+  background: var(--org-recent-completed-hover-bg);
+}
+
+.organization-recent-card--active {
+  border-color: var(--org-recent-active-border);
+  background: var(--org-recent-active-bg);
+}
+
+.organization-recent-card--active:hover {
+  background: var(--org-recent-active-hover-bg);
+}
+
+@media (min-width: 768px) {
+  .organization-hero {
+    min-height: 23rem;
+  }
+
+  .organization-hero__inner {
+    min-height: 23rem;
+    padding: 1.5rem;
+  }
+
+  .organization-hero__card {
+    padding: 0;
+  }
+
+  .organization-metrics-card {
+    padding: 1rem;
+  }
+}

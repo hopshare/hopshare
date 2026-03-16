@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"net/mail"
-	"strconv"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -433,6 +433,9 @@ func ResolveOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string,
 			o.timebank_starting_balance,
 			o.logo_content_type,
 			(o.logo_data IS NOT NULL),
+			o.theme,
+			o.banner_content_type,
+			(o.banner_data IS NOT NULL),
 			o.enabled,
 			o.created_by,
 			o.created_at,
@@ -459,6 +462,9 @@ func ResolveOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string,
 		&res.Organization.TimebankStartingBalance,
 		&res.Organization.LogoContentType,
 		&res.Organization.HasLogo,
+		&res.Organization.Theme,
+		&res.Organization.BannerContentType,
+		&res.Organization.HasBanner,
 		&res.Organization.Enabled,
 		&res.Organization.CreatedBy,
 		&res.Organization.CreatedAt,
@@ -473,6 +479,7 @@ func ResolveOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string,
 	if subtle.ConstantTimeCompare([]byte(tokenHash), []byte(hashTokenSecret(tokenSecret))) != 1 {
 		return InviteResolution{}, ErrInviteInvalid
 	}
+	res.Organization.Theme = types.NormalizeOrganizationTheme(res.Organization.Theme)
 	if !res.Organization.Enabled {
 		return res, ErrOrganizationDisabled
 	}
@@ -525,6 +532,9 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 		orgStarting      int
 		orgLogoType      sql.NullString
 		orgHasLogo       bool
+		orgTheme         string
+		orgBannerType    sql.NullString
+		orgHasBanner     bool
 		orgEnabled       bool
 		orgCreatedBy     sql.NullInt64
 		orgCreatedAt     time.Time
@@ -556,6 +566,9 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 			o.timebank_starting_balance,
 			o.logo_content_type,
 			(o.logo_data IS NOT NULL),
+			o.theme,
+			o.banner_content_type,
+			(o.banner_data IS NOT NULL),
 			o.enabled,
 			o.created_by,
 			o.created_at,
@@ -583,6 +596,9 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 		&orgStarting,
 		&orgLogoType,
 		&orgHasLogo,
+		&orgTheme,
+		&orgBannerType,
+		&orgHasBanner,
 		&orgEnabled,
 		&orgCreatedBy,
 		&orgCreatedAt,
@@ -634,6 +650,8 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 				TimebankMaxBalance:      orgMaxBalance,
 				TimebankStartingBalance: orgStarting,
 				HasLogo:                 orgHasLogo,
+				Theme:                   types.NormalizeOrganizationTheme(orgTheme),
+				HasBanner:               orgHasBanner,
 				Enabled:                 orgEnabled,
 				CreatedAt:               orgCreatedAt,
 				UpdatedAt:               orgUpdatedAt,
@@ -642,6 +660,9 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 		}
 		if orgLogoType.Valid {
 			result.Organization.LogoContentType = &orgLogoType.String
+		}
+		if orgBannerType.Valid {
+			result.Organization.BannerContentType = &orgBannerType.String
 		}
 		if orgCreatedBy.Valid {
 			result.Organization.CreatedBy = &orgCreatedBy.Int64
@@ -703,6 +724,8 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 			TimebankMaxBalance:      orgMaxBalance,
 			TimebankStartingBalance: orgStarting,
 			HasLogo:                 orgHasLogo,
+			Theme:                   types.NormalizeOrganizationTheme(orgTheme),
+			HasBanner:               orgHasBanner,
 			Enabled:                 orgEnabled,
 			CreatedAt:               orgCreatedAt,
 			UpdatedAt:               orgUpdatedAt,
@@ -711,6 +734,9 @@ func AcceptOrganizationInvite(ctx context.Context, db *sql.DB, rawToken string, 
 	}
 	if orgLogoType.Valid {
 		result.Organization.LogoContentType = &orgLogoType.String
+	}
+	if orgBannerType.Valid {
+		result.Organization.BannerContentType = &orgBannerType.String
 	}
 	if orgCreatedBy.Valid {
 		result.Organization.CreatedBy = &orgCreatedBy.Int64

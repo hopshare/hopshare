@@ -161,6 +161,9 @@ func TestCreateOrganization(t *testing.T) {
 			org.TimebankStartingBalance,
 		)
 	}
+	if org.Theme != types.OrganizationThemeDefault {
+		t.Fatalf("expected default organization theme, got %q", org.Theme)
+	}
 
 	stats, err := MemberStats(ctx, db, org.ID, member.ID)
 	if err != nil {
@@ -168,6 +171,70 @@ func TestCreateOrganization(t *testing.T) {
 	}
 	if stats.BalanceHours != DefaultTimebankStartingBalance {
 		t.Fatalf("expected owner starting balance of %d, got %d", DefaultTimebankStartingBalance, stats.BalanceHours)
+	}
+}
+
+func TestUpdateOrganizationThemeAndBanner(t *testing.T) {
+	db := require_db(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	base := fmt.Sprintf("inttest_org_theme_%d", time.Now().UnixNano())
+	member, err := CreateMember(ctx, db, types.Member{
+		FirstName:        "Owner",
+		LastName:         "Theme",
+		Email:            base + "@example.com",
+		PasswordHash:     "hashed_password",
+		PreferredContact: base + "@example.com",
+		Enabled:          true,
+		Verified:         true,
+	})
+	if err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+
+	org, err := CreateOrganization(ctx, db, base+" Org", "City", "TS", "Desc", member.ID)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+
+	org.Theme = types.OrganizationThemeFun
+	org.Description = "Updated description"
+	if err := UpdateOrganization(ctx, db, org); err != nil {
+		t.Fatalf("update organization: %v", err)
+	}
+	if err := SetOrganizationBanner(ctx, db, org.ID, "image/png", []byte{1, 2, 3, 4}); err != nil {
+		t.Fatalf("set organization banner: %v", err)
+	}
+
+	updated, err := GetOrganizationByID(ctx, db, org.ID)
+	if err != nil {
+		t.Fatalf("get organization by id: %v", err)
+	}
+	if updated.Theme != types.OrganizationThemeFun {
+		t.Fatalf("expected theme %q, got %q", types.OrganizationThemeFun, updated.Theme)
+	}
+	if !updated.HasBanner {
+		t.Fatalf("expected uploaded banner to be present")
+	}
+	if updated.BannerContentType == nil || *updated.BannerContentType != "image/png" {
+		t.Fatalf("unexpected banner content type: %v", updated.BannerContentType)
+	}
+
+	if err := ClearOrganizationBanner(ctx, db, org.ID); err != nil {
+		t.Fatalf("clear organization banner: %v", err)
+	}
+
+	cleared, err := GetOrganizationByID(ctx, db, org.ID)
+	if err != nil {
+		t.Fatalf("get cleared organization by id: %v", err)
+	}
+	if cleared.HasBanner {
+		t.Fatalf("expected banner to be cleared")
+	}
+	if cleared.BannerContentType != nil {
+		t.Fatalf("expected banner content type to be nil, got %v", cleared.BannerContentType)
 	}
 }
 
