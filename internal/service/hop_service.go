@@ -18,6 +18,7 @@ import (
 type CreateHopParams struct {
 	OrganizationID int64
 	MemberID       int64
+	Kind           string
 	Title          string
 	Details        string
 	EstimatedHours int
@@ -32,6 +33,56 @@ type ReopenedAcceptedHop struct {
 	Title          string
 	CreatedBy      int64
 	AcceptedBy     int64
+}
+
+func normalizeHopKind(kind string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "":
+		return types.HopKindAsk, nil
+	case types.HopKindAsk:
+		return types.HopKindAsk, nil
+	case types.HopKindOffer:
+		return types.HopKindOffer, nil
+	default:
+		return "", ErrMissingField
+	}
+}
+
+func validateCreateHopBalance(kind string, balance int, policy timebankPolicy) error {
+	switch kind {
+	case types.HopKindAsk:
+		if balance <= policy.MinBalance {
+			return ErrHopRequestLimit
+		}
+	case types.HopKindOffer:
+		if balance >= policy.MaxBalance {
+			return ErrHopOfferLimit
+		}
+	default:
+		return ErrMissingField
+	}
+	return nil
+}
+
+func validateInterestBalance(kind string, balance int, estimatedHours int, policy timebankPolicy) error {
+	if kind != types.HopKindOffer {
+		return nil
+	}
+	if balance-estimatedHours < policy.MinBalance {
+		return ErrHopInterestLimit
+	}
+	return nil
+}
+
+func hopTransferParticipants(kind string, createdBy int64, matchedUser int64) (fromMemberID int64, toMemberID int64, err error) {
+	switch kind {
+	case types.HopKindAsk:
+		return createdBy, matchedUser, nil
+	case types.HopKindOffer:
+		return matchedUser, createdBy, nil
+	default:
+		return 0, 0, ErrMissingField
+	}
 }
 
 func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, error) {
@@ -51,6 +102,10 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 	if p.EstimatedHours < 1 || p.EstimatedHours > 8 {
 		return types.Hop{}, ErrMissingField
 	}
+	hopKind, err := normalizeHopKind(p.Kind)
+	if err != nil {
+		return types.Hop{}, err
+	}
 
 	if err := requireActiveMembership(ctx, db, p.OrganizationID, p.MemberID); err != nil {
 		return types.Hop{}, err
@@ -63,8 +118,8 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 	if err != nil {
 		return types.Hop{}, err
 	}
-	if balance <= policy.MinBalance {
-		return types.Hop{}, ErrHopRequestLimit
+	if err := validateCreateHopBalance(hopKind, balance, policy); err != nil {
+		return types.Hop{}, err
 	}
 
 	neededByKind := strings.TrimSpace(p.NeededByKind)
@@ -91,18 +146,19 @@ func CreateHop(ctx context.Context, db *sql.DB, p CreateHopParams) (types.Hop, e
 	if err := db.QueryRowContext(ctx, `
 		INSERT INTO hops (
 			organization_id,
-			created_by,
+			hop_kind,
+			created_user,
 			title,
 			details,
 			estimated_hours,
 			is_private,
-			needed_by_kind,
-			needed_by_date,
+			when_kind,
+			when_at,
 			expires_at,
 			status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW() + INTERVAL '90 days'), $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, NOW() + INTERVAL '90 days'), $11)
 		RETURNING id
-	`, p.OrganizationID, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, p.IsPrivate, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
+	`, p.OrganizationID, hopKind, p.MemberID, title, nullableString(strings.TrimSpace(p.Details)), p.EstimatedHours, p.IsPrivate, neededByKind, nullableTime(neededByDate), nullableTime(expiresAt), types.HopStatusOpen).Scan(&hopID); err != nil {
 		return types.Hop{}, fmt.Errorf("create hop: %w", err)
 	}
 
@@ -131,10 +187,45 @@ func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) 
 		return err
 	}
 
-	res, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin accept hop: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var hopKind string
+	var estimatedHours int
+	if err = tx.QueryRowContext(ctx, `
+		SELECT hop_kind, estimated_hours
+		FROM hops
+		WHERE id = $1 AND organization_id = $2 AND status = $3 AND created_user <> $4
+		FOR UPDATE
+	`, hopID, orgID, types.HopStatusOpen, accepterID).Scan(&hopKind, &estimatedHours); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrHopInvalidState
+		}
+		return fmt.Errorf("load hop for accept: %w", err)
+	}
+	policy, err := loadTimebankPolicy(ctx, tx, orgID)
+	if err != nil {
+		return err
+	}
+	balance, err := loadMemberBalanceHours(ctx, tx, orgID, accepterID)
+	if err != nil {
+		return err
+	}
+	if err := validateInterestBalance(hopKind, balance, estimatedHours, policy); err != nil {
+		return err
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE hops
-		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
-		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_by <> $2
+		SET status = $1, matched_user = $2, accepted_at = NOW(), updated_at = NOW()
+		WHERE id = $3 AND organization_id = $4 AND status = $5 AND created_user <> $2
 	`, types.HopStatusAccepted, accepterID, hopID, orgID, types.HopStatusOpen)
 	if err != nil {
 		return fmt.Errorf("accept hop: %w", err)
@@ -145,6 +236,9 @@ func AcceptHop(ctx context.Context, db *sql.DB, orgID, hopID, accepterID int64) 
 	}
 	if affected == 0 {
 		return ErrHopInvalidState
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit accept hop: %w", err)
 	}
 	return nil
 }
@@ -185,15 +279,17 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	}
 
 	var createdBy int64
+	var hopKind string
+	var estimatedHours int
 	var status string
 	var title string
 	var details sql.NullString
 	if err = tx.QueryRowContext(ctx, `
-		SELECT created_by, status, title, details
+		SELECT created_user, hop_kind, estimated_hours, status, title, details
 		FROM hops
 		WHERE id = $1 AND organization_id = $2
 		FOR UPDATE
-	`, p.HopID, p.OrganizationID).Scan(&createdBy, &status, &title, &details); err != nil {
+	`, p.HopID, p.OrganizationID).Scan(&createdBy, &hopKind, &estimatedHours, &status, &title, &details); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrHopNotFound
 		}
@@ -204,6 +300,17 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	}
 	if createdBy == p.OffererID {
 		return ErrHopForbidden
+	}
+	policy, err := loadTimebankPolicy(ctx, tx, p.OrganizationID)
+	if err != nil {
+		return err
+	}
+	balance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, p.OffererID)
+	if err != nil {
+		return err
+	}
+	if err := validateInterestBalance(hopKind, balance, estimatedHours, policy); err != nil {
+		return err
 	}
 
 	var existingStatus sql.NullString
@@ -243,11 +350,15 @@ func OfferHopHelp(ctx context.Context, db *sql.DB, p OfferHopParams) error {
 	}
 
 	description := hopDescription(title, stringPtrFromNull(details))
+	interestText := "is interested in your hop"
+	if hopKind == types.HopKindAsk {
+		interestText = "is interested in helping with your hop"
+	}
 	_ = createMemberNotification(
 		ctx,
 		tx,
 		createdBy,
-		offererName+" offered help on your hop: "+description+".",
+		offererName+" "+interestText+": "+description+".",
 		hopDetailsHref(p.OrganizationID, p.HopID),
 	)
 
@@ -330,7 +441,7 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 		return ErrHopForbidden
 	}
 
-	orgID, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
+	orgID, hopKind, estimatedHours, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
 	if err != nil {
 		return err
 	}
@@ -344,10 +455,21 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 	if err := requireActiveMembership(ctx, tx, orgID, offererID); err != nil {
 		return err
 	}
+	policy, err := loadTimebankPolicy(ctx, tx, orgID)
+	if err != nil {
+		return err
+	}
+	balance, err := loadMemberBalanceHours(ctx, tx, orgID, offererID)
+	if err != nil {
+		return err
+	}
+	if err := validateInterestBalance(hopKind, balance, estimatedHours, policy); err != nil {
+		return err
+	}
 
 	res, err := tx.ExecContext(ctx, `
 		UPDATE hops
-		SET status = $1, accepted_by = $2, accepted_at = NOW(), updated_at = NOW()
+		SET status = $1, matched_user = $2, accepted_at = NOW(), updated_at = NOW()
 		WHERE id = $3 AND organization_id = $4 AND status = $5
 	`, types.HopStatusAccepted, offererID, hopID, orgID, types.HopStatusOpen)
 	if err != nil {
@@ -389,7 +511,7 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 	description := hopDescription(title, stringPtrFromNull(details))
 	body := strings.TrimSpace(responseBody)
 	if body == "" {
-		body = fmt.Sprintf("Your offer to help with \"%s\" was accepted.", description)
+		body = fmt.Sprintf("You were matched on \"%s\".", description)
 	}
 	_ = createMemberNotification(
 		ctx,
@@ -399,7 +521,7 @@ func acceptPendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterID
 		hopDetailsHref(orgID, hopID),
 	)
 
-	declineBody := fmt.Sprintf("%s has chosen someone else to help them with their request, %s. Check your organization again and maybe someone else could use your help!", responderName, title)
+	declineBody := fmt.Sprintf("%s matched this hop with someone else: %s.", responderName, title)
 	for _, other := range otherOfferers {
 		_ = createMemberNotification(
 			ctx,
@@ -418,7 +540,7 @@ func declinePendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterI
 		return ErrHopForbidden
 	}
 
-	orgID, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
+	orgID, _, _, title, details, err := loadHopForPendingOfferAction(ctx, tx, hopID, requesterID)
 	if err != nil {
 		return err
 	}
@@ -459,30 +581,32 @@ func declinePendingHopOfferTx(ctx context.Context, tx *sql.Tx, hopID, requesterI
 	return nil
 }
 
-func loadHopForPendingOfferAction(ctx context.Context, tx *sql.Tx, hopID, requesterID int64) (int64, string, sql.NullString, error) {
+func loadHopForPendingOfferAction(ctx context.Context, tx *sql.Tx, hopID, requesterID int64) (int64, string, int, string, sql.NullString, error) {
 	var orgID int64
 	var createdBy int64
+	var hopKind string
+	var estimatedHours int
 	var status string
 	var title string
 	var details sql.NullString
 	if err := tx.QueryRowContext(ctx, `
-		SELECT organization_id, created_by, status, title, details
+		SELECT organization_id, created_user, hop_kind, estimated_hours, status, title, details
 		FROM hops
 		WHERE id = $1
 		FOR UPDATE
-	`, hopID).Scan(&orgID, &createdBy, &status, &title, &details); err != nil {
+	`, hopID).Scan(&orgID, &createdBy, &hopKind, &estimatedHours, &status, &title, &details); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, "", sql.NullString{}, ErrHopNotFound
+			return 0, "", 0, "", sql.NullString{}, ErrHopNotFound
 		}
-		return 0, "", sql.NullString{}, fmt.Errorf("load hop for pending offer action: %w", err)
+		return 0, "", 0, "", sql.NullString{}, fmt.Errorf("load hop for pending offer action: %w", err)
 	}
 	if createdBy != requesterID {
-		return 0, "", sql.NullString{}, ErrHopForbidden
+		return 0, "", 0, "", sql.NullString{}, ErrHopForbidden
 	}
 	if status != types.HopStatusOpen {
-		return 0, "", sql.NullString{}, ErrHopInvalidState
+		return 0, "", 0, "", sql.NullString{}, ErrHopInvalidState
 	}
-	return orgID, title, details, nil
+	return orgID, hopKind, estimatedHours, title, details, nil
 }
 
 func listOtherPendingHopOfferers(ctx context.Context, tx *sql.Tx, hopID, selectedOffererID int64) ([]types.PendingHopOffer, error) {
@@ -552,13 +676,13 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 	var cancelerName string
 	if err = tx.QueryRowContext(ctx, `
 		SELECT
-			h.created_by,
-			h.accepted_by,
+			h.created_user,
+			h.matched_user,
 			h.status,
 			h.title,
 			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email)
 		FROM hops h
-		JOIN members m ON m.id = h.created_by
+		JOIN members m ON m.id = h.created_user
 		WHERE h.id = $1 AND h.organization_id = $2
 		FOR UPDATE
 	`, hopID, orgID).Scan(&createdBy, &acceptedBy, &status, &title, &cancelerName); err != nil {
@@ -578,7 +702,7 @@ func CancelHop(ctx context.Context, db *sql.DB, orgID, hopID, cancelerID int64) 
 	res, err := tx.ExecContext(ctx, `
 		UPDATE hops
 		SET status = $1, canceled_by = $2, canceled_at = NOW(), updated_at = NOW()
-		WHERE id = $3 AND organization_id = $4 AND created_by = $2 AND status IN ($5, $6)
+		WHERE id = $3 AND organization_id = $4 AND created_user = $2 AND status IN ($5, $6)
 	`, types.HopStatusCanceled, cancelerID, hopID, orgID, types.HopStatusOpen, types.HopStatusAccepted)
 	if err != nil {
 		return fmt.Errorf("cancel hop: %w", err)
@@ -665,12 +789,13 @@ type CompleteHopParams struct {
 }
 
 type CompleteHopResult struct {
-	RequestedHours      int
-	AwardedHours        int
-	MinBalance          int
-	MaxBalance          int
-	RequesterMinLimited bool
-	HelperMaxLimited    bool
+	HopKind          string
+	RequestedHours   int
+	AwardedHours     int
+	MinBalance       int
+	MaxBalance       int
+	PayerMinLimited  bool
+	EarnerMaxLimited bool
 }
 
 func CompleteHop(ctx context.Context, db *sql.DB, p CompleteHopParams) error {
@@ -712,16 +837,17 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 
 	var createdBy int64
 	var acceptedBy sql.NullInt64
+	var hopKind string
 	var estimatedHours int
 	var status string
 	var title string
 	row := tx.QueryRowContext(ctx, `
-		SELECT created_by, accepted_by, estimated_hours, status, title
+		SELECT created_user, matched_user, hop_kind, estimated_hours, status, title
 		FROM hops
 		WHERE id = $1 AND organization_id = $2
 		FOR UPDATE
 	`, p.HopID, p.OrganizationID)
-	if err = row.Scan(&createdBy, &acceptedBy, &estimatedHours, &status, &title); err != nil {
+	if err = row.Scan(&createdBy, &acceptedBy, &hopKind, &estimatedHours, &status, &title); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return CompleteHopResult{}, ErrHopNotFound
 		}
@@ -735,16 +861,22 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 		return CompleteHopResult{}, ErrHopForbidden
 	}
 
-	// Only the requester can choose awarded hours. For helpers, hours are fixed
-	// to the hop estimate to prevent self-awarded balance inflation.
+	fromMemberID, toMemberID, err := hopTransferParticipants(hopKind, createdBy, acceptedBy.Int64)
+	if err != nil {
+		return CompleteHopResult{}, err
+	}
+
+	// The paying member can lower the final hours. The earning member cannot
+	// increase them above the estimate.
 	requestedHours := estimatedHours
-	if p.CompletedBy == createdBy && p.CompletedHours > 0 {
+	if p.CompletedBy == fromMemberID && p.CompletedHours > 0 {
 		requestedHours = p.CompletedHours
 	}
 	if requestedHours <= 0 {
 		return CompleteHopResult{}, ErrMissingField
 	}
 	result := CompleteHopResult{
+		HopKind:        hopKind,
 		RequestedHours: requestedHours,
 	}
 	policy, err := loadTimebankPolicy(ctx, tx, p.OrganizationID)
@@ -765,22 +897,22 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 		return CompleteHopResult{}, fmt.Errorf("lock members for completion: %w", err)
 	}
 
-	requesterBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, createdBy)
+	payerBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, fromMemberID)
 	if err != nil {
 		return CompleteHopResult{}, err
 	}
-	helperBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, acceptedBy.Int64)
+	earnerBalance, err := loadMemberBalanceHours(ctx, tx, p.OrganizationID, toMemberID)
 	if err != nil {
 		return CompleteHopResult{}, err
 	}
 
-	allowedByMin := requesterBalance - policy.MinBalance
-	allowedByMax := policy.MaxBalance - helperBalance
+	allowedByMin := payerBalance - policy.MinBalance
+	allowedByMax := policy.MaxBalance - earnerBalance
 	if allowedByMin < requestedHours {
-		result.RequesterMinLimited = true
+		result.PayerMinLimited = true
 	}
 	if allowedByMax < requestedHours {
-		result.HelperMaxLimited = true
+		result.EarnerMaxLimited = true
 	}
 	hours := requestedHours
 	if allowedByMin < hours {
@@ -805,7 +937,7 @@ func CompleteHopWithResult(ctx context.Context, db *sql.DB, p CompleteHopParams)
 	if _, err = tx.ExecContext(ctx, `
 		INSERT INTO hop_transactions (organization_id, hop_id, from_member_id, to_member_id, hours)
 		VALUES ($1, $2, $3, $4, $5)
-	`, p.OrganizationID, p.HopID, createdBy, acceptedBy.Int64, hours); err != nil {
+	`, p.OrganizationID, p.HopID, fromMemberID, toMemberID, hours); err != nil {
 		return CompleteHopResult{}, fmt.Errorf("insert hop transaction: %w", err)
 	}
 
@@ -869,7 +1001,7 @@ func expireHops(ctx context.Context, db *sql.DB, orgID *int64, now time.Time) (i
 				AND status IN ($3, $4)
 				AND expires_at IS NOT NULL
 				AND expires_at <= $5
-			RETURNING id, organization_id, created_by, title
+			RETURNING id, organization_id, created_user, title
 		`, types.HopStatusExpired, *orgID, types.HopStatusOpen, types.HopStatusAccepted, now)
 	} else {
 		rows, err = tx.QueryContext(ctx, `
@@ -878,7 +1010,7 @@ func expireHops(ctx context.Context, db *sql.DB, orgID *int64, now time.Time) (i
 			WHERE status IN ($2, $3)
 				AND expires_at IS NOT NULL
 				AND expires_at <= $4
-			RETURNING id, organization_id, created_by, title
+			RETURNING id, organization_id, created_user, title
 		`, types.HopStatusExpired, types.HopStatusOpen, types.HopStatusAccepted, now)
 	}
 	if err != nil {
@@ -1043,17 +1175,17 @@ func GetHopByID(ctx context.Context, db *sql.DB, orgID, hopID int64) (types.Hop,
 
 	row := db.QueryRowContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1 AND r.id = $2
 	`, orgID, hopID)
 	req, err := scanHopRow(row)
@@ -1106,21 +1238,21 @@ func ListMemberHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND (
-				r.created_by = $2
-				OR r.accepted_by = $2
+				r.created_user = $2
+				OR r.matched_user = $2
 				OR r.canceled_by = $2
 				OR r.completed_by = $2
 				OR EXISTS (
@@ -1167,19 +1299,19 @@ func ListRequestedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) (
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
-			AND r.created_by = $2
+			AND r.created_user = $2
 		ORDER BY r.created_at DESC
 	`, orgID, memberID)
 	if err != nil {
@@ -1218,19 +1350,19 @@ func ListHelpedHops(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
-			AND r.accepted_by = $2
+			AND r.matched_user = $2
 			AND r.status IN ($3, $4)
 		ORDER BY r.created_at DESC
 	`, orgID, memberID, types.HopStatusAccepted, types.HopStatusCompleted)
@@ -1270,17 +1402,17 @@ func ListPendingOfferedHops(ctx context.Context, db *sql.DB, orgID, memberID int
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 			AND EXISTS (
@@ -1326,21 +1458,21 @@ func ListHopsToHelp(ctx context.Context, db *sql.DB, orgID, memberID int64) ([]t
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND (
-				(r.status = $2 AND r.created_by <> $3)
-				OR (r.status = $4 AND r.accepted_by = $3)
+				(r.status = $2 AND r.created_user <> $3)
+				OR (r.status = $4 AND r.matched_user = $3)
 			)
 		ORDER BY r.created_at DESC
 	`, orgID, types.HopStatusOpen, memberID, types.HopStatusAccepted)
@@ -1377,17 +1509,17 @@ func RecentPendingHops(ctx context.Context, db *sql.DB, orgID int64, limit int) 
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 		ORDER BY r.created_at DESC
@@ -1425,17 +1557,17 @@ func RecentCompletedHops(ctx context.Context, db *sql.DB, orgID int64, limit int
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1 AND r.status = $2
 		ORDER BY r.completed_at DESC
 		LIMIT $3
@@ -1473,17 +1605,17 @@ func RecentAcceptedHops(ctx context.Context, db *sql.DB, orgID int64, limit int)
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 		ORDER BY r.accepted_at DESC
@@ -1522,17 +1654,17 @@ func RecentPublicCompletedHops(ctx context.Context, db *sql.DB, orgID int64, lim
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 			AND r.is_private = FALSE
@@ -1572,17 +1704,17 @@ func RecentPublicAcceptedHops(ctx context.Context, db *sql.DB, orgID int64, limi
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 			AND r.is_private = FALSE
@@ -1622,17 +1754,17 @@ func RecentPublicPendingHops(ctx context.Context, db *sql.DB, orgID int64, limit
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT
-			r.id, r.organization_id, r.created_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
+			r.id, r.organization_id, r.hop_kind, r.created_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', mc.first_name, mc.last_name)), ''), mc.email),
 			r.title, r.details, r.estimated_hours, r.is_private,
-			r.needed_by_kind, r.needed_by_date, r.expires_at,
+			r.when_kind, r.when_at, r.expires_at,
 			r.status,
-			r.accepted_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
+			r.matched_user, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', ma.first_name, ma.last_name)), ''), ma.email), r.accepted_at,
 			r.canceled_by, r.canceled_at,
 			r.completed_by, r.completed_at, r.completed_hours, r.completion_comment,
 			r.created_at, r.updated_at
 		FROM hops r
-		JOIN members mc ON mc.id = r.created_by
-		LEFT JOIN members ma ON ma.id = r.accepted_by
+		JOIN members mc ON mc.id = r.created_user
+		LEFT JOIN members ma ON ma.id = r.matched_user
 		WHERE r.organization_id = $1
 			AND r.status = $2
 			AND r.is_private = FALSE
@@ -1806,7 +1938,7 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*), MAX(created_at)
 		FROM hops
-		WHERE organization_id = $1 AND created_by = $2
+		WHERE organization_id = $1 AND created_user = $2
 	`, orgID, memberID).Scan(&stats.HopsMade, &lastMade); err != nil {
 		return types.MemberHopStats{}, fmt.Errorf("load hops made: %w", err)
 	}
@@ -1818,7 +1950,7 @@ func MemberStats(ctx context.Context, db *sql.DB, orgID, memberID int64) (types.
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*), MAX(completed_at)
 		FROM hops
-		WHERE organization_id = $1 AND accepted_by = $2 AND status = $3
+		WHERE organization_id = $1 AND matched_user = $2 AND status = $3
 	`, orgID, memberID, types.HopStatusCompleted).Scan(&stats.HopsFulfilled, &lastFulfilled); err != nil {
 		return types.MemberHopStats{}, fmt.Errorf("load hops fulfilled: %w", err)
 	}
@@ -2013,11 +2145,11 @@ func ReopenAcceptedHopsForMember(ctx context.Context, tx *sql.Tx, memberID int64
 	}
 
 	rows, err := tx.QueryContext(ctx, `
-		SELECT id, organization_id, title, created_by, accepted_by
+		SELECT id, organization_id, title, created_user, matched_user
 		FROM hops
 		WHERE status = $1
-			AND accepted_by IS NOT NULL
-			AND (created_by = $2 OR accepted_by = $2)
+			AND matched_user IS NOT NULL
+			AND (created_user = $2 OR matched_user = $2)
 		FOR UPDATE
 	`, types.HopStatusAccepted, memberID)
 	if err != nil {
@@ -2044,7 +2176,7 @@ func ReopenAcceptedHopsForMember(ctx context.Context, tx *sql.Tx, memberID int64
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE hops
 			SET status = $1,
-				accepted_by = NULL,
+				matched_user = NULL,
 				accepted_at = NULL,
 				updated_at = NOW()
 			WHERE id = $2
@@ -2109,7 +2241,7 @@ func ListPendingHopOffers(ctx context.Context, db *sql.DB, hopID, requesterID in
 		JOIN hop_help_offers hho ON hho.hop_id = h.id
 		JOIN members m ON m.id = hho.member_id
 		WHERE h.id = $1
-		  AND h.created_by = $2
+		  AND h.created_user = $2
 		  AND h.status = $3
 		  AND hho.status IS NULL
 		ORDER BY hho.offered_at ASC, hho.member_id ASC
@@ -2190,7 +2322,7 @@ func SetHopPrivacy(ctx context.Context, db *sql.DB, orgID, hopID, memberID int64
 	res, err := db.ExecContext(ctx, `
 		UPDATE hops
 		SET is_private = $1, updated_at = NOW()
-		WHERE id = $2 AND organization_id = $3 AND (created_by = $4 OR accepted_by = $4)
+		WHERE id = $2 AND organization_id = $3 AND (created_user = $4 OR matched_user = $4)
 	`, isPrivate, hopID, orgID, memberID)
 	if err != nil {
 		return fmt.Errorf("update hop privacy: %w", err)
@@ -2377,7 +2509,7 @@ func normalizeHopCommentAudience(ctx context.Context, db *sql.DB, hopID, memberI
 	var createdBy int64
 	var acceptedBy sql.NullInt64
 	if err := db.QueryRowContext(ctx, `
-		SELECT created_by, accepted_by
+		SELECT created_user, matched_user
 		FROM hops
 		WHERE id = $1
 	`, hopID).Scan(&createdBy, &acceptedBy); err != nil {
@@ -2498,7 +2630,7 @@ func GetHopImageData(ctx context.Context, db *sql.DB, imageID int64) (HopImageDa
 	if err := db.QueryRowContext(ctx, `
 		SELECT
 			hi.id, hi.hop_id, h.organization_id, h.is_private,
-			h.created_by, h.accepted_by, hi.content_type, hi.data
+			h.created_user, h.matched_user, hi.content_type, hi.data
 		FROM hop_images hi
 		JOIN hops h ON h.id = hi.hop_id
 		WHERE hi.id = $1
@@ -2680,7 +2812,7 @@ func scanHopRow(s scanFunc) (types.Hop, error) {
 	var completionComment sql.NullString
 
 	if err := s.Scan(
-		&r.ID, &r.OrganizationID, &r.CreatedBy, &r.CreatedByName,
+		&r.ID, &r.OrganizationID, &r.Kind, &r.CreatedBy, &r.CreatedByName,
 		&r.Title, &details, &r.EstimatedHours, &r.IsPrivate,
 		&r.NeededByKind, &neededByDate, &expiresAt,
 		&r.Status,

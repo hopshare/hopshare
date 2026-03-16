@@ -120,7 +120,7 @@ func adminOrganizationRecentHops(ctx context.Context, db *sql.DB, orgID int64, l
 			COALESCE(NULLIF(TRIM(CONCAT_WS(' ', m.first_name, m.last_name)), ''), m.email),
 			h.created_at
 		FROM hops h
-		JOIN members m ON m.id = h.created_by
+		JOIN members m ON m.id = h.created_user
 		WHERE h.organization_id = $1
 		ORDER BY h.created_at DESC
 		LIMIT $2

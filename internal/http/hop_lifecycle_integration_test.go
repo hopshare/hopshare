@@ -84,7 +84,7 @@ func TestHopLifecycleWorkflow_MultiUserHTTP(t *testing.T) {
 		"hop_id": {strconv.FormatInt(hop.ID, 10)},
 	}), "/my-hopshare")
 	requireQueryValue(t, offerLoc, "org_id", strconv.FormatInt(org.ID, 10))
-	requireQueryValue(t, offerLoc, "success", "Offer sent.")
+	requireQueryValue(t, offerLoc, "success", "Interest registered.")
 
 	acceptLoc := requireRedirectPath(t, requesterActor.PostForm("/hops/offers/accept", url.Values{
 		"org_id":          {strconv.FormatInt(org.ID, 10)},
@@ -204,7 +204,7 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 		"org_id": {strconv.FormatInt(org.ID, 10)},
 		"hop_id": {strconv.FormatInt(hop.ID, 10)},
 	}), "/my-hopshare")
-	requireQueryValue(t, offerLoc, "success", "Offer sent.")
+	requireQueryValue(t, offerLoc, "success", "Interest registered.")
 
 	declineLoc := requireRedirectPath(t, requesterActor.PostForm("/hops/offers/decline", url.Values{
 		"org_id":          {strconv.FormatInt(org.ID, 10)},
@@ -234,7 +234,7 @@ func TestHopLifecycleWorkflow_DeclineOfferKeepsHopOpen(t *testing.T) {
 		"org_id": {strconv.FormatInt(org.ID, 10)},
 		"hop_id": {strconv.FormatInt(hop.ID, 10)},
 	}), "/my-hopshare")
-	requireQueryValue(t, offerAgainLoc, "success", "Offer sent.")
+	requireQueryValue(t, offerAgainLoc, "success", "Interest registered.")
 
 	offerNotificationCount := countHopOfferNotificationsForHop(t, ctx, db, requester.Member.ID, org.ID, hop.ID, hop.Title)
 	if offerNotificationCount < 2 {

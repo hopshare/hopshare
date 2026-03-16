@@ -44,7 +44,7 @@ func TestHTTPConcurrencyMatrix(t *testing.T) {
 		successCount := 0
 		for _, resp := range responses {
 			loc := requireRedirectPathOneOf(t, resp, "/my-hopshare")
-			if loc.Query().Get("success") == "Offer sent." {
+			if loc.Query().Get("success") == "Interest registered." {
 				successCount++
 			}
 		}

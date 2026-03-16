@@ -29,6 +29,13 @@ func hopNeededByLabel(hop types.Hop) string {
 	}
 }
 
+func hopKindLabel(kind string) string {
+	if kind == types.HopKindOffer {
+		return "Offer"
+	}
+	return "Ask"
+}
+
 func hopHoursLabel(hours int) string {
 	if hours == 1 {
 		return "1 hour"
@@ -163,7 +170,7 @@ templ HopDetailsStatusPill(status string) {
 	case types.HopStatusOpen:
 		<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 md:px-2 md:py-0.5 md:text-xs">Pending</span>
 	case types.HopStatusAccepted:
-		<span class="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800 md:px-2 md:py-0.5 md:text-xs">Accepted</span>
+		<span class="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800 md:px-2 md:py-0.5 md:text-xs">Matched</span>
 	case types.HopStatusCompleted:
 		<span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 md:px-2 md:py-0.5 md:text-xs">Completed</span>
 	case types.HopStatusCanceled:
@@ -256,7 +263,7 @@ templ HopMobileActionBar(org types.Organization, hop types.Hop, from string, bac
 						<input type="hidden" name="hop_id" value={ hop.ID } />
 						<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 						<input type="hidden" name="view" value={ backView } />
-						<button class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help</button>
+						<button class="inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-4 py-3 text-base font-semibold text-white transition hover:bg-emerald-700" type="submit">I'm Interested</button>
 					</form>
 				}
 				if canComplete || canCancel {
@@ -380,11 +387,12 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 			</div>
 		</div>
 
-		<section class="bg-white border border-slate-200 rounded-xl shadow-sm p-8 space-y-6">
+		<section class={ "border rounded-xl shadow-sm p-8 space-y-6 " + hopSurfaceClass(hop) }>
 			<div class="space-y-3">
 				<div class="flex flex-wrap items-stretch gap-3">
 					@HopHoursMetric(hop.EstimatedHours)
 					<div class="flex flex-wrap items-center gap-3">
+						@HopKindPill(hop.Kind)
 						@HopDetailsStatusPill(hop.Status)
 						if canToggle && hop.Status != types.HopStatusOpen {
 							@HopPrivacyToggle(org.ID, hop.ID, from, backView, hop)
@@ -404,7 +412,13 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 								alt={ hop.CreatedByName + " avatar" }
 							/>
 							<p class="text-xs text-slate-700">{ hop.CreatedByName }</p>
-							<p class="text-sm font-semibold text-slate-500">Is asking for help</p>
+							<p class="text-sm font-semibold text-slate-500">
+								if hop.Kind == types.HopKindOffer {
+									Is offering help
+								} else {
+									Is asking for help
+								}
+							</p>
 						</div>
 					} else {
 						<div class="grid grid-cols-[auto_auto_auto] items-start justify-center gap-2 sm:gap-3">
@@ -421,7 +435,13 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 								<p class="text-xs text-slate-700">{ hopHelperDisplayName(hop) }</p>
 							</div>
 							<div class="flex h-14 items-center justify-center px-1">
-								<p class="text-lg font-semibold text-slate-500 leading-none">helping</p>
+								<p class="text-lg font-semibold text-slate-500 leading-none">
+									if hop.Kind == types.HopKindOffer {
+										matched with
+									} else {
+										helping
+									}
+								</p>
 							</div>
 							<div class="text-center space-y-2">
 								<img
@@ -435,7 +455,8 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 					}
 					<div class="mt-4 space-y-1 text-sm text-slate-700">
 						<p><span class="font-semibold text-slate-900">Created:</span> { formatInAppTime(&hop.CreatedAt, "Jan 2, 2006 3:04 PM") }</p>
-						<p><span class="font-semibold text-slate-900">Needed by:</span> { hopNeededByDateValue(hop) }</p>
+						<p><span class="font-semibold text-slate-900">Type:</span> { hopKindLabel(hop.Kind) }</p>
+						<p><span class="font-semibold text-slate-900">When:</span> { hopNeededByDateValue(hop) }</p>
 						if hop.Status == types.HopStatusCompleted && hop.CompletedAt != nil {
 							<p><span class="font-semibold text-slate-900">Completed:</span> { formatInAppTime(hop.CompletedAt, "Jan 2, 2006 3:04 PM") }</p>
 						} else if hop.Status == types.HopStatusCanceled && hop.CanceledAt != nil {
@@ -480,7 +501,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 					</div>
 				</div>
 				if len(pendingOffers) == 0 {
-					<p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">No one has offered help yet.</p>
+					<p class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">No one has registered interest yet.</p>
 				} else {
 					<div class="space-y-3">
 						for _, offer := range pendingOffers {
@@ -531,7 +552,7 @@ templ HopDetailsBody(org types.Organization, hop types.Hop, from string, backVie
 					<input type="hidden" name="hop_id" value={ hop.ID } />
 					<input type="hidden" name="from" value={ hopDetailsOriginValue(from) } />
 					<input type="hidden" name="view" value={ backView } />
-					<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-6 py-4 text-xl font-semibold text-white transition hover:bg-emerald-700" type="submit">I'll Offer to Help...</button>
+					<button class="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-6 py-4 text-xl font-semibold text-white transition hover:bg-emerald-700" type="submit">I'm Interested...</button>
 				</form>
 			</section>
 		}

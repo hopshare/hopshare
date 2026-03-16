@@ -164,6 +164,49 @@ func SortHopsByMemberSkillMatch(ctx context.Context, db *sql.DB, orgID, memberID
 	return out, nil
 }
 
+// FilterAndSortHopsByMemberSkillMatch returns only hops with a positive match
+// score, ordered by best match first.
+func FilterAndSortHopsByMemberSkillMatch(ctx context.Context, db *sql.DB, orgID, memberID int64, hops []types.Hop) ([]types.Hop, error) {
+	if len(hops) == 0 {
+		return nil, nil
+	}
+
+	candidates, err := ListSelectedSkillCandidatesForMember(ctx, db, orgID, memberID)
+	if err != nil {
+		return nil, err
+	}
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+
+	type scoredHop struct {
+		hop   types.Hop
+		score int
+	}
+	scored := make([]scoredHop, 0, len(hops))
+	for _, hop := range hops {
+		details := ""
+		if hop.Details != nil {
+			details = *hop.Details
+		}
+		matches := MatchHopTextToSkillCandidates(hop.Title, details, candidates)
+		if len(matches) == 0 || matches[0].Score <= 0 {
+			continue
+		}
+		scored = append(scored, scoredHop{hop: hop, score: matches[0].Score})
+	}
+
+	sort.SliceStable(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
+
+	out := make([]types.Hop, 0, len(scored))
+	for _, item := range scored {
+		out = append(out, item.hop)
+	}
+	return out, nil
+}
+
 // MatchHopTextToSkillCandidates returns scored matches for skill candidates.
 func MatchHopTextToSkillCandidates(title, details string, candidates []SkillCandidate) []SkillMatch {
 	titleNorm := normalizeMatchText(title)

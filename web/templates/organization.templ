@@ -143,7 +143,7 @@ func organizationRecentMeta(hop types.Hop) string {
 	if hop.Status == types.HopStatusCompleted {
 		return hopHoursLabel(organizationHoursForCompletedHop(hop)) + " exchanged · " + organizationCompletedWhen(hop.CompletedAt)
 	}
-	return "Needed by " + hopNeededByLabel(hop)
+	return "When " + hopNeededByLabel(hop)
 }
 
 templ OrganizationMemberAvatar(orgID int64, memberID int64, displayName string, leftOrganization bool, sizeClass string) {
@@ -315,11 +315,11 @@ templ OrganizationJoinPanel(userEmail *string, org types.Organization) {
 templ OrganizationPendingSection(org types.Organization, pendingHops []types.Hop) {
 	<section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
 		<div>
-			<h2 class="text-xl font-bold text-slate-900">Who Needs Help?</h2>
-			<p class="text-sm text-slate-600">Check out some of these requests. Where could you help?</p>
+			<h2 class="text-xl font-bold text-slate-900">Hops Matched For You</h2>
+			<p class="text-sm text-slate-600">Recent open asks and offers in this organization.</p>
 		</div>
 		if len(pendingHops) == 0 {
-			<p class="text-sm text-slate-600">Nothing yet. Check back soon.</p>
+			<p class="text-sm text-slate-600">No open hops right now.</p>
 		} else {
 			<div class="space-y-3 md:hidden">
 				for _, hop := range pendingHops {
@@ -330,16 +330,19 @@ templ OrganizationPendingSection(org types.Organization, pendingHops []types.Hop
 				<ul class="space-y-2">
 					for _, hop := range pendingHops {
 						<li>
-							<a
-								class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 transition hover:border-slate-300 hover:bg-white"
-								href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
-							>
-								@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10 shrink-0")
-								<div class="min-w-0">
-									<p class="truncate text-sm font-semibold text-slate-900">{ hop.Title }</p>
-									<p class="truncate text-xs text-slate-600">{ organizationFirstName(hop.CreatedByName) } · Needed by { hopNeededByLabel(hop) }</p>
-								</div>
-							</a>
+								<a
+									class={ "flex items-center gap-3 rounded-lg border px-3 py-3 transition hover:border-slate-300 hover:bg-white " + hopSurfaceClass(hop) }
+									href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(org.ID, 10) + "&from=organization" }
+								>
+									@OrganizationMemberAvatar(org.ID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-10 w-10 shrink-0")
+									<div class="min-w-0">
+										<div class="flex flex-wrap items-center gap-2">
+											@HopKindPill(hop.Kind)
+											<p class="truncate text-sm font-semibold text-slate-900">{ hop.Title }</p>
+										</div>
+										<p class="truncate text-xs text-slate-600">{ organizationFirstName(hop.CreatedByName) } · When { hopNeededByLabel(hop) }</p>
+									</div>
+								</a>
 						</li>
 					}
 				</ul>
@@ -350,15 +353,18 @@ templ OrganizationPendingSection(org types.Organization, pendingHops []types.Hop
 
 templ OrganizationPendingCardMobile(orgID int64, hop types.Hop) {
 	<a
-		class="block rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-white"
+		class={ "block rounded-xl border px-4 py-4 transition hover:border-slate-300 hover:bg-white " + hopSurfaceClass(hop) }
 		href={ "/hops/view?hop_id=" + strconv.FormatInt(hop.ID, 10) + "&org_id=" + strconv.FormatInt(orgID, 10) + "&from=organization" }
 	>
 		<div class="flex items-start gap-3">
 			@OrganizationMemberAvatar(orgID, hop.CreatedBy, hop.CreatedByName, hop.CreatedByLeftOrganization, "h-11 w-11 shrink-0")
 			<div class="min-w-0 space-y-1">
-				<p class="break-words text-sm font-semibold text-slate-900">{ hop.Title }</p>
-				<p class="text-sm text-slate-700">Requested by { organizationFirstName(hop.CreatedByName) }</p>
-				<p class="text-xs text-slate-500">Needed by { hopNeededByLabel(hop) }</p>
+				<div class="flex flex-wrap items-center gap-2">
+					@HopKindPill(hop.Kind)
+					<p class="break-words text-sm font-semibold text-slate-900">{ hop.Title }</p>
+				</div>
+				<p class="text-sm text-slate-700">Created by { organizationFirstName(hop.CreatedByName) }</p>
+				<p class="text-xs text-slate-500">When { hopNeededByLabel(hop) }</p>
 			</div>
 		</div>
 	</a>
@@ -472,7 +478,7 @@ templ OrganizationRecentDesktopRow(orgID int64, hop types.Hop) {
 						<p class="text-xs text-slate-700">{ organizationFirstName(hop.CreatedByName) }</p>
 					</div>
 				</div>
-				<p class="mt-3 text-center text-xs text-slate-500">Needed by { hopNeededByLabel(hop) }</p>
+				<p class="mt-3 text-center text-xs text-slate-500">When { hopNeededByLabel(hop) }</p>
 			</a>
 		}
 	</li>

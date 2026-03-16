@@ -77,7 +77,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"title", "Invalid Hours Hop "+suffix,
 			"estimated_hours", "bad",
 			"needed_by_kind", types.HopNeededByAnytime,
-		)), "/my-hopshare")
+		)), "/hops/request")
 		requireQueryValue(t, loc, "error", "Invalid hours.")
 
 		loc = requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
@@ -86,7 +86,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"estimated_hours", "2",
 			"needed_by_kind", types.HopNeededByOn,
 			"needed_by_date", "bad-date",
-		)), "/my-hopshare")
+		)), "/hops/request")
 		requireQueryValue(t, loc, "error", "Invalid date.")
 
 		today := time.Now().UTC().Format("2006-01-02")
@@ -96,8 +96,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"estimated_hours", "2",
 			"needed_by_kind", types.HopNeededByOn,
 			"needed_by_date", today,
-		)), "/my-hopshare")
-		requireQueryValue(t, loc, "error", "Needed by date must be after today.")
+		)), "/hops/request")
+		requireQueryValue(t, loc, "error", "When date must be after today.")
 
 		loc = requireRedirectPath(t, requester.PostForm("/hops/create", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -119,7 +119,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		requester.Login()
 
 		body := requireStatus(t, requester.Get("/hops/request?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyContains(t, body, "Request a hop")
+		requireBodyContains(t, body, "New Hop")
 		requireBodyContains(t, body, `action="/hops/create"`)
 		requireBodyContains(t, body, `name="org_id" value="`+strconv.FormatInt(org.ID, 10)+`"`)
 		requireBodyContains(t, body, `min="`+time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")+`"`)
@@ -128,7 +128,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 
 		dashboardBody := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
 		requireBodyContains(t, dashboardBody, `href="/hops/request?org_id=`+strconv.FormatInt(org.ID, 10)+`"`)
-		requireBodyNotContains(t, dashboardBody, `aria-label="Request a hop"`)
+		requireBodyContains(t, dashboardBody, ">New Hop<")
 	})
 
 	t.Run("HOP-02c needed by date renders as the selected local day", func(t *testing.T) {
@@ -191,8 +191,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		body := requireStatus(t, requester.Get("/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(created.ID, 10)), 200)
-		requireBodyContains(t, body, "<span class=\"font-semibold text-slate-900\">Needed by:</span> "+expected)
-		requireBodyNotContains(t, body, "<span class=\"font-semibold text-slate-900\">Needed by:</span> "+previous)
+		requireBodyContains(t, body, "<span class=\"font-semibold text-slate-900\">When:</span> "+expected)
+		requireBodyNotContains(t, body, "<span class=\"font-semibold text-slate-900\">When:</span> "+previous)
 	})
 
 	t.Run("HOP-03 create hop by non-member fails", func(t *testing.T) {
@@ -209,7 +209,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"title", "Should Not Create "+suffix,
 			"estimated_hours", "1",
 			"needed_by_kind", types.HopNeededByAnytime,
-		)), "/my-hopshare")
+		)), "/hops/request")
 		requireQueryValue(t, loc, "error", "Could not create hop.")
 	})
 
@@ -236,8 +236,8 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"title", "Min Blocked "+suffix,
 			"estimated_hours", "1",
 			"needed_by_kind", types.HopNeededByAnytime,
-		)), "/my-hopshare")
-		requireQueryValue(t, loc, "error", "You're at this organization's minimum balance (-5). Complete a hop first to earn hours before requesting another.")
+		)), "/hops/request")
+		requireQueryValue(t, loc, "error", "You're at this organization's minimum balance (-5). You can't create an Ask until you earn more hours.")
 	})
 
 	t.Run("HOP-04 view hop as org member succeeds", func(t *testing.T) {
@@ -482,11 +482,11 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			t.Fatalf("expected non-selected offer to be denied")
 		}
 
-		if !hasMemberNotification(t, ctx, db, members["helper"].Member.ID, "was accepted", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+		if !hasMemberNotification(t, ctx, db, members["helper"].Member.ID, "You were matched on", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
 			t.Fatalf("expected accepted helper to receive acceptance notification")
 		}
 
-		if !hasMemberNotification(t, ctx, db, members["member"].Member.ID, "chosen someone else", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
+		if !hasMemberNotification(t, ctx, db, members["member"].Member.ID, "matched this hop with someone else", "/hops/view?org_id="+strconv.FormatInt(org.ID, 10)+"&hop_id="+strconv.FormatInt(hop.ID, 10)) {
 			t.Fatalf("expected non-selected helper to receive decline notification")
 		}
 	})
@@ -547,7 +547,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		}
 
 		body := requireStatus(t, owner.Get(redirectTo), 200)
-		requireBodyContains(t, body, "No one has offered help yet.")
+		requireBodyContains(t, body, "No one has registered interest yet.")
 	})
 
 	t.Run("HOP-07 duplicate offer is rejected and HOP-08 offering own hop is rejected", func(t *testing.T) {
@@ -582,7 +582,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
-		requireQueryValue(t, loc, "error", "You've already offered to help with this hop.")
+		requireQueryValue(t, loc, "error", "You've already registered interest in this hop.")
 
 		loc = requireRedirectPath(t, owner.PostForm("/hops/offer", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -646,7 +646,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
-		requireQueryValue(t, offerLoc, "success", "Offer sent.")
+		requireQueryValue(t, offerLoc, "success", "Interest registered.")
 
 		cancelLoc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -705,12 +705,12 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
-		requireQueryValue(t, loc, "success", "Offer sent.")
+		requireQueryValue(t, loc, "success", "Interest registered.")
 		loc = requireRedirectPath(t, helper2.PostForm("/hops/offer", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
 			"hop_id", strconv.FormatInt(hop.ID, 10),
 		)), "/my-hopshare")
-		requireQueryValue(t, loc, "success", "Offer sent.")
+		requireQueryValue(t, loc, "success", "Interest registered.")
 
 		cancelLoc := requireRedirectPath(t, owner.PostForm("/hops/cancel", formKV(
 			"org_id", strconv.FormatInt(org.ID, 10),
@@ -962,7 +962,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 			"completed_hours", "8",
 			"completion_comment", "Requester completed with cap.",
 		)), "/my-hopshare")
-		requireQueryValue(t, loc, "success", "Hop completed. 5 hour(s) were transferred instead of 8 to keep the helper below the organization's maximum balance (10).")
+		requireQueryValue(t, loc, "success", "Hop completed. 5 hour(s) were transferred instead of 8 to keep the earning member below the organization's maximum balance (10).")
 
 		updated, err := service.GetHopByID(ctx, db, org.ID, hop.ID)
 		if err != nil {
@@ -1531,11 +1531,11 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		helper.Login()
 
 		requesterBody := requireStatus(t, requester.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyContains(t, requesterBody, "Active accepted hop")
+		requireBodyContains(t, requesterBody, "Active matched hop")
 		requireBodyContains(t, requesterBody, title)
 
 		helperBody := requireStatus(t, helper.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyContains(t, helperBody, "Active accepted hop")
+		requireBodyContains(t, helperBody, "Active matched hop")
 		requireBodyContains(t, helperBody, title)
 	})
 
@@ -1561,7 +1561,7 @@ func TestHopsHTTPMatrix(t *testing.T) {
 		member.Login()
 
 		body := requireStatus(t, member.Get("/my-hopshare?org_id="+strconv.FormatInt(org.ID, 10)), 200)
-		requireBodyNotContains(t, body, "Active accepted hop")
+		requireBodyNotContains(t, body, "Active matched hop")
 	})
 
 	t.Run("HOP-38 /my-hopshare/organizations shows switch form when member has multiple organizations", func(t *testing.T) {

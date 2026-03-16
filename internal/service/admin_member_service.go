@@ -581,7 +581,7 @@ func adminCancelOpenHopsForMember(ctx context.Context, tx *sql.Tx, memberID, act
 			canceled_by = $2,
 			canceled_at = GREATEST($3, created_at + INTERVAL '1 microsecond'),
 			updated_at = GREATEST($3, created_at + INTERVAL '1 microsecond')
-		WHERE created_by = $4
+		WHERE created_user = $4
 			AND status = $5
 		RETURNING id, organization_id, title
 	`, types.HopStatusCanceled, actorMemberID, now, memberID, types.HopStatusOpen)

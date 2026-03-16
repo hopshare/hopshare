@@ -889,7 +889,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 	var memberStats types.MemberHopStats
 	var myHops []types.Hop
 	var activeAcceptedHop *types.Hop
-	activeAcceptedViewKey := "requested"
+	activeAcceptedViewKey := "created"
 	var activityCount int
 	var notifications []types.MemberNotification
 
@@ -926,7 +926,7 @@ func (s *Server) renderMyHopshare(w http.ResponseWriter, r *http.Request, succes
 			hopCopy := hop
 			activeAcceptedHop = &hopCopy
 			if isHelper && !isRequester {
-				activeAcceptedViewKey = "helped"
+				activeAcceptedViewKey = "matched"
 			}
 			break
 		}

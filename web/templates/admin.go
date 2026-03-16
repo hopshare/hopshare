@@ -256,8 +256,8 @@ func requestHopPageContext(orgs []types.Organization, currentOrgID int64) PageCo
 	if org := organizationByID(orgs, currentOrgID); org != nil {
 		breadcrumbs = append(breadcrumbs, newBreadcrumb(org.Name, organizationHref(*org)))
 	}
-	breadcrumbs = append(breadcrumbs, newBreadcrumb("Request a hop", ""))
-	return newPageContext("hopShare | Request a hop", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromMemberOrgs(orgs, currentOrgID))
+	breadcrumbs = append(breadcrumbs, newBreadcrumb("New Hop", ""))
+	return newPageContext("hopShare | New Hop", pageSectionMyHopShare, breadcrumbs, pageOrganizationFromMemberOrgs(orgs, currentOrgID))
 }
 
 func completeHopPageContext(org types.Organization) PageContext {
@@ -369,12 +369,12 @@ func helpPageContext() PageContext {
 
 func myHopsViewLabel(viewKey string) string {
 	switch strings.ToLower(strings.TrimSpace(viewKey)) {
-	case "helped":
-		return "Helped"
-	case "offered":
-		return "Offered"
+	case "matched":
+		return "Matched"
+	case "interested":
+		return "Interested"
 	default:
-		return "Requested"
+		return "Created"
 	}
 }
 

@@ -65,30 +65,30 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 	}
 
 	view := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("view")))
-	viewTitle := "Hops I Have Requested"
-	viewDescription := "All of the hops you've requested in this organization."
-	emptyMessage := "You haven't requested any hops yet."
+	viewTitle := "Hops I Created"
+	viewDescription := "Asks and Offers you've created in this organization."
+	emptyMessage := "You haven't created any hops yet."
 	switch view {
-	case "helped", "help":
-		view = "helped"
-		viewTitle = "Hops I Have Helped With"
-		viewDescription = "Hops you've been accepted to help with, including those still pending."
-		emptyMessage = "You haven't helped with any hops yet."
-	case "offered", "offers", "offering":
-		view = "offered"
-		viewTitle = "Pending Hops I Have Offered Help With"
-		viewDescription = "Offers you've made that are still awaiting a response."
-		emptyMessage = "You don't have any pending hop offers."
+	case "matched", "helped", "help":
+		view = "matched"
+		viewTitle = "Hops I Matched On"
+		viewDescription = "Hops where you're the selected match, including active and completed ones."
+		emptyMessage = "You haven't matched on any hops yet."
+	case "interested", "offered", "offers", "offering":
+		view = "interested"
+		viewTitle = "Hops I'm Interested In"
+		viewDescription = "Open hops where you've registered interest and are waiting for a response."
+		emptyMessage = "You don't have any pending interests."
 	default:
-		view = "requested"
+		view = "created"
 	}
 
 	var myHops []types.Hop
 	if currentOrgID != 0 {
 		switch view {
-		case "helped":
+		case "matched":
 			myHops, err = service.ListHelpedHops(r.Context(), s.db, currentOrgID, user.ID)
-		case "offered":
+		case "interested":
 			myHops, err = service.ListPendingOfferedHops(r.Context(), s.db, currentOrgID, user.ID)
 		default:
 			myHops, err = service.ListRequestedHops(r.Context(), s.db, currentOrgID, user.ID)
@@ -99,7 +99,7 @@ func (s *Server) handleMyHops(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if view == "offered" {
+		if view == "interested" {
 			for i := range myHops {
 				myHops[i].HasPendingOffer = true
 			}
@@ -220,11 +220,25 @@ func (s *Server) handleHopDetails(w http.ResponseWriter, r *http.Request) {
 	canUpload := isAssociated
 	canCancel := hop.CreatedBy == user.ID && (hop.Status == types.HopStatusOpen || hop.Status == types.HopStatusAccepted)
 	canComplete := hop.Status == types.HopStatusAccepted && isAssociated
-	canSetCompletionHours := hop.CreatedBy == user.ID
+	canSetCompletionHours := (hop.Kind == types.HopKindAsk && hop.CreatedBy == user.ID) ||
+		(hop.Kind == types.HopKindOffer && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID)
 	canOfferHelp := hop.Status == types.HopStatusOpen && hop.CreatedBy != user.ID
 	canManageOffers := hop.Status == types.HopStatusOpen && hop.CreatedBy == user.ID
 	privateCommentLabel, _ := hopPrivateCommentOption(hop, user)
 	hasOfferedToHelp := false
+	if canOfferHelp {
+		if hop.Kind == types.HopKindOffer {
+			memberStats, statsErr := service.MemberStats(r.Context(), s.db, orgID, user.ID)
+			if statsErr != nil {
+				log.Printf("load member stats for hop interest org=%d member=%d: %v", orgID, user.ID, statsErr)
+				http.Error(w, "could not load hop", http.StatusInternalServerError)
+				return
+			}
+			if memberStats.BalanceHours-hop.EstimatedHours < org.TimebankMinBalance {
+				canOfferHelp = false
+			}
+		}
+	}
 	if canOfferHelp {
 		hasPendingOffer, err := service.HasPendingHopOffer(r.Context(), s.db, hop.ID, user.ID)
 		if err != nil {
@@ -285,12 +299,35 @@ func (s *Server) handleRequestHopPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if currentOrgID == 0 {
-		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Join an organization before requesting a hop."), http.StatusSeeOther)
+		http.Redirect(w, r, "/my-hopshare?error="+url.QueryEscape("Join an organization before creating a hop."), http.StatusSeeOther)
 		return
 	}
 
+	org, err := service.GetOrganizationByID(r.Context(), s.db, currentOrgID)
+	if err != nil {
+		log.Printf("load organization %d for new hop page: %v", currentOrgID, err)
+		http.Error(w, "could not load organization", http.StatusInternalServerError)
+		return
+	}
+	memberStats, err := service.MemberStats(r.Context(), s.db, currentOrgID, user.ID)
+	if err != nil {
+		log.Printf("load member stats org=%d member=%d for new hop page: %v", currentOrgID, user.ID, err)
+		http.Error(w, "could not load hop form", http.StatusInternalServerError)
+		return
+	}
+
+	selectedKind := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("kind")))
+	switch selectedKind {
+	case types.HopKindAsk, types.HopKindOffer:
+	default:
+		selectedKind = types.HopKindAsk
+		if memberStats.BalanceHours <= org.TimebankMinBalance {
+			selectedKind = types.HopKindOffer
+		}
+	}
+
 	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
-	render(w, r, templates.RequestHopPage(user.Email, orgs, currentOrgID, errorMsg))
+	render(w, r, templates.RequestHopPage(user.Email, orgs, currentOrgID, org, memberStats, selectedKind, errorMsg))
 }
 
 func (s *Server) handleCompleteHopPage(w http.ResponseWriter, r *http.Request) {
@@ -379,7 +416,8 @@ func (s *Server) handleCompleteHopPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canSetCompletionHours := hop.CreatedBy == user.ID
+	canSetCompletionHours := (hop.Kind == types.HopKindAsk && hop.CreatedBy == user.ID) ||
+		(hop.Kind == types.HopKindOffer && hop.AcceptedBy != nil && *hop.AcceptedBy == user.ID)
 	errorMsg := strings.TrimSpace(r.URL.Query().Get("error"))
 	render(w, r, templates.CompleteHopPage(user.Email, org, hop, canSetCompletionHours, redirectTo, errorMsg))
 }
@@ -401,10 +439,14 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	neededByKind := strings.TrimSpace(r.FormValue("needed_by_kind"))
+	hopKind := strings.ToLower(strings.TrimSpace(r.FormValue("hop_kind")))
+	if hopKind == "" {
+		hopKind = types.HopKindAsk
+	}
 
 	estimatedHours, err := strconv.Atoi(strings.TrimSpace(r.FormValue("estimated_hours")))
 	if err != nil {
-		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid hours."), http.StatusSeeOther)
+		http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind="+url.QueryEscape(hopKind)+"&error="+url.QueryEscape("Invalid hours."), http.StatusSeeOther)
 		return
 	}
 
@@ -418,7 +460,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 			}
 			t, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 			if err != nil {
-				http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
+				http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind="+url.QueryEscape(hopKind)+"&error="+url.QueryEscape("Invalid date."), http.StatusSeeOther)
 				return
 			}
 			neededByDate = &t
@@ -430,6 +472,7 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 	_, err = service.CreateHop(r.Context(), s.db, service.CreateHopParams{
 		OrganizationID: orgID,
 		MemberID:       user.ID,
+		Kind:           hopKind,
 		Title:          r.FormValue("title"),
 		Details:        r.FormValue("details"),
 		EstimatedHours: estimatedHours,
@@ -444,15 +487,24 @@ func (s *Server) handleCreateHop(w http.ResponseWriter, r *http.Request) {
 			if org, orgErr := service.GetOrganizationByID(r.Context(), s.db, orgID); orgErr == nil {
 				minBalance = org.TimebankMinBalance
 			}
-			msg := fmt.Sprintf("You're at this organization's minimum balance (%d). Complete a hop first to earn hours before requesting another.", minBalance)
-			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape(msg), http.StatusSeeOther)
+			msg := fmt.Sprintf("You're at this organization's minimum balance (%d). You can't create an Ask until you earn more hours.", minBalance)
+			http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind=ask&error="+url.QueryEscape(msg), http.StatusSeeOther)
+			return
+		}
+		if errors.Is(err, service.ErrHopOfferLimit) {
+			maxBalance := service.DefaultTimebankMaxBalance
+			if org, orgErr := service.GetOrganizationByID(r.Context(), s.db, orgID); orgErr == nil {
+				maxBalance = org.TimebankMaxBalance
+			}
+			msg := fmt.Sprintf("You're at this organization's maximum balance (%d). You can't create an Offer until you use some hours.", maxBalance)
+			http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind=offer&error="+url.QueryEscape(msg), http.StatusSeeOther)
 			return
 		}
 		if errors.Is(err, service.ErrHopNeededByDate) {
-			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Needed by date must be after today."), http.StatusSeeOther)
+			http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind="+url.QueryEscape(hopKind)+"&error="+url.QueryEscape("When date must be after today."), http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not create hop."), http.StatusSeeOther)
+		http.Redirect(w, r, "/hops/request?org_id="+strconv.FormatInt(orgID, 10)+"&kind="+url.QueryEscape(hopKind)+"&error="+url.QueryEscape("Could not create hop."), http.StatusSeeOther)
 		return
 	}
 
@@ -486,13 +538,22 @@ func (s *Server) handleOfferHop(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		log.Printf("offer hop help failed: %v", err)
 		if errors.Is(err, service.ErrHopOfferExists) {
-			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("You've already offered to help with this hop."), http.StatusSeeOther)
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("You've already registered interest in this hop."), http.StatusSeeOther)
+			return
+		}
+		if errors.Is(err, service.ErrHopInterestLimit) {
+			minBalance := service.DefaultTimebankMinBalance
+			if org, orgErr := service.GetOrganizationByID(r.Context(), s.db, orgID); orgErr == nil {
+				minBalance = org.TimebankMinBalance
+			}
+			msg := fmt.Sprintf("You can't register interest in this Offer because it would put you below the organization's minimum balance (%d).", minBalance)
+			http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape(msg), http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&error="+url.QueryEscape("Could not send offer."), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Offer sent."), http.StatusSeeOther)
+	http.Redirect(w, r, "/my-hopshare?org_id="+strconv.FormatInt(orgID, 10)+"&success="+url.QueryEscape("Interest registered."), http.StatusSeeOther)
 }
 
 func (s *Server) handleAcceptHopOffer(w http.ResponseWriter, r *http.Request) {
@@ -1216,7 +1277,7 @@ func completeHopSuccessMessage(result service.CompleteHopResult) string {
 			result.MaxBalance,
 		)
 	}
-	if result.RequesterMinLimited && result.HelperMaxLimited {
+	if result.PayerMinLimited && result.EarnerMaxLimited {
 		return fmt.Sprintf(
 			"Hop completed. %d hour(s) were transferred instead of %d due to this organization's minimum (%d) and maximum (%d) balance limits.",
 			result.AwardedHours,
@@ -1225,17 +1286,17 @@ func completeHopSuccessMessage(result service.CompleteHopResult) string {
 			result.MaxBalance,
 		)
 	}
-	if result.RequesterMinLimited {
+	if result.PayerMinLimited {
 		return fmt.Sprintf(
-			"Hop completed. %d hour(s) were transferred instead of %d to keep the requester above the organization's minimum balance (%d).",
+			"Hop completed. %d hour(s) were transferred instead of %d to keep the paying member above the organization's minimum balance (%d).",
 			result.AwardedHours,
 			result.RequestedHours,
 			result.MinBalance,
 		)
 	}
-	if result.HelperMaxLimited {
+	if result.EarnerMaxLimited {
 		return fmt.Sprintf(
-			"Hop completed. %d hour(s) were transferred instead of %d to keep the helper below the organization's maximum balance (%d).",
+			"Hop completed. %d hour(s) were transferred instead of %d to keep the earning member below the organization's maximum balance (%d).",
 			result.AwardedHours,
 			result.RequestedHours,
 			result.MaxBalance,

@@ -130,16 +130,17 @@ func TestAdminOverviewHTTP(t *testing.T) {
 			WITH inserted AS (
 				INSERT INTO hops (
 					organization_id,
-					created_by,
+					hop_kind,
+					created_user,
 					title,
 					details,
 					estimated_hours,
 					is_private,
-					needed_by_kind,
-					needed_by_date,
+					when_kind,
+					when_at,
 					expires_at,
 					status,
-					accepted_by,
+					matched_user,
 					accepted_at,
 					completed_by,
 					completed_at,
@@ -149,17 +150,18 @@ func TestAdminOverviewHTTP(t *testing.T) {
 				SELECT
 					$1,
 					$2,
+					$3,
 					'Admin Overview Bulk Completed Hop ' || seq,
 					NULL,
 					2,
 					FALSE,
-					$3,
-					NULL,
-					NULL,
 					$4,
+					NULL,
+					NULL,
 					$5,
+					$6,
 					NOW(),
-					$2,
+					$3,
 					NOW(),
 					8,
 					'bulk completed hop for admin overview integration test'
@@ -167,9 +169,9 @@ func TestAdminOverviewHTTP(t *testing.T) {
 				RETURNING id
 			)
 			INSERT INTO hop_transactions (organization_id, hop_id, from_member_id, to_member_id, hours)
-			SELECT $1, id, $2, $5, 8
+			SELECT $1, id, $3, $6, 8
 			FROM inserted
-		`, orgDisabled.ID, ownerDisabled.Member.ID, types.HopNeededByAnytime, types.HopStatusCompleted, helperEnabled.Member.ID); err != nil {
+		`, orgDisabled.ID, types.HopKindAsk, ownerDisabled.Member.ID, types.HopNeededByAnytime, types.HopStatusCompleted, helperEnabled.Member.ID); err != nil {
 			t.Fatalf("seed bulk completed hops for disabled org: %v", err)
 		}
 
@@ -314,7 +316,7 @@ func TestAdminOrganizationsHTTP(t *testing.T) {
 			"details", "This should fail because the org is disabled.",
 			"estimated_hours", "2",
 			"needed_by_kind", "anytime",
-		)), "/my-hopshare")
+		)), "/hops/request")
 		requireQueryValue(t, createLoc, "error", "Could not create hop.")
 
 		loc = requireRedirectPath(t, adminActor.PostForm("/admin/organizations/action", formKV(
@@ -1245,7 +1247,7 @@ func createAdminOverviewHop(t *testing.T, ctx context.Context, db *sql.DB, orgID
 		}
 		if _, err := db.ExecContext(ctx, `
 			UPDATE hops
-			SET needed_by_date = $1, expires_at = $2
+			SET when_at = $1, expires_at = $2
 			WHERE id = $3 AND organization_id = $4
 		`, *neededByDate, expiry, hop.ID, orgID); err != nil {
 			t.Fatalf("backfill hop %q needed-by date: %v", title, err)

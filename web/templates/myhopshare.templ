@@ -89,15 +89,15 @@ func myhopShareBalanceStateLabel(state string) string {
 func myhopShareBalanceStateGuidance(state string, minBalance int) string {
 	switch state {
 	case "maxed":
-		return "Request a hop to pay your hours forward."
+		return "Good time to create an Ask and use some of your hours."
 	case "healthy":
-		return "Good time to request a hop."
+		return "You can create either an Ask or an Offer right now."
 	case "minimum":
-		return "Help someone else before requesting more hops."
+		return "Create an Offer or match with someone else's Ask before creating another Ask."
 	case "low":
-		return "You can go as low as " + strconv.Itoa(minBalance) + " hours, but helping now will build your balance faster."
+		return "You can go as low as " + strconv.Itoa(minBalance) + " hours, but creating or matching on Offers will build your balance faster."
 	default:
-		return "Help or request a hop to get your momentum going."
+		return "Create an Ask or an Offer to get your momentum going."
 	}
 }
 
@@ -413,13 +413,13 @@ templ MyhopShareDashboardDesktop(
 				</div>
 		<div class="max-w-xs text-sm text-slate-700 leading-relaxed">
 			if memberStats.BalanceHours >= currentOrgTimebankMaxBalance(orgs, currentOrgID) {
-				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
+				You've hit the maximum balance for this time bank. Completing more Offers won't increase your balance right now. Create an Ask or match with someone else's Offer to use some hours.
 					} else if memberStats.BalanceHours >= currentOrgTimebankStartingBalance(orgs, currentOrgID) {
-						You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
+						You've got a healthy balance. You can create either an Ask or an Offer right now.
 					} else if (memberStats.BalanceHours < 0) && (memberStats.BalanceHours <= currentOrgTimebankMinBalance(orgs, currentOrgID)) {
-						You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
+						You've hit the minimum balance for this time bank. Create an Offer or match with someone else's Ask before creating another Ask.
 					} else if memberStats.BalanceHours < 0 {
-						You're out of hours but don't worry! You can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)} hours. Find some other users who need help and build up your balance!
+						You're low on hours, but you can go down to {currentOrgTimebankMinBalance(orgs, currentOrgID)}. Look for ways to give help and build your balance back up.
 			} else {
 				Pay some forward to another user!
 			}
@@ -439,7 +439,7 @@ templ MyhopShareDashboardDesktop(
 		if activeAcceptedHop != nil {
 			<section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
 				<div class="px-6 py-4 bg-slate-50 space-y-1">
-					<h2 class="text-lg font-bold text-slate-900">Active accepted hop</h2>
+					<h2 class="text-lg font-bold text-slate-900">Active matched hop</h2>
 					<p class="text-sm text-slate-600">This hop is currently in progress and ready to complete.</p>
 				</div>
 				<ul class="divide-y divide-slate-200">
@@ -523,10 +523,11 @@ templ MyhopShareActiveNowCard(orgID int64, hop types.Hop, viewKey string, member
 	<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4" x-data="{ completeModalOpen: false }" x-on:keydown.escape.window="completeModalOpen = false">
 		<div class="space-y-1">
 			<p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Active now</p>
-			<h2 class="text-lg font-bold text-slate-900">Accepted hop</h2>
+			<h2 class="text-lg font-bold text-slate-900">Matched hop</h2>
 		</div>
 		<div class="space-y-2">
 			<div class="flex items-center gap-2">
+				@HopKindPill(hop.Kind)
 				@StatusPill(hop.Status)
 				<p class="min-w-0 truncate text-base font-semibold text-slate-900">{ hop.Title }</p>
 			</div>
@@ -596,13 +597,7 @@ templ MyhopSharePrimaryActions(currentOrgID int64, mobile bool) {
 					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 px-4 py-4 text-lg font-semibold text-white transition hover:bg-sky-800"
 					href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 				>
-					Request a Hop
-				</a>
-				<a
-					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 px-4 py-4 text-lg font-semibold text-white transition hover:bg-sky-800"
-					href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
-				>
-					Give a Hop
+					New Hop
 				</a>
 			</div>
 		</section>
@@ -613,16 +608,10 @@ templ MyhopSharePrimaryActions(currentOrgID int64, mobile bool) {
 					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
 					href={ "/hops/request?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 				>
-					Request a Hop
+					New Hop
 				</a>
 				<a
-					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-10 hover:bg-sky-800 transition shadow-sm"
-					href={ "/organization?org_id=" + strconv.FormatInt(currentOrgID, 10) }
-				>
-					Give a Hop
-				</a>
-				<a
-					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-6 transition hover:bg-sky-800 shadow-sm md:col-span-2"
+					class="inline-flex w-full items-center justify-center rounded-2xl bg-sky-700 border-2 border-slate-900 text-white text-2xl font-semibold py-6 transition hover:bg-sky-800 shadow-sm"
 					href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) }
 				>
 					My Hops
@@ -687,7 +676,7 @@ templ MyhopShareRecentActivity(currentOrgID int64, myHops []types.Hop, activeAcc
 					}
 				</p>
 			</div>
-			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=requested" }>
+			<a class="text-sm font-semibold text-sky-700 underline hover:text-sky-800" href={ "/my-hops?org_id=" + strconv.FormatInt(currentOrgID, 10) + "&view=created" }>
 				See all
 			</a>
 		</div>
@@ -716,12 +705,12 @@ templ MyhopShareRecentActivityRow(currentOrgID int64, hop types.Hop) {
 						Completed { organizationHoursForCompletedHop(hop) } hours
 					} else if hop.Status == types.HopStatusAccepted {
 						if hop.AcceptedByName != nil {
-							Accepted by { *hop.AcceptedByName }
+							Matched with { *hop.AcceptedByName }
 						} else {
-							Accepted and in progress
+							Matched and in progress
 						}
 					} else {
-						Needed by { hopNeededByLabel(hop) }
+						When { hopNeededByLabel(hop) }
 					}
 				</p>
 			</div>
@@ -1010,13 +999,13 @@ templ MemberStats(stats types.MemberHopStats, orgID int64, minBalance int, maxBa
 				class="inline-flex justify-center rounded-lg bg-sky-700 text-white font-semibold px-4 py-2.5 hover:bg-sky-800 transition"
 				href={ "/hops/request?org_id=" + strconv.FormatInt(orgID, 10) }
 			>
-				Request a hop
+				New Hop
 			</a>
 		</div>
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			@StatCardBalance(stats.BalanceHours, minBalance, maxBalance, startingBalance)
-			@StatCardCount("Hops you've requested", stats.HopsMade, stats.LastHopMadeAt)
-			@StatCardCount("Hops you've given", stats.HopsFulfilled, stats.LastHopFulfilledAt)
+			@StatCardCount("Hops you've created", stats.HopsMade, stats.LastHopMadeAt)
+			@StatCardCount("Hops you've matched on", stats.HopsFulfilled, stats.LastHopFulfilledAt)
 		</div>
 	</section>
 }
@@ -1035,13 +1024,13 @@ templ StatCardBalance(balanceHours int, minBalance int, maxBalance int, starting
 		<p class="mt-2 text-xl font-bold text-slate-900">Hours Earned</p>
 		<p class="mt-4 text-sm text-slate-700">
 			if balanceHours >= maxBalance {
-				You've hit the maximum balance for this time bank. Completing hops from this point on won't increase your balance. Go request a few Hops of your own to pay hours forward to other users!
+				You've hit the maximum balance for this time bank. Completing more Offers won't increase your balance right now. Create an Ask or match with someone else's Offer to use some hours.
 			} else if balanceHours >= startingBalance {
-				You've got a healthy balance! Request a Hop to pay those hours forward to someone else!
+				You've got a healthy balance. You can create either an Ask or an Offer right now.
 			} else if (balanceHours < 0) && (balanceHours <= minBalance) {
-				You've hit the minimum balance for this time bank. Give some hours to another user so that you can request more Hops!
+				You've hit the minimum balance for this time bank. Create an Offer or match with someone else's Ask before creating another Ask.
 			} else if balanceHours < 0 {
-				You're out of hours but don't worry! You can go down to {minBalance} hours. Find some other users who need help and build up your balance!
+				You're low on hours, but you can go down to {minBalance}. Look for ways to give help and build your balance back up.
 			}
 		</p>
 	</section>
@@ -1170,7 +1159,7 @@ templ StatusPill(status string) {
 	case types.HopStatusOpen:
 		<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-semibold">Pending</span>
 	case types.HopStatusAccepted:
-		<span class="inline-flex items-center rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-xs font-semibold">Accepted</span>
+		<span class="inline-flex items-center rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-xs font-semibold">Matched</span>
 	case types.HopStatusCompleted:
 		<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold">Completed</span>
 	case types.HopStatusCanceled:
@@ -1179,6 +1168,24 @@ templ StatusPill(status string) {
 		<span class="inline-flex items-center rounded-full bg-slate-200 text-slate-800 px-2 py-0.5 text-xs font-semibold">Expired</span>
 	default:
 		<span class="inline-flex items-center rounded-full bg-slate-200 text-slate-800 px-2 py-0.5 text-xs font-semibold">{ status }</span>
+	}
+}
+
+templ HopKindPill(kind string) {
+	switch kind {
+	case types.HopKindOffer:
+		<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-semibold">Offer</span>
+	default:
+		<span class="inline-flex items-center rounded-full bg-sky-100 text-sky-800 px-2 py-0.5 text-xs font-semibold">Ask</span>
+	}
+}
+
+func hopSurfaceClass(hop types.Hop) string {
+	switch hop.Kind {
+	case types.HopKindOffer:
+		return "border-emerald-200 bg-emerald-50"
+	default:
+		return "border-sky-200 bg-sky-50"
 	}
 }
 
@@ -1192,14 +1199,14 @@ templ HopTimingLine(hop types.Hop) {
 		}
 		<span class="mx-2">•</span>
 		if hop.NeededByKind == types.HopNeededByAnytime {
-			Needed: anytime
+			When: anytime
 		} else if hop.NeededByDate != nil {
 			if hop.NeededByKind == types.HopNeededByOn {
-				Needed on { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
+				When on { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByAround {
-				Needed around { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
+				When around { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			} else if hop.NeededByKind == types.HopNeededByNoLaterThan {
-				Needed no later than { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
+				When no later than { formatDateOnly(hop.NeededByDate, "Jan 2, 2006") }
 			}
 		}
 	</span>

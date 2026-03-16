@@ -216,19 +216,21 @@ func (s *Server) handleOrganization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if showPendingPanel {
-		pendingHops, err = service.RecentPendingHops(r.Context(), s.db, org.ID, 100)
+		pendingHops, err = service.RecentPublicPendingHops(r.Context(), s.db, org.ID, 100)
 		if err != nil {
 			log.Printf("load organization pending hops org=%d: %v", org.ID, err)
 			http.Error(w, "could not load organization", http.StatusInternalServerError)
 			return
 		}
-		if currentUser != nil && len(pendingHops) > 1 {
-			sortedHops, sortErr := service.SortHopsByMemberSkillMatch(r.Context(), s.db, org.ID, currentUser.ID, pendingHops)
-			if sortErr != nil {
-				log.Printf("sort organization pending hops by skill match org=%d member=%d: %v", org.ID, currentUser.ID, sortErr)
-			} else {
-				pendingHops = sortedHops
+		if currentUser != nil && len(pendingHops) > 0 {
+			filtered := make([]types.Hop, 0, len(pendingHops))
+			for _, hop := range pendingHops {
+				if hop.CreatedBy == currentUser.ID {
+					continue
+				}
+				filtered = append(filtered, hop)
 			}
+			pendingHops = filtered
 		}
 		pendingHops, err = service.MarkLeftOrganizationParticipants(r.Context(), s.db, org.ID, pendingHops)
 		if err != nil {

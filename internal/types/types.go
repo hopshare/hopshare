@@ -14,6 +14,11 @@ const (
 )
 
 const (
+	HopKindAsk   = "ask"
+	HopKindOffer = "offer"
+)
+
+const (
 	HopNeededByAnytime     = "anytime"
 	HopNeededByOn          = "on"
 	HopNeededByAround      = "around"
@@ -137,6 +142,7 @@ type Skill struct {
 type Hop struct {
 	ID             int64
 	OrganizationID int64
+	Kind           string
 	CreatedBy      int64
 	CreatedByName  string
 	Title          string
