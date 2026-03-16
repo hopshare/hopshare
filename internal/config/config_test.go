@@ -27,6 +27,8 @@ func TestLoadParsesAdminEmails(t *testing.T) {
 	t.Setenv("HOPSHARE_WORKER_POLL_INTERVAL", "2m")
 	t.Setenv("HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL", "3h")
 	t.Setenv("HOPSHARE_WORKER_SESSION_GC_INTERVAL", "12h")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_NOTIFICATION_AGE", "5d")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_NOTIFICATION_INTERVAL", "36h")
 
 	cfg := Load()
 	if cfg.Addr != ":9090" {
@@ -86,6 +88,12 @@ func TestLoadParsesAdminEmails(t *testing.T) {
 	if cfg.SessionGCInterval != 12*time.Hour {
 		t.Fatalf("session gc interval: got %s want %s", cfg.SessionGCInterval, 12*time.Hour)
 	}
+	if cfg.ExpireNotificationAge != 5*24*time.Hour {
+		t.Fatalf("expire notification age: got %s want %s", cfg.ExpireNotificationAge, 5*24*time.Hour)
+	}
+	if cfg.ExpireNotificationInterval != 36*time.Hour {
+		t.Fatalf("expire notification interval: got %s want %s", cfg.ExpireNotificationInterval, 36*time.Hour)
+	}
 
 	wantAdmins := []string{"alice@example.com", "bob@example.com", "carol@example.com"}
 	if !reflect.DeepEqual(cfg.AdminEmails, wantAdmins) {
@@ -125,6 +133,8 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	t.Setenv("HOPSHARE_WORKER_POLL_INTERVAL", "")
 	t.Setenv("HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL", "")
 	t.Setenv("HOPSHARE_WORKER_SESSION_GC_INTERVAL", "")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_NOTIFICATION_AGE", "")
+	t.Setenv("HOPSHARE_WORKER_EXPIRE_NOTIFICATION_INTERVAL", "")
 
 	cfg := Load()
 	if !cfg.FeatureEmail {
@@ -171,5 +181,22 @@ func TestLoadDefaultsForPasswordResetEmailConfig(t *testing.T) {
 	}
 	if cfg.SessionGCInterval != 6*time.Hour {
 		t.Fatalf("session gc interval default: got %s want %s", cfg.SessionGCInterval, 6*time.Hour)
+	}
+	if cfg.ExpireNotificationAge != 5*24*time.Hour {
+		t.Fatalf("expire notification age default: got %s want %s", cfg.ExpireNotificationAge, 5*24*time.Hour)
+	}
+	if cfg.ExpireNotificationInterval != 24*time.Hour {
+		t.Fatalf("expire notification interval default: got %s want %s", cfg.ExpireNotificationInterval, 24*time.Hour)
+	}
+}
+
+func TestParseDurationSupportsDays(t *testing.T) {
+	got, err := parseDuration("5d12h30m")
+	if err != nil {
+		t.Fatalf("parse duration: %v", err)
+	}
+	want := 5*24*time.Hour + 12*time.Hour + 30*time.Minute
+	if got != want {
+		t.Fatalf("duration: got %s want %s", got, want)
 	}
 }

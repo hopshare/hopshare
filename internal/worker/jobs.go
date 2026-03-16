@@ -13,6 +13,7 @@ import (
 const (
 	ExpireDueHopsJobName         = "expire_due_hops"
 	DeleteExpiredSessionsJobName = "delete_expired_sessions"
+	ExpireNotificationsJobName   = "expire_member_notifications"
 )
 
 type Job struct {
@@ -27,6 +28,8 @@ type Job struct {
 type JobConfig struct {
 	ExpireDueHopsInterval         time.Duration
 	DeleteExpiredSessionsInterval time.Duration
+	ExpireNotificationAge         time.Duration
+	ExpireNotificationInterval    time.Duration
 }
 
 func DefaultJobs(cfg JobConfig) []Job {
@@ -40,7 +43,17 @@ func DefaultJobs(cfg JobConfig) []Job {
 		sessionInterval = 6 * time.Hour
 	}
 
-	return []Job{
+	expireNotificationAge := cfg.ExpireNotificationAge
+	if expireNotificationAge < 0 {
+		expireNotificationAge = 0
+	}
+
+	expireNotificationInterval := cfg.ExpireNotificationInterval
+	if expireNotificationInterval <= 0 {
+		expireNotificationInterval = 24 * time.Hour
+	}
+
+	jobs := []Job{
 		{
 			Name:       ExpireDueHopsJobName,
 			Interval:   expireInterval,
@@ -70,4 +83,23 @@ func DefaultJobs(cfg JobConfig) []Job {
 			},
 		},
 	}
+
+	if expireNotificationAge > 0 {
+		jobs = append(jobs, Job{
+			Name:       ExpireNotificationsJobName,
+			Interval:   expireNotificationInterval,
+			LeaseTTL:   10 * time.Minute,
+			Timeout:    time.Minute,
+			RetryDelay: 15 * time.Minute,
+			Run: func(ctx context.Context, db *sql.DB, now time.Time) (string, error) {
+				count, err := service.DeleteMemberNotificationsBefore(ctx, db, now.Add(-expireNotificationAge))
+				if err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("deleted=%d", count), nil
+			},
+		})
+	}
+
+	return jobs
 }

@@ -340,6 +340,91 @@ func TestDeleteExpiredSessionsJobLogic(t *testing.T) {
 	}
 }
 
+func TestExpireNotificationsJobLogic(t *testing.T) {
+	db := requireWorkerDB(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	member := createWorkerTestMember(t, ctx, db, "notification_gc")
+	now := time.Now().UTC()
+
+	var expiredID int64
+	if err := db.QueryRowContext(ctx, `
+		INSERT INTO member_notifications (member_id, text, created_at)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, member.ID, "expired notification", now.Add(-6*24*time.Hour)).Scan(&expiredID); err != nil {
+		t.Fatalf("insert expired notification: %v", err)
+	}
+
+	var activeID int64
+	if err := db.QueryRowContext(ctx, `
+		INSERT INTO member_notifications (member_id, text, created_at)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, member.ID, "active notification", now.Add(-24*time.Hour)).Scan(&activeID); err != nil {
+		t.Fatalf("insert active notification: %v", err)
+	}
+
+	jobs := DefaultJobs(JobConfig{
+		ExpireNotificationAge:      5 * 24 * time.Hour,
+		ExpireNotificationInterval: 24 * time.Hour,
+	})
+
+	var job Job
+	found := false
+	for _, candidate := range jobs {
+		if candidate.Name == ExpireNotificationsJobName {
+			job = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected %q job to be configured", ExpireNotificationsJobName)
+	}
+	if job.Interval != 24*time.Hour {
+		t.Fatalf("notification job interval: got %s want %s", job.Interval, 24*time.Hour)
+	}
+
+	result, err := job.Run(ctx, db, now)
+	if err != nil {
+		t.Fatalf("run notification expiration job: %v", err)
+	}
+	if !strings.Contains(result, "deleted=") {
+		t.Fatalf("unexpected job result %q", result)
+	}
+
+	var expiredExists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM member_notifications
+			WHERE id = $1
+		)
+	`, expiredID).Scan(&expiredExists); err != nil {
+		t.Fatalf("check expired notification deletion: %v", err)
+	}
+	if expiredExists {
+		t.Fatalf("expected expired notification %d to be deleted", expiredID)
+	}
+
+	var activeExists bool
+	if err := db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM member_notifications
+			WHERE id = $1
+		)
+	`, activeID).Scan(&activeExists); err != nil {
+		t.Fatalf("check active notification remains: %v", err)
+	}
+	if !activeExists {
+		t.Fatalf("expected active notification %d to remain", activeID)
+	}
+}
+
 func createWorkerTestOrganization(t *testing.T, ctx context.Context, db *sql.DB, label string) (types.Organization, types.Member) {
 	t.Helper()
 

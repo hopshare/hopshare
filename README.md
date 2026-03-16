@@ -46,6 +46,8 @@ Important variables:
 - `HOPSHARE_WORKER_POLL_INTERVAL` (optional): how often each app process polls for due jobs (Go duration, default `1m`).
 - `HOPSHARE_WORKER_EXPIRE_HOPS_INTERVAL` (optional): how often to mark due hops expired (Go duration, default `1h`).
 - `HOPSHARE_WORKER_SESSION_GC_INTERVAL` (optional): how often to delete expired session rows (Go duration, default `6h`).
+- `HOPSHARE_WORKER_EXPIRE_NOTIFICATION_AGE` (optional): how old a member notification can be before background cleanup deletes it (duration with optional `d` suffix, default `5d`).
+- `HOPSHARE_WORKER_EXPIRE_NOTIFICATION_INTERVAL` (optional): how often the notification cleanup job runs (Go duration, default `24h`).
 - `HOPSHARE_MAILGUN_API_BASE_URL` (optional): Mailgun API base URL. Default `https://api.mailgun.net`.
 - `HOPSHARE_MAILGUN_DOMAIN` (required when `FEATURE_EMAIL=true`): Mailgun sending domain.
 - `HOPSHARE_MAILGUN_API_KEY` (required when `FEATURE_EMAIL=true`): Mailgun API key.

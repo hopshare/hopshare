@@ -80,6 +80,8 @@ func main() {
 		backgroundRunner, err := worker.NewRunner(db, cfg.WorkerPollInterval, worker.DefaultJobs(worker.JobConfig{
 			ExpireDueHopsInterval:         cfg.ExpireHopsInterval,
 			DeleteExpiredSessionsInterval: cfg.SessionGCInterval,
+			ExpireNotificationAge:         cfg.ExpireNotificationAge,
+			ExpireNotificationInterval:    cfg.ExpireNotificationInterval,
 		}))
 		if err != nil {
 			log.Fatalf("configure background workers: %v", err)

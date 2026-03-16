@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"hopshare/internal/types"
 )
@@ -101,4 +102,27 @@ func DeleteMemberNotification(ctx context.Context, db *sql.DB, memberID, notific
 		return fmt.Errorf("delete member notification: %w", err)
 	}
 	return nil
+}
+
+func DeleteMemberNotificationsBefore(ctx context.Context, db *sql.DB, cutoff time.Time) (int64, error) {
+	if db == nil {
+		return 0, ErrNilDB
+	}
+	if cutoff.IsZero() {
+		return 0, ErrMissingField
+	}
+
+	res, err := db.ExecContext(ctx, `
+		DELETE FROM member_notifications
+		WHERE created_at < $1
+	`, cutoff.UTC())
+	if err != nil {
+		return 0, fmt.Errorf("delete old member notifications: %w", err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("delete old member notifications rows affected: %w", err)
+	}
+	return affected, nil
 }
